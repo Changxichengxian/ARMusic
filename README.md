@@ -18,8 +18,8 @@ elder-music-exe/
   README.md
   .gitignore
   app/               # 桌面端代码（Python + Qt）
-    main.py          # 入口
-    ui.py            # Qt 窗口
+    main.py          # 入口（启动 Qt UI）
+    ui.py            # Qt 窗口：选目录、补歌词、生成 assets、打包
     packer.py        # 生成 songs.json + 复制资产 + 调用 Gradle
     lyrics_fetcher.py# 在线歌词抓取（仅 EXE 使用，App 不联网）
     config.py        # 默认路径/缓存
@@ -36,9 +36,9 @@ elder-music-exe/
    - 在 `config.py` 中保存：LMusic 工程根路径（如 `.../lmusic/LMusic-main/LMusic-main`）、默认歌曲目录、输出 APK 存放目录。
 
 3) 生成资源  
-   - 用户在 UI 里选择歌曲文件夹（支持 mp3/flac/ape）和歌词文件夹（同名 `.lrc`）。  
-   - 可选：用 `lyrics_fetcher.py` 通过 lrclib.net 在线补全歌词，再写入本地歌词文件夹（仅 EXE 用）。  
-   - 程序读取文件，计算时长（可选用 `mutagen` 获取 duration），构建 `songs.json`，字段示例：  
+   - 运行 `python app/main.py` 打开 UI，选择歌曲/歌词/封面目录（支持 mp3/flac/ape）。  
+   - 可选：点击“在线补歌词”调用 lrclib.net 补齐缺失 `.lrc`（仅 EXE 用，APK 仍离线）。  
+   - 点击“生成 songs.json 并复制资产”写入 `app/src/main/assets`，曲目示例：  
      ```json
      {
        "title": "童年",

@@ -1,11 +1,8 @@
-﻿from config import LMUSIC_ROOT, GRADLEW, OUTPUT_APK_DIR, ensure_paths
+from ui import run_ui
 
 
 def main() -> None:
-    ensure_paths()
-    print(f"LMusic project: {LMUSIC_ROOT}")
-    print(f"Gradle wrapper: {GRADLEW}")
-    print(f"Local output dir: {OUTPUT_APK_DIR}")
+    run_ui()
 
 
 if __name__ == "__main__":
