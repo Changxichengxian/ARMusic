@@ -1,5 +1,5 @@
 [versions]
-compile_version = "35"
+compile_version = "36"
 min_sdk_version = "21"
 
 agp_version = "8.6.1"

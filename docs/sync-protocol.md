@@ -23,10 +23,10 @@ ARMusic 的 Android 版和桌面版都维护自己的音乐库。两边在同一
 第一版 `syncId`：
 
 ```text
-sha256(fileSize + durationMs + first1MBHash + last1MBHash)
+sha256(fileSize + normalizedFileName + first64KB + last64KB)
 ```
 
-如果文件小于 2MB，就直接算完整哈希。
+先不依赖文件名本身做匹配，但会把规范化文件名放进哈希，避免两个不同的小文件刚好头尾一致。后面接入真实音频解析后，可以补上 durationMs。
 
 ## 清单结构
 
@@ -41,15 +41,27 @@ sha256(fileSize + durationMs + first1MBHash + last1MBHash)
       "title": "Song",
       "artist": "Artist",
       "album": "Album",
-      "durationMs": 240000,
-      "size": 8123456,
+      "durationSeconds": 240,
+      "sizeBytes": 8123456,
       "relativePath": "Artist/Album/Song.mp3",
-      "modifiedAt": 1760000000000,
-      "tagModifiedAt": 1760000000000
+      "modifiedAt": "2026-05-31T02:00:00.000Z",
+      "source": "desktop"
     }
   ]
 }
 ```
+
+## 第一版接口
+
+桌面端现在已经有最小同步服务：
+
+```text
+GET /health
+GET /manifest
+GET /tracks/{syncId}
+```
+
+`/manifest` 返回本机清单，`/tracks/{syncId}` 只允许按清单里的歌曲编号读取文件，不提供任意路径访问。
 
 ## 同步流程
 

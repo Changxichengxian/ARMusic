@@ -10,5 +10,18 @@ plugins {
     alias(libs.plugins.lumo)
 }
 
+subprojects {
+    pluginManager.withPlugin("com.android.application") {
+        extensions.configure<com.android.build.gradle.BaseExtension>("android") {
+            buildToolsVersion = "36.1.0"
+        }
+    }
+    pluginManager.withPlugin("com.android.library") {
+        extensions.configure<com.android.build.gradle.BaseExtension>("android") {
+            buildToolsVersion = "36.1.0"
+        }
+    }
+}
+
 // 配置注入遍历的起点项目
 ext { set("targetInjectProjectName", "app") }

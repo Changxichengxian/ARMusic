@@ -8,6 +8,8 @@ export interface Track {
   durationSeconds: number;
   sizeBytes: number;
   relativePath: string;
+  playUrl?: string;
+  modifiedAt?: string;
   playSeconds: number;
   lastPlayedAt?: string;
   source: TrackSource;
@@ -32,4 +34,25 @@ export interface SyncPlan {
   download: Track[];
   upload: Track[];
   conflicts: Track[];
+}
+
+export interface LibraryScanResult {
+  canceled?: boolean;
+  folderPath?: string;
+  scannedAt?: string;
+  tracks: Track[];
+}
+
+export interface SyncServerStatus {
+  running: boolean;
+  port: number | null;
+  addresses: string[];
+}
+
+export interface ARMusicBridge {
+  chooseMusicFolder: () => Promise<LibraryScanResult>;
+  getLibraryState: () => Promise<LibraryScanResult>;
+  startSyncServer: () => Promise<SyncServerStatus>;
+  stopSyncServer: () => Promise<SyncServerStatus>;
+  getSyncStatus: () => Promise<SyncServerStatus>;
 }

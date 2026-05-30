@@ -37,6 +37,10 @@ button {
     #f4f7f1;
 }
 
+.app-shell > audio {
+  display: none;
+}
+
 .sidebar {
   padding: 24px 20px;
   border-right: 1px solid rgba(29, 46, 38, 0.12);
@@ -162,10 +166,23 @@ button {
 .track-meta,
 .sync-track span,
 .empty-text,
-.now-playing span {
+.now-playing span,
+.server-state span {
   color: #6a776f;
   font-size: 12px;
   font-style: normal;
+}
+
+.server-state {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  word-break: break-all;
+}
+
+.server-state strong {
+  color: #245b47;
+  font-size: 14px;
 }
 
 .content {

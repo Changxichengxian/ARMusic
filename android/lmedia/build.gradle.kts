@@ -5,8 +5,9 @@ plugins {
 }
 
 android {
-    compileSdk = 34
+    compileSdk = libs.versions.compile.version.get().toIntOrNull()
     namespace = "com.lalilu.lmedia"
+    ndkVersion = "21.0.6113669"
 
     defaultConfig {
         minSdk = 21

@@ -15,12 +15,16 @@ node_modules/
 desktop/node_modules/
 desktop/dist/
 desktop/.vite/
+desktop/out/
+desktop/release/
 *.tsbuildinfo
 
 # Android / Gradle
 .gradle/
+.kotlin/
 build/
 android/.gradle/
+android/.kotlin/
 android/**/build/
 android/local.properties
 android/captures/

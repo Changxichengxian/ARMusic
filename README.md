@@ -31,8 +31,10 @@ ARMusic/
 ```powershell
 cd desktop
 npm install
-npm run dev
+npm run app:dev
 ```
+
+只看网页界面时可以用 `npm run dev`。
 
 Android 版：
 
@@ -41,11 +43,14 @@ cd android
 .\gradlew.bat assembleDebug
 ```
 
+本机如果默认 Java 是 25，Android 构建前先切到 JDK 21；Gradle 8.x 对 Java 25 支持不稳。
+
 ## 当前状态
 
 - Android 工程已整理到 `android/`。
 - `lmedia` 已补到和当前 LMusic 更匹配的版本，用来恢复媒体扫描、标签读取和歌词写入能力。
-- 桌面版已经有最小界面骨架和同步计划数据结构。
+- Android Gradle wrapper 已切到本机可用的 Gradle 8.9，项目加载已跑通。
+- 桌面版已经有 Electron 外壳、本地音乐文件夹扫描、基础播放和局域网清单服务。
 - 外部“音乐标签”应用的跳转点已定位，后续会改成 ARMusic 内置标签编辑页。
 
 ## 近期不做
