@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="lyric_gravity_text">
+        <item>靠左</item>
+        <item>居中</item>
+        <item>靠右</item>
+    </string-array>
+
+    <string-array name="dark_mode_options">
+        <item>跟随系统</item>
+        <item>开启</item>
+        <item>关闭</item>
+    </string-array>
+</resources>

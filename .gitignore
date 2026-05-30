@@ -1,11 +1,40 @@
-/node_modules
-/dist
-/build
-/.idea
-/.vscode
+# Editors and local state
+/.idea/
+/.vscode/
 *.log
 *.tmp
+
+# Python legacy tool
 __pycache__/
 *.pyc
 input/
 output/
+
+# Desktop app
+node_modules/
+desktop/node_modules/
+desktop/dist/
+desktop/.vite/
+*.tsbuildinfo
+
+# Android / Gradle
+.gradle/
+build/
+android/.gradle/
+android/**/build/
+android/local.properties
+android/captures/
+
+# Local music libraries and generated media
+阿婆的音乐/
+*.mp3
+*.wma
+*.flac
+*.ape
+*.m4a
+*.aac
+*.ogg
+*.wav
+
+# Sync runtime data
+.armusic/

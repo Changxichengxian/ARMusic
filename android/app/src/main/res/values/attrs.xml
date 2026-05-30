@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="daynight_1" format="color" />
+    <attr name="daynight_0.9" format="color" />
+    <attr name="daynight_0.6" format="color" />
+    <attr name="daynight_0.5" format="color" />
+    <attr name="daynight_0.4" format="color" />
+    <attr name="daynight_0.1" format="color" />
+    <attr name="daynight_0" format="color" />
+    <attr name="item_selected_bg" format="color" />
+    <attr name="edit_text_bg" format="color" />
+
+    <attr name="bottom_sheet_bg" format="color" />
+    <attr name="bottom_sheet_divider" format="color" />
+    <attr name="bottom_sheet_card_bg" format="color" />
+    <attr name="bottom_sheet_button_close_bg" format="color" />
+    <attr name="song_detail_add_song_to_playlist_button_bg" format="color" />
+
+    <attr name="activity_window_bg" format="color" />
+
+
+</resources>

@@ -1,0 +1,177 @@
+[versions]
+compile_version = "35"
+min_sdk_version = "21"
+
+agp_version = "8.6.1"
+kotlin_version = "2.1.0"
+ksp_version = "2.1.0-1.0.29"
+
+koin_version = "4.0.1"
+koin_ksp_version = "1.4.0"
+compose_bom_alpha_version = "2025.03.00"
+compose_bom_version = "2025.03.00"
+accompanist_version = "0.32.0"
+voyager = "1.1.0-beta03"
+lottie-compose = "6.6.0"
+
+coil3_version = "3.1.0"
+utilcodex_version = "1.31.1"
+
+# androidx
+appcompat = "1.7.0"
+core-ktx = "1.15.0"
+palette-ktx = "1.0.0"
+dynamicanimation-ktx = "1.0.0-beta01"
+startup-runtime = "1.2.0"
+activity-compose = "1.10.1"
+room_version = "2.6.1"
+media = "1.7.0"
+media3 = "1.6.0"
+gson = "2.11.0"
+flyjingfish-aop = "1.9.7"
+paging_version = "3.3.6"
+krouter_version = "0.0.3"
+xmlutil = "0.90.3"
+
+[libraries]
+# kotlin
+kotlin-serialization = { module = "org.jetbrains.kotlin:kotlin-serialization", version.ref = "kotlin_version" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.7.3" }
+kotlinx-coroutines-guava = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-guava", version = "1.9.0" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version = "0.6.1" }
+
+# compose
+compose-bom-alpha = { module = "androidx.compose:compose-bom-alpha", version.ref = "compose_bom_alpha_version" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose_bom_version" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-util = { module = "androidx.compose.ui:ui-util" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-ui-viewbinding = { module = "androidx.compose.ui:ui-viewbinding" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-foundation-layout = { module = "androidx.compose.foundation:foundation-layout-android" }
+compose-material = { module = "androidx.compose.material:material" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-material3-window-size = { module = "androidx.compose.material3:material3-window-size-class" }
+compose-runtime-livedata = { module = "androidx.compose.runtime:runtime-livedata" }
+compose-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+
+lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie-compose" }
+voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
+voyager-lifecycle-kmp = { module = "cafe.adriel.voyager:voyager-lifecycle-kmp", version.ref = "voyager" }
+voyager-tabNavigator = { module = "cafe.adriel.voyager:voyager-tab-navigator", version.ref = "voyager" }
+voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", version.ref = "voyager" }
+voyager-koin = { module = "cafe.adriel.voyager:voyager-koin", version.ref = "voyager" }
+
+accompanist-flowlayout = { module = "com.google.accompanist:accompanist-flowlayout", version.ref = "accompanist_version" }
+accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanist_version" }
+accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanist_version" }
+
+# koin
+koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin_version" }
+koin-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koin_version" }
+koin-startup = { module = "io.insert-koin:koin-androidx-startup", version.ref = "koin_version" }
+koin-annotations = { module = "io.insert-koin:koin-annotations", version.ref = "koin_ksp_version" }
+koin-compiler = { module = "io.insert-koin:koin-ksp-compiler", version.ref = "koin_ksp_version" }
+
+# coil
+# https://github.com/coil-kt/coil
+# Apache-2.0 License
+# 图片加载库
+coil3-android = { module = "io.coil-kt.coil3:coil-android", version.ref = "coil3_version" }
+coil3-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil3_version" }
+coil3-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil3_version" }
+
+# media3
+media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
+media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+
+# androidx
+appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "palette-ktx" }
+dynamicanimation-ktx = { module = "androidx.dynamicanimation:dynamicanimation-ktx", version.ref = "dynamicanimation-ktx" }
+startup-runtime = { module = "androidx.startup:startup-runtime", version.ref = "startup-runtime" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room_version" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room_version" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room_version" }
+room-paging = { module = "androidx.room:room-paging", version.ref = "room_version" }
+media = { module = "androidx.media:media", version.ref = "media" }
+paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "paging_version" }
+paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging_version" }
+
+# [Apache-2.0 License] 安卓工具类库 https://github.com/Blankj/AndroidUtilCode/
+utilcodex = { module = "com.blankj:utilcodex", version.ref = "utilcodex_version" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+
+# [Apache-2.0 License] AOP框架 https://github.com/FlyJingFish/AndroidAOP
+flyjingfish-aop-core = { module = "io.github.FlyJingFish.AndroidAop:android-aop-core", version.ref = "flyjingfish-aop" }
+flyjingfish-aop-annotation = { module = "io.github.FlyJingFish.AndroidAop:android-aop-annotation", version.ref = "flyjingfish-aop" }
+flyjingfish-aop-ksp = { module = "io.github.FlyJingFish.AndroidAop:android-aop-ksp", version.ref = "flyjingfish-aop" }
+
+krouter-core = { module = "io.github.cy745.KRouter:core", version.ref = "krouter_version" }
+human-readable = { module = "nl.jacobras:Human-Readable", version = "1.10.0" }
+remixicon-kmp = { module = "io.github.cy745:remixicon-kmp", version = "0.0.2" }
+xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
+xmlutil-serialization = { module = "io.github.pdvrieze.xmlutil:serialization", version.ref = "xmlutil" }
+
+[plugins]
+application = { id = "com.android.application", version.ref = "agp_version" }
+library = { id = "com.android.library", version.ref = "agp_version" }
+kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin_version" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin_version" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp_version" }
+flyjingfish-aop = { id = "io.github.FlyJingFish.AndroidAop.android-aop", version.ref = "flyjingfish-aop" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin_version" }
+krouter-plugin = { id = "io.github.cy745.KRouter.plugin", version.ref = "krouter_version" }
+lumo = { id = "com.nomanr.plugin.lumo", version = "1.2.1" }
+
+
+[bundles]
+accompanist = [
+    "accompanist-flowlayout",
+    "accompanist-permissions",
+    "accompanist-systemuicontroller"
+]
+media3 = [
+    "media3-session",
+    "media3-exoplayer"
+]
+
+compose-debug = ["compose-tooling", "compose-tooling-preview"]
+compose = [
+    "compose-bom",
+    "compose-ui",
+    "compose-ui-util",
+    "compose-ui-graphics",
+    "compose-ui-viewbinding",
+    "compose-foundation",
+    "compose-foundation-layout",
+    "compose-material",
+    "compose-material3",
+    "compose-material3-window-size",
+    "compose-runtime-livedata",
+]
+voyager = [
+    "voyager-navigator",
+    "voyager-lifecycle-kmp",
+    "voyager-tabNavigator",
+    "voyager-transitions",
+    "voyager-koin"
+]
+flyjingfish-aop = [
+    "flyjingfish-aop-core",
+    "flyjingfish-aop-annotation"
+]
+coil3 = [
+    "coil3-android",
+    "coil3-compose",
+    "coil3-okhttp"
+]
+koin = [
+    "koin-android",
+    "koin-compose",
+    "koin-startup",
+    "koin-annotations"
+]

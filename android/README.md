@@ -1,0 +1,26 @@
+﻿# LMusic
+
+#### 介绍
+一个简洁且独特的音乐播放器，遵循最小权限原则，目标是打造一个简洁好用的音乐播放器，还要够方便。
+
+在其中学习使用了 MVVM 架构，现已从传统 View 架构转为 Compose 架构，大量使用了 Kotlin Coroutines Flow、协程，以形成单向数据流。
+
+|![APP主页面](https://gitee.com/lalilu/lmusic/raw/master/screenshots/202205112338172.png "主页面")主页面|![歌词页](https://gitee.com/lalilu/lmusic/raw/master/screenshots/20220511233817.jpg "歌词页")歌词页|
+|--|--|
+|![歌曲页](https://gitee.com/lalilu/lmusic/raw/master/screenshots/202205112338171.jpg "歌曲页")歌曲页|![专辑页](https://gitee.com/lalilu/lmusic/raw/master/screenshots/202205112338171.png "专辑页")专辑页|
+
+##### Tips
+在这个项目中尝试过自定义 View，也尝试修改 Google 的 Material 库以获得满足目标的效果，但大部分都已经用 Compose 重新实现了，需要看旧的传统 View 的实现请查阅 v1.4.9 以前版本的代码。
+
+#### Build 指南
+1. clone 本仓库
+2. 切换至 `dev` 分支
+3. 拉取子模块 `git submodule update --init --recursive`
+
+#### 参与贡献
+欢迎提 Issues 和 PR，你的 Issues 就是我最大的动力，你的 PR 是对我最大的支持，十分感谢！
+
+1. Fork 本仓库
+2. 新建 Feat_xxx 分支
+3. 提交代码
+4. 新建 Pull Request
