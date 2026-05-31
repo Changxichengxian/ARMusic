@@ -54,6 +54,7 @@ class MService : MediaLibraryService(), CoroutineScope {
 
     private var exoPlayer: Player? = null
     private var mediaSession: MediaLibrarySession? = null
+    private var bluetoothLyricMetadataSender: BluetoothLyricMetadataSender? = null
     private val defaultAudioAttributes by lazy {
         AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -82,6 +83,8 @@ class MService : MediaLibraryService(), CoroutineScope {
             }
             .setUpQueueControl()
 
+        bluetoothLyricMetadataSender = BluetoothLyricMetadataSender(this, exoPlayer!!)
+
         mediaSession = MediaLibrarySession
             .Builder(this, exoPlayer!!, MServiceCallback(exoPlayer!!))
             .setSessionActivity(getLauncherPendingIntent())
@@ -92,6 +95,8 @@ class MService : MediaLibraryService(), CoroutineScope {
 
     override fun onDestroy() {
         // 释放相关实例
+        bluetoothLyricMetadataSender?.release()
+        bluetoothLyricMetadataSender = null
         exoPlayer?.stop()
         exoPlayer?.release()
         exoPlayer = null

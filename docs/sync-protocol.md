@@ -69,9 +69,11 @@ Android 端现在已经有对应的最小客户端：
 android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicLanSyncClient.kt
 android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicSyncModels.kt
 android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicSyncPlanner.kt
+android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicAndroidManifestBuilder.kt
+android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicTrackDownloader.kt
 ```
 
-第一步先支持手输桌面端地址，例如 `192.168.1.20:38689`。客户端会自动补 `http://`，然后读取 `/health`、`/manifest`，再用本地清单和对方清单生成下载、上传、冲突三类结果。
+第一步先支持手输桌面端地址，例如 `192.168.1.20:38689`。客户端会自动补 `http://`，然后读取 `/health`、`/manifest`，再用本地清单和对方清单生成下载、上传、冲突三类结果。Android 设置页里的“局域网同步”入口已经接上这条流程。
 
 ## 同步流程
 
@@ -83,7 +85,7 @@ android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicSyncPlanner.kt
    - 冲突：同 `syncId` 但标签或路径不同，先保留本地，提示用户。
 4. 文件传完后，接收方重新扫描库。
 
-当前已经实现第 1 到第 3 步的数据结构和对比逻辑。下一步要接 Android 页面入口，把“输入地址 -> 读取清单 -> 展示待同步歌曲 -> 下载到用户选择目录”串起来。
+当前 Android 已经实现第 1 到第 3 步，并且可以把“本地缺失”的歌曲从桌面端下载到系统音乐目录 `Music/ARMusic`。下一步要补桌面端接收上传接口，再把“对方缺失”的歌曲从 Android 传回桌面端。
 
 ## 安全边界
 

@@ -58,7 +58,8 @@ cd android
 - Android Gradle wrapper 已切到本机可用的 Gradle 8.9，项目加载已跑通。
 - Android debug APK 已能编译通过，输出在 `android/app/build/outputs/apk/debug/app-debug.apk`。
 - 桌面版已经有 Electron 外壳、本地音乐文件夹扫描、基础播放和局域网清单服务。
-- Android 端已经补了局域网同步客户端雏形，可以请求桌面端状态、清单，并按 `syncId` 下载歌曲。
+- Android 设置里已经有“局域网同步”入口，可以手输桌面端地址、对比两边清单，并先把 Android 缺的歌下载到系统音乐目录。
+- Android 歌词设置里新增“蓝牙歌词”兼容开关，会把当前歌词行临时作为媒体标题发给蓝牙设备；设备不支持时不会有额外效果。
 - 外部“音乐标签”应用的跳转点已定位，后续会改成 ARMusic 内置标签编辑页。
 
 ## 近期不做

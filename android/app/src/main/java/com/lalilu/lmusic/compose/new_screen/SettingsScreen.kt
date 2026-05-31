@@ -44,12 +44,15 @@ import com.lalilu.component.settings.SettingFilePicker
 import com.lalilu.component.settings.SettingProgressSeekBar
 import com.lalilu.component.settings.SettingStateSeekBar
 import com.lalilu.component.settings.SettingSwitcher
+import com.lalilu.component.navigation.AppRouter
+import com.lalilu.component.navigation.NavIntent
 import com.lalilu.crash.CrashHelper
 import com.lalilu.lmedia.scanner.FileSystemScanner
 import com.lalilu.lmusic.GuidingActivity
 import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.utils.EQHelper
 import com.lalilu.lmusic.utils.extension.getActivity
+import com.lalilu.lplayer.MPlayerKV
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.system.settings4Line
 import com.zhangke.krouter.annotation.Destination
@@ -186,6 +189,12 @@ private fun SettingsScreen(
                     subTitle = "小心烧屏",
                     state = keepScreenOnWhenLyricExpanded,
                 )
+                SettingSwitcher(
+                    title = "蓝牙歌词",
+                    subTitle = "兼容模式，会把当前歌词行临时作为媒体标题发给蓝牙设备",
+                    state = { MPlayerKV.enableBluetoothLyricMetadata.value == true },
+                    onStateUpdate = { MPlayerKV.enableBluetoothLyricMetadata.value = it },
+                )
                 SettingFilePicker(
                     state = lyricTypefacePath,
                     title = "自定义字体",
@@ -202,6 +211,29 @@ private fun SettingsScreen(
 //                    title = "歌词文字大小",
 //                    valueRange = 14..36
 //                )
+            }
+        }
+
+        item {
+            SettingCategory(
+                icon = painterResource(id = R.drawable.ic_download_cloud_2_line),
+                title = "ARMusic 同步"
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    IconTextButton(
+                        text = "局域网同步",
+                        iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
+                        showIcon = { true },
+                        color = Color(0xFF006E7C),
+                        onClick = {
+                            AppRouter.intent(NavIntent.Push(ARMusicLanSyncScreen))
+                        }
+                    )
+                }
             }
         }
 
