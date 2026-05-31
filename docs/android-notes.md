@@ -7,6 +7,8 @@ Android 工程来自 LMusic，当前放在 `android/`。
 - 播放器服务已经接入播放历史统计。
 - 详情页里有一个外部“音乐标签”应用入口，包名是 `com.xjcheng.musictageditor`。
 - `lmedia` 子模块负责媒体库扫描、标签读取、歌词读取和部分写入能力。
+- 当前 Android debug APK 已经能编译通过。项目路径里有中文时，用根目录的 `scripts/android-debug-build.ps1` 编译。
+- 局域网同步客户端已放在 `com.lalilu.lmusic.sync`，现在先支持访问桌面端 `/health`、`/manifest` 和 `/tracks/{syncId}`。
 
 ## 近期要改
 
@@ -24,7 +26,7 @@ Android 工程来自 LMusic，当前放在 `android/`。
    - 显示本机地址或配对码。
    - 显示已配对设备。
    - 显示待同步数量。
-4. 增加清单导出接口，供局域网同步使用。
+4. 把 Android 本地媒体库转换成同步清单，供对比和上传使用。
 
 ## 暂时不动
 

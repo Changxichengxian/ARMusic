@@ -63,6 +63,16 @@ GET /tracks/{syncId}
 
 `/manifest` 返回本机清单，`/tracks/{syncId}` 只允许按清单里的歌曲编号读取文件，不提供任意路径访问。
 
+Android 端现在已经有对应的最小客户端：
+
+```text
+android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicLanSyncClient.kt
+android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicSyncModels.kt
+android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicSyncPlanner.kt
+```
+
+第一步先支持手输桌面端地址，例如 `192.168.1.20:38689`。客户端会自动补 `http://`，然后读取 `/health`、`/manifest`，再用本地清单和对方清单生成下载、上传、冲突三类结果。
+
 ## 同步流程
 
 1. A 请求 B 的清单。
@@ -72,6 +82,8 @@ GET /tracks/{syncId}
    - 对方缺失：上传给 B。
    - 冲突：同 `syncId` 但标签或路径不同，先保留本地，提示用户。
 4. 文件传完后，接收方重新扫描库。
+
+当前已经实现第 1 到第 3 步的数据结构和对比逻辑。下一步要接 Android 页面入口，把“输入地址 -> 读取清单 -> 展示待同步歌曲 -> 下载到用户选择目录”串起来。
 
 ## 安全边界
 

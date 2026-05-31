@@ -16,6 +16,7 @@ import com.lalilu.lmusic.Config.LRCSHARE_BASEURL
 import com.lalilu.lmusic.api.lrcshare.LrcShareApi
 import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.datastore.TempSp
+import com.lalilu.lmusic.sync.ARMusicLanSyncClient
 import com.lalilu.lmusic.utils.EQHelper
 import com.lalilu.lmusic.utils.coil.CrossfadeTransitionFactory
 import com.lalilu.lmusic.utils.coil.fetcher.LAlbumFetcher
@@ -102,6 +103,7 @@ val ViewModelModule = module {
 val ApiModule = module {
     single { GsonConverterFactory.create() }
     single { OkHttpClient.Builder().build() }
+    single { ARMusicLanSyncClient(get(), get()) }
     single {
         Retrofit.Builder()
             .client(get())

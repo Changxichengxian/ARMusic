@@ -41,7 +41,7 @@ export const localTracks: Track[] = [
 
 export const remoteTracks: Track[] = [
   {
-    syncId: "sha256-phone-001",
+    syncId: "sha256-android-001",
     title: "大海啊故乡",
     artist: "朱明瑛",
     album: "经典老歌",

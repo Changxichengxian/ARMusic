@@ -167,7 +167,7 @@ function App() {
 
         <section className="peer-card">
           <div className="section-title">
-            <Icon name="phone" />
+            <Icon name="android" />
             已配对设备
           </div>
           {peers.map((peer) => (

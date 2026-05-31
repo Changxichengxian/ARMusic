@@ -3,7 +3,7 @@ type IconName =
   | "folder"
   | "library"
   | "pause"
-  | "phone"
+  | "android"
   | "play"
   | "refresh"
   | "search"
@@ -22,7 +22,7 @@ const paths: Record<IconName, string[]> = {
   folder: ["M3 7h6l2 2h10v10H3z", "M3 7v12"],
   library: ["M5 4v16", "M10 4v16", "M15 5l4 14"],
   pause: ["M8 5v14", "M16 5v14"],
-  phone: ["M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z", "M11 18h2"],
+  android: ["M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z", "M11 18h2"],
   play: ["M8 5v14l11-7z"],
   refresh: ["M20 7v5h-5", "M4 17v-5h5", "M6 9a7 7 0 0 1 11-2l3 3", "M18 15a7 7 0 0 1-11 2l-3-3"],
   search: ["M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z", "M16 16l5 5"],
