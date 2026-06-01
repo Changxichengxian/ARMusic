@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, net, protocol } = require("electron
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { createManifest, scanMusicFolder } = require("./library.cjs");
+const { createManifest, importTrackStream, scanMusicFolder } = require("./library.cjs");
 const { createSyncServer } = require("./syncServer.cjs");
 
 let mainWindow = null;
@@ -33,9 +33,27 @@ function getManifest() {
   return createManifest(os.hostname(), libraryTracks);
 }
 
+async function importTrackFromSync(track, inputStream) {
+  if (!libraryFolder) {
+    throw new Error("请先在桌面端选择音乐文件夹");
+  }
+
+  const importedTrack = await importTrackStream(libraryFolder, track, inputStream);
+  const scanResult = await scanMusicFolder(libraryFolder);
+  libraryTracks = scanResult.tracks;
+
+  return {
+    folderPath: libraryFolder,
+    scannedAt: scanResult.scannedAt,
+    track: publicTrack(importedTrack),
+    trackCount: libraryTracks.length,
+  };
+}
+
 const syncServer = createSyncServer({
   getManifest,
   getTracks: () => libraryTracks,
+  importTrack: importTrackFromSync,
 });
 
 function createWindow() {

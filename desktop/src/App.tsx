@@ -274,7 +274,7 @@ function App() {
             <div className="panel-header">
               <div>
                 <h3>局域网同步</h3>
-                <p>桌面端先提供清单和文件读取口，Android 后面按这个协议接入。</p>
+                <p>桌面端提供清单、文件读取和接收 Android 上传。</p>
               </div>
               <button className="primary-button" onClick={toggleSyncServer}>
                 <Icon name="refresh" size={17} />

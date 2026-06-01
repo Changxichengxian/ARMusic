@@ -1,14 +1,21 @@
 package com.lalilu.lmusic.sync
 
+import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.Response
+import okio.BufferedSink
+import okio.source
+import java.io.InputStream
 import java.io.OutputStream
 
 class ARMusicLanSyncClient(
@@ -45,6 +52,26 @@ class ARMusicLanSyncClient(
         }
     }
 
+    suspend fun uploadTrack(
+        baseUrl: String,
+        track: ARMusicSyncTrack,
+        inputStream: InputStream,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val metadata = Base64.encodeToString(
+                json.encodeToString(track).toByteArray(Charsets.UTF_8),
+                Base64.NO_WRAP,
+            )
+            val request = Request.Builder()
+                .url(buildUrl(baseUrl, "tracks", track.syncId))
+                .header("X-ARMusic-Track", metadata)
+                .post(inputStream.asRequestBody(track.sizeBytes))
+                .build()
+
+            client.newCall(request).execute().useSuccess {}
+        }
+    }
+
     private suspend inline fun <reified T> fetchJson(
         baseUrl: String,
         pathSegments: List<String>,
@@ -75,6 +102,18 @@ class ARMusicLanSyncClient(
             builder.addPathSegment(segment)
         }
         return builder.build()
+    }
+
+    private fun InputStream.asRequestBody(sizeBytes: Long): RequestBody {
+        return object : RequestBody() {
+            override fun contentType() = "application/octet-stream".toMediaType()
+            override fun contentLength(): Long = sizeBytes.takeIf { it > 0 } ?: -1L
+            override fun writeTo(sink: BufferedSink) {
+                source().use { source ->
+                    sink.writeAll(source)
+                }
+            }
+        }
     }
 
     private inline fun <T> Response.useSuccess(block: (Response) -> T): T {

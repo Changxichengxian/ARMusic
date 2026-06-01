@@ -16,8 +16,7 @@ class ARMusicAndroidManifestBuilder(
     private val context: Application,
 ) {
     suspend fun buildManifest(): ARMusicSyncManifest = withContext(Dispatchers.IO) {
-        val tracks = LMedia.get<LSong>(blockFilter = false)
-            .mapNotNull { song -> runCatching { song.toSyncTrack() }.getOrNull() }
+        val tracks = buildLocalTracks().map { it.track }
 
         ARMusicSyncManifest(
             libraryId = "android-${Build.MANUFACTURER}-${Build.MODEL}",
@@ -29,6 +28,19 @@ class ARMusicAndroidManifestBuilder(
                 .format(Date()),
             tracks = tracks,
         )
+    }
+
+    suspend fun findLocalTrack(syncId: String): ARMusicLocalSyncTrack? = withContext(Dispatchers.IO) {
+        buildLocalTracks().firstOrNull { it.track.syncId == syncId }
+    }
+
+    private fun buildLocalTracks(): List<ARMusicLocalSyncTrack> {
+        return LMedia.get<LSong>(blockFilter = false)
+            .mapNotNull { song ->
+                runCatching {
+                    ARMusicLocalSyncTrack(track = song.toSyncTrack(), song = song)
+                }.getOrNull()
+            }
     }
 
     private fun LSong.toSyncTrack(): ARMusicSyncTrack {
@@ -95,3 +107,8 @@ class ARMusicAndroidManifestBuilder(
         "%02x".format(byte)
     }
 }
+
+data class ARMusicLocalSyncTrack(
+    val track: ARMusicSyncTrack,
+    val song: LSong,
+)

@@ -22,6 +22,6 @@ npm run app:dev
 - 局域网同步面板。
 - 同步计划的数据结构和对比函数。
 - 选择本地音乐文件夹并扫描歌曲。
-- 启动本机局域网同步服务，提供 `/manifest` 和 `/tracks/{syncId}`。
+- 启动本机局域网同步服务，提供 `/manifest`、`GET /tracks/{syncId}` 和 `POST /tracks/{syncId}`。
 
-音乐标签编辑和 Android 端实际同步入口还没有接入。
+Android 端已经能通过设置页手动连接桌面端，做清单对比和新增歌曲互传。

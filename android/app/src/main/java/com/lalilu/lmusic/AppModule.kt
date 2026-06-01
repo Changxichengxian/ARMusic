@@ -19,6 +19,7 @@ import com.lalilu.lmusic.datastore.TempSp
 import com.lalilu.lmusic.sync.ARMusicAndroidManifestBuilder
 import com.lalilu.lmusic.sync.ARMusicLanSyncClient
 import com.lalilu.lmusic.sync.ARMusicTrackDownloader
+import com.lalilu.lmusic.sync.ARMusicTrackUploader
 import com.lalilu.lmusic.utils.EQHelper
 import com.lalilu.lmusic.utils.coil.CrossfadeTransitionFactory
 import com.lalilu.lmusic.utils.coil.fetcher.LAlbumFetcher
@@ -108,6 +109,7 @@ val ApiModule = module {
     single { ARMusicLanSyncClient(get(), get()) }
     single { ARMusicAndroidManifestBuilder(androidApplication()) }
     single { ARMusicTrackDownloader(androidApplication(), get()) }
+    single { ARMusicTrackUploader(androidApplication(), get(), get()) }
     single {
         Retrofit.Builder()
             .client(get())

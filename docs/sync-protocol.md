@@ -59,9 +59,12 @@ sha256(fileSize + normalizedFileName + first64KB + last64KB)
 GET /health
 GET /manifest
 GET /tracks/{syncId}
+POST /tracks/{syncId}
 ```
 
-`/manifest` 返回本机清单，`/tracks/{syncId}` 只允许按清单里的歌曲编号读取文件，不提供任意路径访问。
+`/manifest` 返回本机清单。`GET /tracks/{syncId}` 只允许按清单里的歌曲编号读取文件，不提供任意路径访问。`POST /tracks/{syncId}` 用来接收 Android 上传的新增歌曲，桌面端会写入当前音乐库下的 `ARMusic Imports/`，再重新扫描音乐库。
+
+上传时，Android 把歌曲清单里的单曲 JSON 通过 `X-ARMusic-Track` 请求头传给桌面端，内容使用 UTF-8 JSON 后再做 Base64 编码；请求体是原始音频文件内容。
 
 Android 端现在已经有对应的最小客户端：
 
@@ -71,6 +74,7 @@ android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicSyncModels.kt
 android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicSyncPlanner.kt
 android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicAndroidManifestBuilder.kt
 android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicTrackDownloader.kt
+android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicTrackUploader.kt
 ```
 
 第一步先支持手输桌面端地址，例如 `192.168.1.20:38689`。客户端会自动补 `http://`，然后读取 `/health`、`/manifest`，再用本地清单和对方清单生成下载、上传、冲突三类结果。Android 设置页里的“局域网同步”入口已经接上这条流程。
@@ -85,7 +89,7 @@ android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicTrackDownloader.kt
    - 冲突：同 `syncId` 但标签或路径不同，先保留本地，提示用户。
 4. 文件传完后，接收方重新扫描库。
 
-当前 Android 已经实现第 1 到第 3 步，并且可以把“本地缺失”的歌曲从桌面端下载到系统音乐目录 `Music/ARMusic`。下一步要补桌面端接收上传接口，再把“对方缺失”的歌曲从 Android 传回桌面端。
+当前 Android 已经实现第 1 到第 4 步，可以把“本地缺失”的歌曲从桌面端下载到系统音乐目录 `Music/ARMusic`，也可以把“桌面端缺失”的歌曲上传到桌面端当前音乐库的 `ARMusic Imports/`。
 
 ## 安全边界
 

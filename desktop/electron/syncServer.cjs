@@ -31,7 +31,16 @@ function writeJson(res, statusCode, payload) {
   res.end(body);
 }
 
-function createSyncServer({ getManifest, getTracks }) {
+function readTrackHeader(req) {
+  const raw = req.headers["x-armusic-track"];
+  if (!raw || Array.isArray(raw)) {
+    throw new Error("缺少歌曲信息");
+  }
+
+  return JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+}
+
+function createSyncServer({ getManifest, getTracks, importTrack }) {
   let server = null;
   let port = null;
 
@@ -41,35 +50,67 @@ function createSyncServer({ getManifest, getTracks }) {
     }
 
     server = http.createServer((req, res) => {
+      handleRequest(req, res).catch((error) => {
+        writeJson(res, 500, { error: error.message || "同步失败" });
+      });
+    });
+
+    async function handleRequest(req, res) {
       const url = new URL(req.url ?? "/", "http://127.0.0.1");
 
       if (req.method === "OPTIONS") {
         res.writeHead(204, {
           "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, X-ARMusic-Track",
         });
         res.end();
         return;
       }
 
-      if (req.method !== "GET") {
-        writeJson(res, 405, { error: "只支持 GET" });
-        return;
-      }
-
       if (url.pathname === "/health") {
+        if (req.method !== "GET") {
+          writeJson(res, 405, { error: "只支持 GET" });
+          return;
+        }
         writeJson(res, 200, { ok: true, name: "ARMusic Desktop", time: new Date().toISOString() });
         return;
       }
 
       if (url.pathname === "/manifest") {
+        if (req.method !== "GET") {
+          writeJson(res, 405, { error: "只支持 GET" });
+          return;
+        }
         writeJson(res, 200, getManifest());
         return;
       }
 
       if (url.pathname.startsWith("/tracks/")) {
         const syncId = decodeURIComponent(url.pathname.slice("/tracks/".length));
+
+        if (req.method === "POST") {
+          if (!importTrack) {
+            writeJson(res, 405, { error: "桌面端暂不接收上传" });
+            return;
+          }
+
+          const track = readTrackHeader(req);
+          if (track.syncId !== syncId) {
+            writeJson(res, 400, { error: "歌曲编号不一致" });
+            return;
+          }
+
+          const result = await importTrack(track, req);
+          writeJson(res, 201, { ok: true, result });
+          return;
+        }
+
+        if (req.method !== "GET") {
+          writeJson(res, 405, { error: "只支持 GET 或 POST" });
+          return;
+        }
+
         const track = getTracks().find((item) => item.syncId === syncId);
 
         if (!track?.filePath) {
@@ -87,7 +128,7 @@ function createSyncServer({ getManifest, getTracks }) {
       }
 
       writeJson(res, 404, { error: "未知接口" });
-    });
+    }
 
     try {
       await listen(server, preferredPort);

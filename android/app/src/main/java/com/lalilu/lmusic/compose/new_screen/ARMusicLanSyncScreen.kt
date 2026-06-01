@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import com.lalilu.R
+import com.google.accompanist.flowlayout.FlowRow
 import com.lalilu.component.base.NavigatorHeader
 import com.lalilu.component.base.screen.ScreenInfo
 import com.lalilu.component.base.screen.ScreenInfoFactory
@@ -45,6 +46,7 @@ import com.lalilu.lmusic.sync.ARMusicSyncPlan
 import com.lalilu.lmusic.sync.ARMusicSyncPlanner
 import com.lalilu.lmusic.sync.ARMusicSyncTrack
 import com.lalilu.lmusic.sync.ARMusicTrackDownloader
+import com.lalilu.lmusic.sync.ARMusicTrackUploader
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -69,6 +71,7 @@ private fun ARMusicLanSyncContent(
     syncClient: ARMusicLanSyncClient = koinInject(),
     manifestBuilder: ARMusicAndroidManifestBuilder = koinInject(),
     downloader: ARMusicTrackDownloader = koinInject(),
+    uploader: ARMusicTrackUploader = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
     var address by rememberSaveable { mutableStateOf("") }
@@ -134,6 +137,34 @@ private fun ARMusicLanSyncContent(
         }
     }
 
+    fun uploadMissingTracks() {
+        val plan = syncPlan ?: return
+        if (address.isBlank() || plan.upload.isEmpty() || isBusy) return
+
+        scope.launch {
+            isBusy = true
+            runCatching {
+                plan.upload.forEachIndexed { index, track ->
+                    message = "正在上传 ${index + 1}/${plan.upload.size}：${track.title}"
+                    uploader.uploadToDesktop(address, track)
+                }
+                message = "上传完成，桌面端会重新扫描音乐库"
+
+                val remote = syncClient.fetchManifest(address).getOrThrow()
+                val local = manifestBuilder.buildManifest()
+                remoteManifest = remote
+                localManifest = local
+                syncPlan = ARMusicSyncPlanner.buildPlan(
+                    localTracks = local.tracks,
+                    remoteTracks = remote.tracks,
+                )
+            }.getOrElse { error ->
+                message = error.message ?: "上传失败"
+            }
+            isBusy = false
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 12.dp),
@@ -165,7 +196,10 @@ private fun ARMusicLanSyncContent(
                         placeholder = { Text("例如 192.168.1.20:38689") },
                         singleLine = true,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FlowRow(
+                        mainAxisSpacing = 10.dp,
+                        crossAxisSpacing = 8.dp,
+                    ) {
                         ActionButton(
                             text = if (isBusy) "处理中" else "连接并对比",
                             enabled = !isBusy && address.isNotBlank(),
@@ -177,6 +211,12 @@ private fun ARMusicLanSyncContent(
                             enabled = !isBusy && (syncPlan?.download?.isNotEmpty() == true),
                             color = Color(0xFF3EA22C),
                             onClick = ::downloadMissingTracks,
+                        )
+                        ActionButton(
+                            text = "上传到桌面端",
+                            enabled = !isBusy && (syncPlan?.upload?.isNotEmpty() == true),
+                            color = Color(0xFFFF8B3F),
+                            onClick = ::uploadMissingTracks,
                         )
                     }
                 }
@@ -211,13 +251,18 @@ private fun ARMusicLanSyncContent(
 
         syncPlan?.upload?.takeIf { it.isNotEmpty() }?.let { tracks ->
             item { SectionTitle("桌面端缺少的歌曲", tracks.size) }
-            item {
-                Text(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                    text = "上传接口还没接，先只显示数量，下一步再做。",
-                    color = dayNightTextColor(0.5f),
-                    fontSize = 12.sp,
-                )
+            items(tracks.take(20), key = { it.syncId }) { track ->
+                TrackRow(track)
+            }
+            if (tracks.size > 20) {
+                item {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        text = "还有 ${tracks.size - 20} 首，上传时会一起处理。",
+                        color = dayNightTextColor(0.5f),
+                        fontSize = 12.sp,
+                    )
+                }
             }
         }
 

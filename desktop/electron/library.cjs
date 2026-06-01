@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
+const { pipeline } = require("node:stream/promises");
 
 const AUDIO_EXTENSIONS = new Set([
   ".mp3",
@@ -87,6 +88,59 @@ async function createTrack(filePath, rootPath) {
   };
 }
 
+function sanitizePathSegments(relativePath, fallbackName) {
+  const rawSegments = String(relativePath || fallbackName || "unknown.mp3")
+    .split(/[\\/]+/)
+    .filter(Boolean);
+  const segments = rawSegments.map((segment) => {
+    const safe = segment
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+      .trim();
+    return safe && safe !== "." && safe !== ".." ? safe : "_";
+  });
+
+  return segments.length > 0 ? segments : [fallbackName || "unknown.mp3"];
+}
+
+async function pathExists(filePath) {
+  return fsp.access(filePath).then(() => true, () => false);
+}
+
+async function uniqueFilePath(targetPath) {
+  if (!(await pathExists(targetPath))) {
+    return targetPath;
+  }
+
+  const dir = path.dirname(targetPath);
+  const ext = path.extname(targetPath);
+  const base = path.basename(targetPath, ext);
+  let index = 1;
+
+  while (true) {
+    const candidate = path.join(dir, `${base} (${index})${ext}`);
+    if (!(await pathExists(candidate))) {
+      return candidate;
+    }
+    index += 1;
+  }
+}
+
+async function importTrackStream(rootPath, track, inputStream) {
+  const root = path.resolve(rootPath);
+  const fallbackName = `${track?.syncId || "android-track"}.mp3`;
+  const safeSegments = sanitizePathSegments(track?.relativePath, fallbackName);
+  const targetPath = path.resolve(root, "ARMusic Imports", ...safeSegments);
+
+  if (!targetPath.startsWith(root + path.sep)) {
+    throw new Error("上传路径不安全");
+  }
+
+  await fsp.mkdir(path.dirname(targetPath), { recursive: true });
+  const finalPath = await uniqueFilePath(targetPath);
+  await pipeline(inputStream, fs.createWriteStream(finalPath));
+  return createTrack(finalPath, root);
+}
+
 async function walkDirectory(rootPath, currentPath, files, maxFiles) {
   if (files.length >= maxFiles) {
     return;
@@ -161,6 +215,7 @@ function createManifest(deviceName, tracks) {
 
 module.exports = {
   createManifest,
+  importTrackStream,
   scanMusicFolder,
   trackToPublicTrack,
 };
