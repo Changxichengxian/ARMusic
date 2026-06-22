@@ -43,6 +43,9 @@ import com.lalilu.lmedia.entity.FileInfo
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.entity.Metadata
 import com.lalilu.lmedia.extension.GroupIdentity
+import com.lalilu.lmedia.extension.ListAction
+import com.lalilu.lmedia.extension.SortStaticAction
+import com.lalilu.lhistory.historySortMetricText
 import com.lalilu.lmusic.LMusicTheme
 import com.lalilu.lmusic.viewmodel.SongsEvent
 import com.lalilu.lplayer.action.MediaControl
@@ -58,6 +61,7 @@ internal fun SongsScreenContent(
     songs: Map<GroupIdentity, List<LSong>> = emptyMap(),
     isSelecting: () -> Boolean = { false },
     isSelected: (LSong) -> Boolean = { false },
+    selectedSortAction: ListAction = SortStaticAction.Normal,
     onSelect: (LSong) -> Unit = {},
     onClickGroup: (GroupIdentity) -> Unit = {}
 ) {
@@ -172,6 +176,7 @@ internal fun SongsScreenContent(
                             song = { it },
                             isFavour = { favouriteIds.value.contains(it.id) },
                             isSelected = { isSelected(it) },
+                            sortMetricText = { historySortMetricText(it, selectedSortAction) },
                             onClick = {
                                 if (isSelecting()) {
                                     onSelect(it)

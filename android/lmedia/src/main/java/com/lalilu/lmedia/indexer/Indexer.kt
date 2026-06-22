@@ -15,6 +15,7 @@ import com.lalilu.lmedia.entity.link
 import com.lalilu.lmedia.entity.merge
 import com.lalilu.lmedia.entity.separate
 import com.lalilu.lmedia.extension.PermissionUtils
+import com.lalilu.lmedia.repository.LMediaSp
 import com.lalilu.lmedia.scanner.Api21MediaStoreScanner
 import com.lalilu.lmedia.scanner.Api29MediaStoreScanner
 import com.lalilu.lmedia.scanner.Api30MediaStoreScanner
@@ -32,7 +33,8 @@ import kotlin.coroutines.CoroutineContext
 @SuppressLint("ObsoleteSdkInt")
 @OptIn(UnstableApi::class)
 class Indexer(
-    private val library: BaseLibrary
+    private val library: BaseLibrary,
+    private val lMediaSp: LMediaSp
 ) : CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO
     private lateinit var scanner: MediaStoreScanner
@@ -54,10 +56,10 @@ class Indexer(
 
         library.updateState(LibraryState.Loading)
         scanner = when {
-            Build.VERSION.SDK_INT >= 30 -> Api30MediaStoreScanner(context)
-            Build.VERSION.SDK_INT >= 29 -> Api29MediaStoreScanner(context)
-            Build.VERSION.SDK_INT >= 21 -> Api21MediaStoreScanner(context)
-            else -> MediaStoreScanner(context)
+            Build.VERSION.SDK_INT >= 30 -> Api30MediaStoreScanner(context, lMediaSp)
+            Build.VERSION.SDK_INT >= 29 -> Api29MediaStoreScanner(context, lMediaSp)
+            Build.VERSION.SDK_INT >= 21 -> Api21MediaStoreScanner(context, lMediaSp)
+            else -> MediaStoreScanner(context, lMediaSp)
         }
 
         val startAt = System.currentTimeMillis()
@@ -136,7 +138,7 @@ class Indexer(
             .map {
                 LAlbum(
                     id = it.key,
-                    name = it.value[0].metadata.title,
+                    name = it.value[0].metadata.album.ifBlank { "未知作品" },
                     artistName = it.value[0].metadata.albumArtist,
                     songs = it.value
                 )

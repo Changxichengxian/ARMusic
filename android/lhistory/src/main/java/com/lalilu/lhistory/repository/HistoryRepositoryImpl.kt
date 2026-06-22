@@ -15,7 +15,8 @@ import kotlin.coroutines.CoroutineContext
 
 @Single(binds = [HistoryRepository::class])
 class HistoryRepositoryImpl(
-    private val historyDao: HistoryDao
+    private val historyDao: HistoryDao,
+    private val statIdResolver: com.lalilu.lhistory.HistoryStatIdResolver,
 ) : HistoryRepository, CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO
 
@@ -27,6 +28,30 @@ class HistoryRepositoryImpl(
 
     private val lastTimeMap = historyDao
         .getFlowIdsMapWithLastTime(Int.MAX_VALUE)
+        .distinctUntilChanged()
+        .toCachedFlow()
+        .also { it.launchIn(this) }
+
+    private val durationMap = historyDao
+        .getFlowIdsMapWithDuration(Int.MAX_VALUE)
+        .distinctUntilChanged()
+        .toCachedFlow()
+        .also { it.launchIn(this) }
+
+    private val statCountMap = historyDao
+        .getFlowStatIdsMapWithCount(Int.MAX_VALUE)
+        .distinctUntilChanged()
+        .toCachedFlow()
+        .also { it.launchIn(this) }
+
+    private val statLastTimeMap = historyDao
+        .getFlowStatIdsMapWithLastTime(Int.MAX_VALUE)
+        .distinctUntilChanged()
+        .toCachedFlow()
+        .also { it.launchIn(this) }
+
+    private val statDurationMap = historyDao
+        .getFlowStatIdsMapWithDuration(Int.MAX_VALUE)
         .distinctUntilChanged()
         .toCachedFlow()
         .also { it.launchIn(this) }
@@ -76,11 +101,13 @@ class HistoryRepositoryImpl(
     }
 
     override fun getHistoriesCountByMediaId(mediaId: String): Int {
-        return countMap.get()?.get(mediaId) ?: 0
+        val statId = statIdResolver.resolve(mediaId, mediaId).id
+        return statCountMap.get()?.get(statId) ?: countMap.get()?.get(mediaId) ?: 0
     }
 
     override fun getHistoriesLastTimeByMediaId(mediaId: String): Long {
-        return lastTimeMap.get()?.get(mediaId) ?: 0L
+        val statId = statIdResolver.resolve(mediaId, mediaId).id
+        return statLastTimeMap.get()?.get(statId) ?: lastTimeMap.get()?.get(mediaId) ?: 0L
     }
 
     override fun getHistoriesIdsMapWithCount(): Flow<Map<String, Int>> {
@@ -89,5 +116,30 @@ class HistoryRepositoryImpl(
 
     override fun getHistoriesIdsMapWithLastTime(): Flow<Map<String, Long>> {
         return lastTimeMap
+    }
+
+    override fun getHistoriesIdsMapWithDuration(): Flow<Map<String, Long>> {
+        return durationMap
+    }
+
+    override fun getHistoriesStatIdsMapWithCount(): Flow<Map<String, Int>> {
+        return statCountMap
+    }
+
+    override fun getHistoriesStatIdsMapWithLastTime(): Flow<Map<String, Long>> {
+        return statLastTimeMap
+    }
+
+    override fun getHistoriesStatIdsMapWithDuration(): Flow<Map<String, Long>> {
+        return statDurationMap
+    }
+
+    override fun getHistoriesDurationByStatId(statId: String): Long {
+        return statDurationMap.get()?.get(statId) ?: 0L
+    }
+
+    override fun getHistoriesDurationByMediaId(mediaId: String): Long {
+        val statId = statIdResolver.resolve(mediaId, mediaId).id
+        return statDurationMap.get()?.get(statId) ?: durationMap.get()?.get(mediaId) ?: 0L
     }
 }

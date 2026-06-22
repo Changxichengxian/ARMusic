@@ -11,15 +11,12 @@ import com.lalilu.lmedia.lyric.LyricSourceEmbedded
 import com.lalilu.lmedia.lyric.LyricUtils
 import com.lalilu.lmedia.lyric.findPlayingIndex
 import com.lalilu.lmedia.lyric.getSentenceContent
-import com.lalilu.lplayer.MPlayerKV
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,16 +37,7 @@ internal class BluetoothLyricMetadataSender(
 
     init {
         player.addListener(this)
-        MPlayerKV.enableBluetoothLyricMetadata.flow()
-            .onEach { enabled ->
-                if (enabled == true) {
-                    restartForCurrentItem()
-                } else {
-                    stopSending()
-                    restoreKnownItems()
-                }
-            }
-            .launchIn(this)
+        restartForCurrentItem()
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -69,7 +57,6 @@ internal class BluetoothLyricMetadataSender(
 
     private fun restartForCurrentItem() {
         stopSending()
-        if (MPlayerKV.enableBluetoothLyricMetadata.value != true) return
 
         val mediaItem = player.currentMediaItem ?: return
         val originalItem = rememberOriginalItem(mediaItem)

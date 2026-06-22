@@ -163,6 +163,7 @@ data class SongsScreen(
             keys = { vm.recorder.list().filterNotNull() },
             isSelecting = { vm.selector.isSelecting.value },
             isSelected = { vm.selector.isSelected(it) },
+            selectedSortAction = state.selectedSortAction,
             onSelect = { vm.selector.onSelect(it) },
             onClickGroup = { vm.intent(SongsAction.ToggleJumperDialog) }
         )

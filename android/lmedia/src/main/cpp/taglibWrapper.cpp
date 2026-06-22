@@ -7,6 +7,31 @@ jstring toString(JNIEnv *env, TagLib::String str) {
     return env->NewStringUTF(str.toCString(true));
 }
 
+TagLib::String toTagString(JNIEnv *env, jstring value) {
+    if (value == nullptr) return TagLib::String();
+
+    const char *chars = env->GetStringUTFChars(value, nullptr);
+    TagLib::String result(chars != nullptr ? chars : "", TagLib::String::Type::UTF8);
+    if (chars != nullptr) {
+        env->ReleaseStringUTFChars(value, chars);
+    }
+
+    return result;
+}
+
+unsigned int toUInt(const TagLib::String &value) {
+    auto raw = value.to8Bit(true);
+    try {
+        return raw.empty() ? 0 : static_cast<unsigned int>(std::stoul(raw));
+    } catch (...) {
+        return 0;
+    }
+}
+
+void replaceProperty(TagLib::PropertyMap &map, const char *key, const TagLib::String &value) {
+    map.replace(key, TagLib::StringList(value));
+}
+
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_lalilu_lmedia_wrapper_Taglib_getLyricWithFD(JNIEnv *env, jobject thiz,
@@ -38,6 +63,118 @@ Java_com_lalilu_lmedia_wrapper_Taglib_writeLyricInto(JNIEnv *env, jobject thiz,
     auto map = fileRef.file()->properties();
     map.replace("LYRICS", TagLib::String(lyricStr, TagLib::String::Type::UTF8));
     fileRef.file()->setProperties(map);
+    env->ReleaseStringUTFChars(lyric, lyricStr);
+
+    return fileRef.file()->save() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_lalilu_lmedia_wrapper_Taglib_writeMetadataWithFD(JNIEnv *env, jobject thiz,
+                                                          jint file_descriptor,
+                                                          jstring title,
+                                                          jstring album,
+                                                          jstring artist,
+                                                          jstring album_artist,
+                                                          jstring composer,
+                                                          jstring lyricist,
+                                                          jstring comment,
+                                                          jstring genre,
+                                                          jstring track,
+                                                          jstring disc,
+                                                          jstring date,
+                                                          jstring same_song_group,
+                                                          jstring lyric) {
+    TagLib::FileStream fileStream(file_descriptor, false);
+    TagLib::FileRef fileRef(&fileStream, true, TagLib::AudioProperties::ReadStyle::Fast);
+    if (fileRef.isNull() || fileRef.tag() == nullptr || fileRef.file() == nullptr) return JNI_FALSE;
+
+    auto titleStr = toTagString(env, title);
+    auto albumStr = toTagString(env, album);
+    auto artistStr = toTagString(env, artist);
+    auto albumArtistStr = toTagString(env, album_artist);
+    auto composerStr = toTagString(env, composer);
+    auto lyricistStr = toTagString(env, lyricist);
+    auto commentStr = toTagString(env, comment);
+    auto genreStr = toTagString(env, genre);
+    auto trackStr = toTagString(env, track);
+    auto discStr = toTagString(env, disc);
+    auto dateStr = toTagString(env, date);
+    auto sameSongGroupStr = toTagString(env, same_song_group);
+    auto lyricStr = toTagString(env, lyric);
+
+    auto tag = fileRef.tag();
+    tag->setTitle(titleStr);
+    tag->setAlbum(albumStr);
+    tag->setArtist(artistStr);
+    tag->setComment(commentStr);
+    tag->setGenre(genreStr);
+    tag->setTrack(toUInt(trackStr));
+
+    auto map = fileRef.file()->properties();
+    replaceProperty(map, "TITLE", titleStr);
+    replaceProperty(map, "ALBUM", albumStr);
+    replaceProperty(map, "ARTIST", artistStr);
+    replaceProperty(map, "ALBUMARTIST", albumArtistStr);
+    replaceProperty(map, "COMPOSER", composerStr);
+    replaceProperty(map, "LYRICIST", lyricistStr);
+    replaceProperty(map, "COMMENT", commentStr);
+    replaceProperty(map, "GENRE", genreStr);
+    replaceProperty(map, "TRACKNUMBER", trackStr);
+    replaceProperty(map, "DISCNUMBER", discStr);
+    replaceProperty(map, "DATE", dateStr);
+    replaceProperty(map, "ARMUSIC_GROUP", sameSongGroupStr);
+    replaceProperty(map, "LYRICS", lyricStr);
+    fileRef.file()->setProperties(map);
+
+    return fileRef.file()->save() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_lalilu_lmedia_wrapper_Taglib_removeCoverWithFD(JNIEnv *env, jobject thiz,
+                                                        jint file_descriptor) {
+    TagLib::FileStream fileStream(file_descriptor, false);
+    TagLib::FileRef fileRef(&fileStream, true, TagLib::AudioProperties::ReadStyle::Fast);
+    if (fileRef.isNull() || fileRef.file() == nullptr) return JNI_FALSE;
+
+    if (!fileRef.setComplexProperties("PICTURE", {})) return JNI_FALSE;
+
+    return fileRef.file()->save() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_lalilu_lmedia_wrapper_Taglib_writeCoverWithFD(JNIEnv *env, jobject thiz,
+                                                       jint file_descriptor,
+                                                       jbyteArray cover,
+                                                       jstring mime_type) {
+    if (cover == nullptr) return JNI_FALSE;
+
+    auto length = env->GetArrayLength(cover);
+    if (length <= 0) return JNI_FALSE;
+
+    auto data = env->GetByteArrayElements(cover, nullptr);
+    if (data == nullptr) return JNI_FALSE;
+
+    TagLib::ByteVector coverData(reinterpret_cast<const char *>(data),
+                                 static_cast<unsigned int>(length));
+    env->ReleaseByteArrayElements(cover, data, JNI_ABORT);
+
+    TagLib::FileStream fileStream(file_descriptor, false);
+    TagLib::FileRef fileRef(&fileStream, true, TagLib::AudioProperties::ReadStyle::Fast);
+    if (fileRef.isNull() || fileRef.file() == nullptr) return JNI_FALSE;
+
+    TagLib::VariantMap picture;
+    picture.insert("data", coverData);
+    picture.insert("pictureType", TagLib::String("Front Cover"));
+    picture.insert("mimeType", toTagString(env, mime_type));
+    picture.insert("description", TagLib::String("Cover"));
+
+    TagLib::List<TagLib::VariantMap> pictures;
+    pictures.append(picture);
+
+    if (!fileRef.setComplexProperties("PICTURE", pictures)) return JNI_FALSE;
 
     return fileRef.file()->save() ? JNI_TRUE : JNI_FALSE;
 }
@@ -78,13 +215,14 @@ Java_com_lalilu_lmedia_wrapper_Taglib_retrieveMetadataWithFD(JNIEnv *env, jobjec
     auto lyricist_str = toString(env, map["LYRICIST"].toString());
     auto genre_str = toString(env, map["GENRE"].toString());
     auto date = toString(env, map["DATE"].toString());
+    auto same_song_group = toString(env, map["ARMUSIC_GROUP"].toString());
 
     // 获取需要创建的jclass
     jclass metadata_class = env->FindClass("com/lalilu/lmedia/entity/Metadata");
 
     // 获取构造器方法ID
     jmethodID constructor = env->GetMethodID(metadata_class, "<init>",
-                                             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JJJ)V");
+                                             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JJJ)V");
 
     // 创建对象传入并参数
     jobject metadata_obj_j = env->NewObject(
@@ -101,6 +239,7 @@ Java_com_lalilu_lmedia_wrapper_Taglib_retrieveMetadataWithFD(JNIEnv *env, jobjec
             track_num,
             disc_num,
             date,
+            same_song_group,
             duration,
             dateAdded,
             dateModified

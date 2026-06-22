@@ -15,6 +15,12 @@ interface HistoryRepository {
     fun getHistoriesWithCount(limit: Int): Flow<Map<LHistory, Int>>
     fun getHistoriesIdsMapWithCount(): Flow<Map<String, Int>>
     fun getHistoriesIdsMapWithLastTime(): Flow<Map<String, Long>>
+    fun getHistoriesIdsMapWithDuration(): Flow<Map<String, Long>>
+    fun getHistoriesStatIdsMapWithCount(): Flow<Map<String, Int>>
+    fun getHistoriesStatIdsMapWithLastTime(): Flow<Map<String, Long>>
+    fun getHistoriesStatIdsMapWithDuration(): Flow<Map<String, Long>>
     fun getHistoriesCountByMediaId(mediaId: String): Int
     fun getHistoriesLastTimeByMediaId(mediaId: String): Long
+    fun getHistoriesDurationByStatId(statId: String): Long
+    fun getHistoriesDurationByMediaId(mediaId: String): Long
 }

@@ -3,6 +3,7 @@ package com.lalilu.lalbum.screen
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,11 +18,16 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +59,9 @@ import com.lalilu.lalbum.viewModel.AlbumDetailEvent
 import com.lalilu.lmedia.entity.LAlbum
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.GroupIdentity
+import com.lalilu.lmedia.extension.ListAction
+import com.lalilu.lmedia.extension.SortStaticAction
+import com.lalilu.lhistory.historySortMetricText
 import com.lalilu.lplayer.action.MediaControl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
@@ -67,13 +76,18 @@ fun AlbumDetailScreenContent(
     recorder: ItemRecorder = ItemRecorder(),
     isSelecting: () -> Boolean = { false },
     isSelected: (LSong) -> Boolean = { false },
+    selectedSortAction: ListAction = SortStaticAction.Normal,
     onSelect: (LSong) -> Unit = {},
-    onClickGroup: (GroupIdentity) -> Unit = {}
+    onClickGroup: (GroupIdentity) -> Unit = {},
+    onPickCoverFromStorage: () -> Unit = {},
+    onUseSongCover: (LSong) -> Unit = {},
+    onClearCover: () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val statusBar = WindowInsets.statusBars
     val density = LocalDensity.current
     val favouriteIds = state("favourite_ids", emptyList<String>())
+    var coverMenuExpanded by remember { mutableStateOf(false) }
     val stickyHeaderContentType = remember { "group" }
     val scroller = rememberLazyListAnimateScroller(
         listState = listState,
@@ -142,6 +156,7 @@ fun AlbumDetailScreenContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
+                            .clickable(enabled = album != null) { coverMenuExpanded = true }
                             .border(
                                 width = 1.dp,
                                 color = Color.White.copy(0.3f),
@@ -163,12 +178,47 @@ fun AlbumDetailScreenContent(
                                 .crossfade(true)
                                 .build(),
                             contentScale = ContentScale.FillWidth,
-                            contentDescription = "Album art"
+                            contentDescription = "Work art"
                         )
+
+                        DropdownMenu(
+                            expanded = coverMenuExpanded,
+                            onDismissRequest = { coverMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                onClick = {
+                                    coverMenuExpanded = false
+                                    onPickCoverFromStorage()
+                                }
+                            ) {
+                                Text("选择图片")
+                            }
+                            album?.songs.orEmpty().forEach { song ->
+                                DropdownMenuItem(
+                                    onClick = {
+                                        coverMenuExpanded = false
+                                        onUseSongCover(song)
+                                    }
+                                ) {
+                                    Text(
+                                        text = "用《${song.metadata.title.ifBlank { song.name }}》封面",
+                                        maxLines = 2,
+                                    )
+                                }
+                            }
+                            DropdownMenuItem(
+                                onClick = {
+                                    coverMenuExpanded = false
+                                    onClearCover()
+                                }
+                            ) {
+                                Text("恢复默认")
+                            }
+                        }
                     }
 
                     Text(
-                        text = album?.name ?: "Unknown",
+                        text = album?.name ?: "未知作品",
                         fontSize = 20.sp,
                         lineHeight = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -208,6 +258,7 @@ fun AlbumDetailScreenContent(
                         song = { it },
                         isSelected = { isSelected(it) },
                         isFavour = { favouriteIds.value.contains(it.id) },
+                        sortMetricText = { historySortMetricText(it, selectedSortAction) },
                         onClick = {
                             if (isSelecting()) {
                                 onSelect(it)

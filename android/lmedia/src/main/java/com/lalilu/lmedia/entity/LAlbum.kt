@@ -11,7 +11,8 @@ data class LAlbum(
     override val id: String,
     override val name: String,
     override val songs: List<LSong>,
-    val artistName: String? = null
+    val artistName: String? = null,
+    val coverOverride: String? = null,
 ) : MusicParent {
     override var blocked: Boolean = false
 

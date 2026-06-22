@@ -178,6 +178,7 @@ data class PlaylistDetailScreen(
             eventFlow = vm.eventFlow(),
             isSelecting = { vm.selector.isSelecting.value },
             isSelected = { vm.selector.isSelected(it) },
+            selectedSortAction = state.selectedSortAction,
             onSelect = { vm.selector.onSelect(it) },
             onClickGroup = { vm.intent(PlaylistDetailAction.ToggleJumperDialog) },
             onUpdatePlaylist = { vm.intent(PlaylistDetailAction.UpdatePlaylist(it)) }

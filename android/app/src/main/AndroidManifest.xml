@@ -21,6 +21,11 @@
         android:maxSdkVersion="29" />
 
     <queries>
+        <package android:name="com.lalilu.lmusic" />
+        <package android:name="com.lalilu.lmusic.alpha" />
+        <package android:name="com.lalilu.lmusic.beta" />
+        <package android:name="com.lalilu.lmusic.debug" />
+
         <intent>
             <!-- 系统均衡器 -->
             <action android:name="android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
@@ -79,6 +84,27 @@
             android:exported="false"
             android:launchMode="singleTop">
 
+        </activity>
+
+        <activity
+            android:name=".lmusic.migration.ARMusicMigrationImportActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Music">
+            <intent-filter>
+                <action android:name="com.lalilu.lmusic.armusic.IMPORT_BACKUP" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/json" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".lmusic.migration.ARMusicWorkMappingImportActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Music">
+            <intent-filter>
+                <action android:name="com.lalilu.lmusic.armusic.IMPORT_WORK_MAPPING" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <provider

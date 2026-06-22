@@ -19,6 +19,7 @@ import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,8 @@ import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.extension.dayNightTextColor
 import com.lalilu.lmusic.sync.ARMusicAndroidManifestBuilder
+import com.lalilu.lmusic.sync.ARMusicDiscoveredPeer
+import com.lalilu.lmusic.sync.ARMusicLanDiscoveryClient
 import com.lalilu.lmusic.sync.ARMusicLanSyncClient
 import com.lalilu.lmusic.sync.ARMusicSyncHealth
 import com.lalilu.lmusic.sync.ARMusicSyncManifest
@@ -68,6 +71,7 @@ object ARMusicLanSyncScreen : Screen, ScreenInfoFactory {
 
 @Composable
 private fun ARMusicLanSyncContent(
+    discoveryClient: ARMusicLanDiscoveryClient = koinInject(),
     syncClient: ARMusicLanSyncClient = koinInject(),
     manifestBuilder: ARMusicAndroidManifestBuilder = koinInject(),
     downloader: ARMusicTrackDownloader = koinInject(),
@@ -76,21 +80,24 @@ private fun ARMusicLanSyncContent(
     val scope = rememberCoroutineScope()
     var address by rememberSaveable { mutableStateOf("") }
     var isBusy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("先在桌面端启动同步服务，再填这里的地址。") }
+    var isDiscovering by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("正在搜索局域网内的桌面端。") }
+    var discoveredPeers by remember { mutableStateOf<List<ARMusicDiscoveredPeer>>(emptyList()) }
     var health by remember { mutableStateOf<ARMusicSyncHealth?>(null) }
     var localManifest by remember { mutableStateOf<ARMusicSyncManifest?>(null) }
     var remoteManifest by remember { mutableStateOf<ARMusicSyncManifest?>(null) }
     var syncPlan by remember { mutableStateOf<ARMusicSyncPlan?>(null) }
 
-    fun refreshPlan() {
-        if (address.isBlank() || isBusy) return
+    fun refreshPlan(targetAddress: String = address) {
+        if (targetAddress.isBlank() || isBusy) return
         scope.launch {
             isBusy = true
+            address = targetAddress
             message = "正在连接桌面端"
             runCatching {
-                val nextHealth = syncClient.fetchHealth(address).getOrThrow()
+                val nextHealth = syncClient.fetchHealth(targetAddress).getOrThrow()
                 message = "正在读取歌曲清单"
-                val remote = syncClient.fetchManifest(address).getOrThrow()
+                val remote = syncClient.fetchManifest(targetAddress).getOrThrow()
                 message = "正在读取 Android 本地音乐库"
                 val local = manifestBuilder.buildManifest()
                 val plan = ARMusicSyncPlanner.buildPlan(
@@ -108,6 +115,33 @@ private fun ARMusicLanSyncContent(
             }
             isBusy = false
         }
+    }
+
+    fun discoverDevices(autoConnect: Boolean = false) {
+        if (isDiscovering || isBusy) return
+
+        scope.launch {
+            isDiscovering = true
+            message = "正在搜索局域网内的桌面端"
+            val peers = runCatching { discoveryClient.discover() }
+                .getOrDefault(emptyList())
+
+            discoveredPeers = peers
+            val first = peers.firstOrNull()
+            when {
+                first == null -> message = "没有搜到桌面端，可以检查电脑端同步服务是否已启动。"
+                autoConnect -> {
+                    message = "找到 ${first.name}，正在连接"
+                    refreshPlan(first.baseUrl)
+                }
+                else -> message = "搜到 ${peers.size} 台设备。"
+            }
+            isDiscovering = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        discoverDevices(autoConnect = true)
     }
 
     fun downloadMissingTracks() {
@@ -204,7 +238,13 @@ private fun ARMusicLanSyncContent(
                             text = if (isBusy) "处理中" else "连接并对比",
                             enabled = !isBusy && address.isNotBlank(),
                             color = Color(0xFF006E7C),
-                            onClick = ::refreshPlan,
+                            onClick = { refreshPlan() },
+                        )
+                        ActionButton(
+                            text = if (isDiscovering) "搜索中" else "自动搜索",
+                            enabled = !isBusy && !isDiscovering,
+                            color = Color(0xFF6B5BD2),
+                            onClick = { discoverDevices(autoConnect = true) },
                         )
                         ActionButton(
                             text = "下载缺失歌曲",
@@ -220,6 +260,18 @@ private fun ARMusicLanSyncContent(
                         )
                     }
                 }
+            }
+        }
+
+        discoveredPeers.takeIf { it.isNotEmpty() }?.let { peers ->
+            item { SectionTitle("搜到的桌面端", peers.size) }
+            items(peers, key = { it.baseUrl }) { peer ->
+                DiscoveredPeerRow(
+                    peer = peer,
+                    isSelected = address == peer.baseUrl,
+                    enabled = !isBusy && !isDiscovering,
+                    onClick = { refreshPlan(peer.baseUrl) },
+                )
             }
         }
 
@@ -342,6 +394,57 @@ private fun SectionTitle(title: String, count: Int) {
         color = dayNightTextColor(0.7f),
         style = MaterialTheme.typography.subtitle2,
     )
+}
+
+@Composable
+private fun DiscoveredPeerRow(
+    peer: ARMusicDiscoveredPeer,
+    isSelected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) Color(0xFF3EA22C).copy(alpha = 0.14f) else dayNightTextColor(0.05f),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    text = peer.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = dayNightTextColor(),
+                    style = MaterialTheme.typography.body1,
+                )
+                Text(
+                    text = peer.baseUrl,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = dayNightTextColor(0.55f),
+                    fontSize = 12.sp,
+                )
+            }
+            TextButton(
+                enabled = enabled,
+                onClick = onClick,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color(0xFF006E7C),
+                    backgroundColor = Color(0xFF006E7C).copy(alpha = 0.14f),
+                )
+            ) {
+                Text(if (isSelected) "已选" else "使用")
+            }
+        }
+    }
 }
 
 @Composable

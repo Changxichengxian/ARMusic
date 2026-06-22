@@ -4,4 +4,5 @@
 
     <string name="sort_preset_by_last_play_time">Last Play Time</string>
     <string name="sort_preset_by_played_times">Played Times</string>
+    <string name="sort_preset_by_play_duration">Play Duration</string>
 </resources>

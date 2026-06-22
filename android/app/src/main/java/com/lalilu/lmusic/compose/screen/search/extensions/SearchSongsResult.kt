@@ -37,6 +37,7 @@ import com.lalilu.remixicon.media.music2Line
 
 class SearchSongsResult(
     private val songsResult: () -> List<LSong>,
+    private val title: String = "歌曲搜索结果",
 ) : LazyGridContent {
 
     @Composable
@@ -69,7 +70,7 @@ class SearchSongsResult(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            text = "歌曲搜索结果 (${songsResult().size})",
+                            text = "$title (${songsResult().size})",
                             fontSize = 16.sp,
                             lineHeight = 16.sp,
                             color = MaterialTheme.colors.onBackground,

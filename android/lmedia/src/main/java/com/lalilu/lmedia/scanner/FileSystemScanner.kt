@@ -21,6 +21,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -92,9 +93,6 @@ class FileSystemScanner(
     lMediaSp: LMediaSp
 ) : MediaSource<LSong> {
 
-    /**
-     * 使用 isDirty 标记是否需要重新进行加载
-     */
     private var isDirty = false
     override fun updateAsync() {
         isDirty = true
@@ -104,18 +102,24 @@ class FileSystemScanner(
     override fun requireFlow(): Flow<List<LSong>> = resultFlow
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val resultFlow = lMediaSp.includePath.flow(true)
-        .mapLatest { uriStr -> FileSource.from(uriStr, context) }
-        .mapLatest { fileSources ->
-            // 先尝试从缓存加载，缓存无结果则尝试扫描读取
-            loadCache(fileSources) ?: loadItems(fileSources)
+    private val resultFlow = combine(
+        lMediaSp.includePath.flow(true),
+        lMediaSp.excludePath.flow(true)
+    ) { includePaths, excludePaths ->
+        FileSource.from(includePaths, context) to PathExclusionMatcher(excludePaths.orEmpty())
+    }
+        .mapLatest { (fileSources, exclusionMatcher) ->
+            loadCache(fileSources, exclusionMatcher) ?: loadItems(fileSources, exclusionMatcher)
                 .awaitAll()
                 .filterNotNull()
                 .also { saveCache(it) }
         }
         .toUpdatableFlow()
 
-    private fun loadCache(fileSources: List<FileSource>): List<LSong>? {
+    private fun loadCache(
+        fileSources: List<FileSource>,
+        exclusionMatcher: PathExclusionMatcher
+    ): List<LSong>? {
         if (isDirty) {
             isDirty = false
             return null
@@ -133,6 +137,10 @@ class FileSystemScanner(
                 .get()
                 ?.takeIf { it.isNotEmpty() }
         }.flatten()
+            .filterNot {
+                exclusionMatcher.isExcluded(it.fileInfo.pathStr) ||
+                    exclusionMatcher.isExcluded(it.fileInfo.directoryPath)
+            }
             .takeIf { it.isNotEmpty() }
 
         LogUtils.i("Cache Loaded: songs: ${result?.size}")
@@ -153,21 +161,30 @@ class FileSystemScanner(
         LogUtils.i("Cache Saved: songs: ${songs.size} directory: ${directoryMap.keys.size}")
     }
 
-    private suspend fun loadItems(fileSources: List<FileSource>): List<Deferred<LSong?>> =
+    private suspend fun loadItems(
+        fileSources: List<FileSource>,
+        exclusionMatcher: PathExclusionMatcher
+    ): List<Deferred<LSong?>> =
         withContext(Dispatchers.IO) {
-            val childResult = fileSources
-                .filter { it.isDirectory() }
-                .map { async { loadItems(it.listFiles()) } }
+            val allowedSources = fileSources
+                .filterNot { exclusionMatcher.isExcluded(it.path()) }
 
-            val currentResult = fileSources
-                .map { loadItem(it) }
+            val childResult = allowedSources
+                .filter { it.isDirectory() }
+                .map { async { loadItems(it.listFiles(), exclusionMatcher) } }
+
+            val currentResult = allowedSources
+                .map { loadItem(it, exclusionMatcher) }
 
             currentResult + childResult
                 .awaitAll()
                 .flatten()
         }
 
-    private suspend fun loadItem(fileSource: FileSource): Deferred<LSong?> =
+    private suspend fun loadItem(
+        fileSource: FileSource,
+        exclusionMatcher: PathExclusionMatcher
+    ): Deferred<LSong?> =
         withContext(Dispatchers.IO) {
             async {
                 if (!fileSource.canRead() || fileSource.isDirectory()) return@async null
@@ -180,6 +197,10 @@ class FileSystemScanner(
                 val directoryPath = FileUtils.getDirName(pathStr)
                     ?.takeIf(String::isNotEmpty)
                     ?: "Unknown dir"
+
+                if (exclusionMatcher.isExcluded(pathStr) || exclusionMatcher.isExcluded(directoryPath)) {
+                    return@async null
+                }
 
                 val uri = when (fileSource) {
                     is FileSource.Document -> fileSource.file.uri

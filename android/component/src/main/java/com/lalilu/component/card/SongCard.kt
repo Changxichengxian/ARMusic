@@ -69,6 +69,7 @@ fun SongCard(
     showPrefix: () -> Boolean = { false },
     fixedHeight: () -> Boolean = { false },
     reverseLayout: () -> Boolean = { false },
+    sortMetricText: @Composable () -> String? = { null },
     stickerContent: @Composable RowScope.() -> Unit = {
         StickerRow(
             isFavour = isFavour,
@@ -96,6 +97,7 @@ fun SongCard(
         isPlaying = isPlaying,
         fixedHeight = fixedHeight,
         reverseLayout = reverseLayout,
+        sortMetricText = sortMetricText,
         isSelected = isSelected,
         showPrefix = showPrefix,
         stickerContent = stickerContent,
@@ -122,6 +124,7 @@ fun SongCard(
     isPlaying: () -> Boolean = { false },
     fixedHeight: () -> Boolean = { false },
     reverseLayout: () -> Boolean = { false },
+    sortMetricText: @Composable () -> String? = { null },
     isSelected: () -> Boolean = { false },
     showPrefix: () -> Boolean = { false },
     stickerContent: @Composable RowScope.() -> Unit = {},
@@ -168,6 +171,7 @@ fun SongCard(
             isPlaying = isPlaying,
             showPrefix = showPrefix,
             fixedHeight = fixedHeight,
+            sortMetricText = sortMetricText,
             prefixContent = prefixContent,
             stickerContent = stickerContent
         )
@@ -193,6 +197,7 @@ fun SongCardContent(
     fixedHeight: () -> Boolean = { false },
     isPlaying: () -> Boolean = { false },
     showPrefix: () -> Boolean = { false },
+    sortMetricText: @Composable () -> String? = { null },
     stickerContent: @Composable RowScope.() -> Unit = {},
     prefixContent: @Composable (Modifier) -> Unit = {}
 ) {
@@ -244,6 +249,16 @@ fun SongCardContent(
                 color = MaterialTheme.colors.onBackground.copy(0.5f),
                 style = MaterialTheme.typography.caption,
             )
+            sortMetricText()?.let { text ->
+                Text(
+                    modifier = Modifier.padding(start = 5.dp),
+                    text = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colors.onBackground.copy(0.7f)
+                )
+            }
             Text(
                 modifier = Modifier.padding(start = 5.dp),
                 text = durationMsToString(duration = duration()),

@@ -14,18 +14,21 @@ import androidx.core.database.getStringOrNull
 import com.lalilu.common.toUpdatableFlow
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.parseId3GenreName
+import com.lalilu.lmedia.repository.LMediaSp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.withContext
 
 /**
  * 参照Auxio实现的Backend部分代码精简而成
  */
 open class MediaStoreScanner(
-    private val context: Context
+    private val context: Context,
+    private val lMediaSp: LMediaSp
 ) : MediaSource<LSong> {
     companion object {
 
@@ -97,7 +100,9 @@ open class MediaStoreScanner(
         )
     }
 
-    private val resultFlow = flow { emit(retrieve()) }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val resultFlow = lMediaSp.excludePath.flow(true)
+        .mapLatest { retrieve() }
         .toUpdatableFlow(debouncingInterval = 2000L)
 
     override fun updateAsync() = resultFlow.requireUpdate()
@@ -122,6 +127,7 @@ open class MediaStoreScanner(
     }
 
     private suspend fun retrieve(): List<LSong> = withContext(Dispatchers.Default) {
+        val exclusionMatcher = PathExclusionMatcher(lMediaSp.excludePath.value)
         val genresFetchJob = async {
             val tempGenres = queryGenres()
             buildGenresMap(tempGenres)
@@ -129,12 +135,18 @@ open class MediaStoreScanner(
 
         val songsFetchJob = async {
             val cursor = query(context)
-            buildList { while (cursor.moveToNext()) add(buildAudio(cursor)) }
+            cursor.use {
+                buildList { while (it.moveToNext()) add(buildAudio(it)) }
+            }
         }
 
         val genresMap = genresFetchJob.await()
         songsFetchJob.await().toList().mapNotNull {
             it.toSong(genre = genresMap[it.id.toString()] ?: "")
+                ?.takeUnless { song ->
+                    exclusionMatcher.isExcluded(song.fileInfo.pathStr) ||
+                        exclusionMatcher.isExcluded(song.fileInfo.directoryPath)
+                }
         }
     }
 

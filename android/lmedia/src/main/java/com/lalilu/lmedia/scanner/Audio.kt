@@ -73,6 +73,7 @@ data class Audio(
                     track = track?.toString() ?: "",
                     disc = disc?.toString() ?: "",
                     date = "",
+                    sameSongGroup = "",
                     duration = duration,
                     dateAdded = dateAdded ?: 0,
                     dateModified = dateModified ?: 0

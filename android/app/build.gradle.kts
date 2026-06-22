@@ -48,8 +48,8 @@ android {
         applicationId = "com.lalilu.lmusic"
         minSdk = libs.versions.min.sdk.version.get().toIntOrNull()
         targetSdk = libs.versions.compile.version.get().toIntOrNull()
-        versionCode = 42
-        versionName = "1.5.4"
+        versionCode = 100
+        versionName = "1.0.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -138,6 +138,28 @@ android {
 
             matchingFallbacks.add("release")
             matchingFallbacks.add("debug")
+        }
+
+        create("armusicPreview") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            versionNameSuffix = ""
+            applicationIdSuffix = ".armusic"
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = kotlin.runCatching { signingConfigs["release"] }.getOrNull()
+                ?: signingConfigs.getByName("debug")
+            resValue("string", "app_name", "@string/app_name_preview")
+
+            matchingFallbacks.add("release")
+            matchingFallbacks.add("debug")
+
+            ndk {
+                abiFilters.add("arm64-v8a")
+            }
         }
 
         debug {

@@ -36,5 +36,6 @@ composeCompiler {
 
 dependencies {
     implementation(project(":component"))
+    implementation(project(":lhistory"))
     ksp(libs.koin.compiler)
 }

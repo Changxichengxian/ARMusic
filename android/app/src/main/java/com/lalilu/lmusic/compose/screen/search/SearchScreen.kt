@@ -8,18 +8,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -41,6 +46,7 @@ import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.component.base.smartBarPadding
 import com.lalilu.lmusic.compose.screen.search.extensions.SearchArtistsResult
 import com.lalilu.lmusic.compose.screen.search.extensions.SearchSongsResult
+import com.lalilu.lmusic.compose.screen.search.extensions.SearchWorksResult
 import com.lalilu.lmusic.viewmodel.SearchScreenState
 import com.lalilu.lmusic.viewmodel.SearchVM
 import com.lalilu.remixicon.System
@@ -113,9 +119,18 @@ private fun SearchScreenContent(
         }
 
         val songsResult = remember {
-            SearchSongsResult {
+            SearchSongsResult(
+                songsResult = {
+                    (searchVM.searchState.value as? SearchScreenState.Searching)
+                        ?.songs ?: emptyList()
+                }
+            )
+        }.register()
+
+        val worksResult = remember {
+            SearchWorksResult {
                 (searchVM.searchState.value as? SearchScreenState.Searching)
-                    ?.songs ?: emptyList()
+                    ?.works ?: emptyList()
             }
         }.register()
 
@@ -126,15 +141,94 @@ private fun SearchScreenContent(
             }
         }.register()
 
+        val lyricSongsResult = remember {
+            SearchSongsResult(
+                songsResult = {
+                    (searchVM.searchState.value as? SearchScreenState.Searching)
+                        ?.lyricSongs ?: emptyList()
+                },
+                title = "歌词搜索结果"
+            )
+        }.register()
+
         LazyVerticalGrid(
             modifier = Modifier.fillMaxSize(),
             contentPadding = statusBar,
             columns = GridCells.Fixed(6)
         ) {
+            item(
+                key = "SearchScope",
+                contentType = "SearchScope",
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
+                SearchScopeRow(
+                    modifier = Modifier.animateItem(),
+                    searchVM = searchVM,
+                )
+            }
             songsResult(this)
+            worksResult(this)
             artistsResult(this)
+            lyricSongsResult(this)
             smartBarPadding()
         }
+    }
+}
+
+@Composable
+private fun SearchScopeRow(
+    modifier: Modifier = Modifier,
+    searchVM: SearchVM,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SearchScopeButton(
+            text = "歌曲",
+            selected = searchVM.includeSongs,
+            onClick = { searchVM.includeSongs = !searchVM.includeSongs },
+        )
+        SearchScopeButton(
+            text = "作品",
+            selected = searchVM.includeWorks,
+            onClick = { searchVM.includeWorks = !searchVM.includeWorks },
+        )
+        SearchScopeButton(
+            text = "艺术家",
+            selected = searchVM.includeArtists,
+            onClick = { searchVM.includeArtists = !searchVM.includeArtists },
+        )
+        SearchScopeButton(
+            text = "歌词",
+            selected = searchVM.includeLyrics,
+            onClick = { searchVM.includeLyrics = !searchVM.includeLyrics },
+        )
+    }
+}
+
+@Composable
+private fun RowScope.SearchScopeButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    TextButton(
+        modifier = Modifier.weight(1f),
+        onClick = onClick,
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = if (selected) MaterialTheme.colors.primary else MaterialTheme.colors.onBackground.copy(0.72f),
+            backgroundColor = if (selected) MaterialTheme.colors.primary.copy(0.14f) else MaterialTheme.colors.onBackground.copy(0.06f),
+        )
+    ) {
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            lineHeight = 13.sp,
+        )
     }
 }
 

@@ -41,6 +41,9 @@ import com.lalilu.lartist.viewModel.ArtistDetailEvent
 import com.lalilu.lmedia.entity.LArtist
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.GroupIdentity
+import com.lalilu.lmedia.extension.ListAction
+import com.lalilu.lmedia.extension.SortStaticAction
+import com.lalilu.lhistory.historySortMetricText
 import com.lalilu.lplayer.MPlayer
 import com.lalilu.lplayer.action.MediaControl
 import kotlinx.coroutines.flow.Flow
@@ -56,6 +59,7 @@ internal fun ArtistDetailScreenContent(
     recorder: ItemRecorder = ItemRecorder(),
     isSelecting: () -> Boolean = { false },
     isSelected: (LSong) -> Boolean = { false },
+    selectedSortAction: ListAction = SortStaticAction.Normal,
     onSelect: (LSong) -> Unit = {},
     onClickGroup: (GroupIdentity) -> Unit = {}
 ) {
@@ -177,6 +181,7 @@ internal fun ArtistDetailScreenContent(
                         song = { it },
                         isSelected = { isSelected(it) },
                         isFavour = { favouriteIds.value.contains(it.id) },
+                        sortMetricText = { historySortMetricText(it, selectedSortAction) },
                         onClick = {
                             if (isSelecting()) {
                                 onSelect(it)

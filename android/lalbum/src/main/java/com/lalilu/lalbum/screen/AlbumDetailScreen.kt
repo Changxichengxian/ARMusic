@@ -1,9 +1,13 @@
 package com.lalilu.lalbum.screen
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
@@ -105,6 +109,19 @@ data class AlbumDetailScreen(
         val songs by vm.songs
         val state by vm.state
         val album by vm.album
+        val context = LocalContext.current
+        val coverPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            uri ?: return@rememberLauncherForActivityResult
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            vm.intent(AlbumDetailAction.SetCoverUri(uri.toString()))
+        }
 
         SongsSortPanelDialog(
             isVisible = { state.showSortPanel },
@@ -163,8 +180,12 @@ data class AlbumDetailScreen(
             keys = { vm.recorder.list().filterNotNull() },
             isSelecting = { vm.selector.isSelecting.value },
             isSelected = { vm.selector.isSelected(it) },
+            selectedSortAction = state.selectedSortAction,
             onSelect = { vm.selector.onSelect(it) },
-            onClickGroup = { vm.intent(AlbumDetailAction.ToggleJumperDialog) }
+            onClickGroup = { vm.intent(AlbumDetailAction.ToggleJumperDialog) },
+            onPickCoverFromStorage = { coverPickerLauncher.launch(arrayOf("image/*")) },
+            onUseSongCover = { vm.intent(AlbumDetailAction.SetCoverSong(it)) },
+            onClearCover = { vm.intent(AlbumDetailAction.ClearCover) },
         )
     }
 }

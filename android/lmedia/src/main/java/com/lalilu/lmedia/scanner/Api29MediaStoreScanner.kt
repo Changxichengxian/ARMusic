@@ -9,9 +9,11 @@ import androidx.annotation.RequiresApi
 import androidx.core.database.getIntOrNull
 import com.lalilu.lmedia.extension.unpackDiscNo
 import com.lalilu.lmedia.extension.unpackTrackNo
+import com.lalilu.lmedia.repository.LMediaSp
 
 @RequiresApi(Build.VERSION_CODES.Q)
-class Api29MediaStoreScanner(context: Context) : Api21MediaStoreScanner(context) {
+class Api29MediaStoreScanner(context: Context, lMediaSp: LMediaSp) :
+    Api21MediaStoreScanner(context, lMediaSp) {
     private var trackIndex = -1
 
     override val projection: Array<String>

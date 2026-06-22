@@ -9,11 +9,13 @@ import androidx.annotation.RequiresApi
 import androidx.core.database.getIntOrNull
 import com.lalilu.lmedia.extension.unpackDiscNo
 import com.lalilu.lmedia.extension.unpackTrackNo
+import com.lalilu.lmedia.repository.LMediaSp
 import java.io.File
 
 @SuppressLint("ObsoleteSdkInt", "SupportAnnotationUsage")
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
-open class Api21MediaStoreScanner(context: Context) : MediaStoreScanner(context) {
+open class Api21MediaStoreScanner(context: Context, lMediaSp: LMediaSp) :
+    MediaStoreScanner(context, lMediaSp) {
     private var trackIndex = -1
     private var dataIndex = -1
 

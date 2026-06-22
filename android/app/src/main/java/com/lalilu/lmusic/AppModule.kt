@@ -12,14 +12,29 @@ import coil3.request.transitionFactory
 import com.funny.data_saver.core.DataSaverInterface
 import com.funny.data_saver.core.DataSaverPreferences
 import com.lalilu.R
+import com.lalilu.lhistory.HistoryStatIdResolver
+import com.lalilu.lmusic.Config.ITUNES_BASEURL
 import com.lalilu.lmusic.Config.LRCSHARE_BASEURL
+import com.lalilu.lmusic.Config.LRCLIB_BASEURL
+import com.lalilu.lmusic.Config.NETEASE_BASEURL
+import com.lalilu.lmusic.api.itunes.ItunesSearchApi
 import com.lalilu.lmusic.api.lrcshare.LrcShareApi
+import com.lalilu.lmusic.api.lrclib.LrclibApi
+import com.lalilu.lmusic.api.netease.NeteaseMusicApi
+import com.lalilu.lmusic.api.tag.OnlineTagSearchService
 import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.datastore.TempSp
+import com.lalilu.lmusic.migration.ARMusicMemoSeedImporter
+import com.lalilu.lmusic.migration.ARMusicPlayCountSeedImporter
+import com.lalilu.lmusic.migration.ARMusicWorkMappingManager
+import com.lalilu.lmusic.migration.LMusicMigrationManager
 import com.lalilu.lmusic.sync.ARMusicAndroidManifestBuilder
+import com.lalilu.lmusic.sync.ARMusicLanDiscoveryClient
 import com.lalilu.lmusic.sync.ARMusicLanSyncClient
 import com.lalilu.lmusic.sync.ARMusicTrackDownloader
 import com.lalilu.lmusic.sync.ARMusicTrackUploader
+import com.lalilu.lmusic.tag.ARMusicHistoryStatIdResolver
+import com.lalilu.lmusic.tag.SongGroupStore
 import com.lalilu.lmusic.utils.EQHelper
 import com.lalilu.lmusic.utils.coil.CrossfadeTransitionFactory
 import com.lalilu.lmusic.utils.coil.fetcher.LAlbumFetcher
@@ -87,6 +102,12 @@ val AppModule = module {
     single<ViewModelStoreOwner> { androidApplication() as ViewModelStoreOwner }
     single { SettingsSp(androidApplication()) }
     single { TempSp(androidApplication()) }
+    single { SongGroupStore(androidApplication(), get()) }
+    single<HistoryStatIdResolver> { ARMusicHistoryStatIdResolver(get()) }
+    single { LMusicMigrationManager(androidApplication(), get()) }
+    single { ARMusicWorkMappingManager(androidApplication(), get()) }
+    single(createdAtStart = true) { ARMusicMemoSeedImporter(androidApplication(), get()) }
+    single(createdAtStart = true) { ARMusicPlayCountSeedImporter(androidApplication(), get(), get()) }
     single { EQHelper(androidApplication()) }
     single {
         StatusBarLyric(
@@ -106,10 +127,12 @@ val ViewModelModule = module {
 val ApiModule = module {
     single { GsonConverterFactory.create() }
     single { OkHttpClient.Builder().build() }
+    single { ARMusicLanDiscoveryClient(get()) }
     single { ARMusicLanSyncClient(get(), get()) }
     single { ARMusicAndroidManifestBuilder(androidApplication()) }
     single { ARMusicTrackDownloader(androidApplication(), get()) }
     single { ARMusicTrackUploader(androidApplication(), get(), get()) }
+    single { OnlineTagSearchService(get(), get(), get(), get()) }
     single {
         Retrofit.Builder()
             .client(get())
@@ -117,5 +140,29 @@ val ApiModule = module {
             .baseUrl(LRCSHARE_BASEURL)
             .build()
             .create(LrcShareApi::class.java)
+    }
+    single {
+        Retrofit.Builder()
+            .client(get())
+            .addConverterFactory(get<GsonConverterFactory>())
+            .baseUrl(ITUNES_BASEURL)
+            .build()
+            .create(ItunesSearchApi::class.java)
+    }
+    single {
+        Retrofit.Builder()
+            .client(get())
+            .addConverterFactory(get<GsonConverterFactory>())
+            .baseUrl(LRCLIB_BASEURL)
+            .build()
+            .create(LrclibApi::class.java)
+    }
+    single {
+        Retrofit.Builder()
+            .client(get())
+            .addConverterFactory(get<GsonConverterFactory>())
+            .baseUrl(NETEASE_BASEURL)
+            .build()
+            .create(NeteaseMusicApi::class.java)
     }
 }

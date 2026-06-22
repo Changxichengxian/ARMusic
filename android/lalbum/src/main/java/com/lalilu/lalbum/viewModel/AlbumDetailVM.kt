@@ -19,9 +19,11 @@ import com.lalilu.lmedia.extension.GroupIdentity
 import com.lalilu.lmedia.extension.ListAction
 import com.lalilu.lmedia.extension.SortDynamicAction
 import com.lalilu.lmedia.extension.SortStaticAction
+import com.lalilu.lmedia.repository.SongWorkStore
 import com.lalilu.lplayer.MPlayer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -49,13 +51,18 @@ data class AlbumDetailState(
     val distinctKey: Int =
         albumId.hashCode() + searchKeyWord.hashCode() + selectedSortAction.hashCode()
 
-    fun getAlbumFlow(): Flow<LAlbum?> {
-        return LMedia.getFlow<LAlbum>(albumId)
+    fun getAlbumFlow(songWorkStore: SongWorkStore): Flow<LAlbum?> {
+        return combine(
+            LMedia.getFlow<LSong>(),
+            songWorkStore.changes,
+        ) { songs, _ ->
+            songWorkStore.findWork(songs, albumId)
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun getSongsFlow(): Flow<Map<GroupIdentity, List<LSong>>> {
-        val source = LMedia.getFlow<LAlbum>(albumId)
+    fun getSongsFlow(songWorkStore: SongWorkStore): Flow<Map<GroupIdentity, List<LSong>>> {
+        val source = getAlbumFlow(songWorkStore)
             .map { it?.songs ?: emptyList() }
 
         val keywords: List<String> = when {
@@ -96,12 +103,16 @@ sealed interface AlbumDetailAction {
     data class LocaleToGroupItem(val item: GroupIdentity) : AlbumDetailAction
     data class SearchFor(val keyword: String) : AlbumDetailAction
     data class SelectSortAction(val action: ListAction) : AlbumDetailAction
+    data class SetCoverUri(val uri: String) : AlbumDetailAction
+    data class SetCoverSong(val song: LSong) : AlbumDetailAction
+    data object ClearCover : AlbumDetailAction
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @KoinViewModel
 class AlbumDetailVM(
     private val albumId: String,
+    private val songWorkStore: SongWorkStore,
 ) : ViewModel(),
     MviWithIntent<AlbumDetailState, AlbumDetailEvent, AlbumDetailAction> by
     mviImplWithIntent(AlbumDetailState(albumId)) {
@@ -110,10 +121,10 @@ class AlbumDetailVM(
 
     val songs = stateFlow()
         .distinctUntilChangedBy { it.distinctKey }
-        .flatMapLatest { it.getSongsFlow() }
+        .flatMapLatest { it.getSongsFlow(songWorkStore) }
         .toState(emptyMap(), viewModelScope)
     val album = stateFlow()
-        .flatMapLatest { it.getAlbumFlow() }
+        .flatMapLatest { it.getAlbumFlow(songWorkStore) }
         .toState(viewModelScope)
     val state = stateFlow()
         .toState(AlbumDetailState(albumId), viewModelScope)
@@ -127,6 +138,7 @@ class AlbumDetailVM(
             SortStaticAction.Duration,
             requestFor(named("sort_rule_play_count")),
             requestFor(named("sort_rule_last_play_time")),
+            requestFor(named("sort_rule_play_duration")),
         ).filterNotNull()
             .toSet()
 
@@ -140,6 +152,18 @@ class AlbumDetailVM(
             AlbumDetailAction.HideJumperDialog -> reduce { it.copy(showJumperDialog = false) }
             is AlbumDetailAction.SearchFor -> reduce { it.copy(searchKeyWord = intent.keyword) }
             is AlbumDetailAction.SelectSortAction -> reduce { it.copy(selectedSortAction = intent.action) }
+            is AlbumDetailAction.SetCoverUri -> {
+                album.value?.name?.let { songWorkStore.setWorkCoverUri(it, intent.uri) }
+            }
+
+            is AlbumDetailAction.SetCoverSong -> {
+                album.value?.name?.let { songWorkStore.setWorkCoverSong(it, intent.song) }
+            }
+
+            AlbumDetailAction.ClearCover -> {
+                album.value?.name?.let { songWorkStore.clearWorkCover(it) }
+            }
+
             is AlbumDetailAction.LocaleToGroupItem -> postEvent {
                 AlbumDetailEvent.ScrollToItem(
                     intent.item
@@ -160,4 +184,3 @@ class AlbumDetailVM(
         }
     }
 }
-

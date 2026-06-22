@@ -16,6 +16,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -33,16 +36,19 @@ import com.lalilu.component.extension.clipFade
 import com.lalilu.lmedia.entity.FileInfo
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.entity.Metadata
+import com.lalilu.lmedia.repository.SongWorkStore
 import com.lalilu.lmusic.compose.new_screen.detail.SongActionsCard
 import com.lalilu.lmusic.compose.new_screen.detail.SongAlbumInfoCard
 import com.lalilu.lmusic.compose.new_screen.detail.SongArtistsRow
 import com.lalilu.lmusic.compose.new_screen.detail.SongInformationCard
+import org.koin.compose.koinInject
 
 
 @Composable
 fun SongDetailContent(
     modifier: Modifier = Modifier,
     song: () -> LSong? = { lSong },
+    songWorkStore: SongWorkStore = koinInject(),
 ) {
     val bottomPadding = LocalSmartBarPadding.current.value
     val navigationBar = WindowInsets.navigationBars.asPaddingValues()
@@ -106,8 +112,12 @@ fun SongDetailContent(
         }
 
         song()?.let { song ->
-            item(key = "ALBUM") {
-                song.album?.let {
+            item(key = "WORK") {
+                val workVersion by songWorkStore.changes.collectAsState()
+                val work = remember(song.id, workVersion) {
+                    songWorkStore.workForSong(song)
+                }
+                work.let {
                     SongAlbumInfoCard(
                         modifier = Modifier
                             .fillMaxWidth()

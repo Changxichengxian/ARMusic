@@ -2,6 +2,7 @@ package com.lalilu.lmusic.compose.new_screen
 
 import StatusBarLyric.API.StatusBarLyric
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.media.MediaScannerConnection
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -47,12 +49,15 @@ import com.lalilu.component.settings.SettingSwitcher
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
 import com.lalilu.crash.CrashHelper
+import com.lalilu.lmedia.repository.LMediaSp
 import com.lalilu.lmedia.scanner.FileSystemScanner
+import com.lalilu.lmedia.scanner.PathExclusionMatcher
 import com.lalilu.lmusic.GuidingActivity
 import com.lalilu.lmusic.datastore.SettingsSp
+import com.lalilu.lmusic.migration.ARMusicWorkMappingManager
+import com.lalilu.lmusic.migration.LMusicMigrationManager
 import com.lalilu.lmusic.utils.EQHelper
 import com.lalilu.lmusic.utils.extension.getActivity
-import com.lalilu.lplayer.MPlayerKV
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.system.settings4Line
 import com.zhangke.krouter.annotation.Destination
@@ -84,11 +89,15 @@ object SettingsScreen : Screen, ScreenInfoFactory {
 private fun SettingsScreen(
     eqHelper: EQHelper = koinInject(),
     settingsSp: SettingsSp = koinInject(),
+    migrationManager: LMusicMigrationManager = koinInject(),
+    workMappingManager: ARMusicWorkMappingManager = koinInject(),
     statusBarLyricExt: StatusBarLyric = koinInject(),
-    fileSystemScanner: FileSystemScanner = koinInject()
+    fileSystemScanner: FileSystemScanner = koinInject(),
+    lMediaSp: LMediaSp = koinInject()
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val isMigrationBusy = remember { mutableStateOf(false) }
     val darkModeOption = settingsSp.darkModeOption
     val ignoreAudioFocus = settingsSp.ignoreAudioFocus
     val enableUnknownFilter = settingsSp.enableUnknownFilter
@@ -104,10 +113,77 @@ private fun SettingsScreen(
     val forceHideStatusBar = settingsSp.forceHideStatusBar
     val keepScreenOnWhenLyricExpanded = settingsSp.keepScreenOnWhenLyricExpanded
     val durationFilter = settingsSp.durationFilter
+    val excludedFolders = lMediaSp.excludePath
 
     val launcherForAudioFx = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
+    }
+    val launcherForBackup = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        if (isMigrationBusy.value) return@rememberLauncherForActivityResult
+        scope.launch {
+            isMigrationBusy.value = true
+            val result = migrationManager.exportToUri(uri)
+            ToastUtils.showLong(result.message)
+            isMigrationBusy.value = false
+        }
+    }
+    val launcherForRestore = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        if (isMigrationBusy.value) return@rememberLauncherForActivityResult
+        scope.launch {
+            isMigrationBusy.value = true
+            val result = migrationManager.importFromUri(uri)
+            ToastUtils.showLong(result.message)
+            if (result.isSuccess) {
+                fileSystemScanner.updateAsync()
+            }
+            isMigrationBusy.value = false
+        }
+    }
+    val launcherForWorkMappingExport = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/tab-separated-values")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        if (isMigrationBusy.value) return@rememberLauncherForActivityResult
+        scope.launch {
+            isMigrationBusy.value = true
+            val result = workMappingManager.exportToUri(uri)
+            ToastUtils.showLong(result.message)
+            isMigrationBusy.value = false
+        }
+    }
+    val launcherForWorkMappingImport = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        if (isMigrationBusy.value) return@rememberLauncherForActivityResult
+        scope.launch {
+            isMigrationBusy.value = true
+            val result = workMappingManager.importFromUri(uri)
+            ToastUtils.showLong(result.message)
+            fileSystemScanner.updateAsync()
+            isMigrationBusy.value = false
+        }
+    }
+    val launcherForExcludedFolder = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+        excludedFolders.add(uri.toString())
+        fileSystemScanner.updateAsync()
+        ToastUtils.showLong("已屏蔽：${PathExclusionMatcher.displayPath(uri.toString())}")
     }
 
     LazyColumn(
@@ -189,12 +265,6 @@ private fun SettingsScreen(
                     subTitle = "小心烧屏",
                     state = keepScreenOnWhenLyricExpanded,
                 )
-                SettingSwitcher(
-                    title = "蓝牙歌词",
-                    subTitle = "兼容模式，会把当前歌词行临时作为媒体标题发给蓝牙设备",
-                    state = { MPlayerKV.enableBluetoothLyricMetadata.value == true },
-                    onStateUpdate = { MPlayerKV.enableBluetoothLyricMetadata.value = it },
-                )
                 SettingFilePicker(
                     state = lyricTypefacePath,
                     title = "自定义字体",
@@ -233,6 +303,49 @@ private fun SettingsScreen(
                             AppRouter.intent(NavIntent.Push(ARMusicLanSyncScreen))
                         }
                     )
+                    IconTextButton(
+                        text = if (isMigrationBusy.value) "迁移中" else "从 LMusic 迁移",
+                        iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
+                        showIcon = { true },
+                        color = Color(0xFF6D5B00),
+                        onClick = {
+                            if (isMigrationBusy.value) return@IconTextButton
+                            scope.launch {
+                                isMigrationBusy.value = true
+                                val result = migrationManager.migrateFromInstalledLmusic()
+                                ToastUtils.showLong(result.message)
+                                fileSystemScanner.updateAsync()
+                                isMigrationBusy.value = false
+                            }
+                        }
+                    )
+                    IconTextButton(
+                        text = "导入备份",
+                        iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
+                        showIcon = { true },
+                        color = Color(0xFF006E7C),
+                        onClick = {
+                            launcherForRestore.launch(arrayOf("application/json", "text/*", "*/*"))
+                        }
+                    )
+                    IconTextButton(
+                        text = "导出作品映射",
+                        iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
+                        showIcon = { true },
+                        color = Color(0xFF3EA22C),
+                        onClick = {
+                            launcherForWorkMappingExport.launch("armusic_work_mapping.tsv")
+                        }
+                    )
+                    IconTextButton(
+                        text = "导入作品映射",
+                        iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
+                        showIcon = { true },
+                        color = Color(0xFF6D5B00),
+                        onClick = {
+                            launcherForWorkMappingImport.launch(arrayOf("text/*", "application/octet-stream", "*/*"))
+                        }
+                    )
                 }
             }
         }
@@ -252,6 +365,54 @@ private fun SettingsScreen(
                     titleRes = R.string.preference_media_source_settings_unknown_filter,
                     subTitleRes = R.string.preference_media_source_tips
                 )
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    mainAxisSpacing = 10.dp
+                ) {
+                    IconTextButton(
+                        text = "添加屏蔽文件夹",
+                        color = Color(0xFF006E7C),
+                        onClick = {
+                            launcherForExcludedFolder.launch(null)
+                        }
+                    )
+                    if (excludedFolders.value.isNotEmpty()) {
+                        IconTextButton(
+                            text = "清空屏蔽",
+                            color = Color(0xFFC13D1A),
+                            onClick = {
+                                excludedFolders.value = emptyList()
+                                fileSystemScanner.updateAsync()
+                                ToastUtils.showShort("已清空屏蔽文件夹")
+                            }
+                        )
+                    }
+                }
+                excludedFolders.value.forEach { path ->
+                    SettingSwitcher(
+                        enableContentClickable = false,
+                        contentStart = {
+                            androidx.compose.material.Text(
+                                text = PathExclusionMatcher.displayPath(path)
+                            )
+                            androidx.compose.material.Text(
+                                text = "已屏蔽，重新扫描后不会出现在曲库里",
+                                color = Color.Gray
+                            )
+                        },
+                        contentEnd = {
+                            IconTextButton(
+                                text = "移除",
+                                color = Color(0xFFC13D1A),
+                                onClick = {
+                                    excludedFolders.remove(path)
+                                    fileSystemScanner.updateAsync()
+                                    ToastUtils.showShort("已移除屏蔽文件夹")
+                                }
+                            )
+                        }
+                    )
+                }
             }
         }
 
@@ -329,18 +490,14 @@ private fun SettingsScreen(
                         text = "备份数据",
                         color = Color(0xFFFF8B3F),
                         onClick = {
-                            ToastUtils.showShort("重做中...")
-//                            val json = settingsSp.backup()
-//                            clipboardManager.setText(AnnotatedString(json))
+                            launcherForBackup.launch("armusic_backup.json")
                         }
                     )
                     IconTextButton(
                         text = "恢复数据",
                         color = Color(0xFFFF8B3F),
                         onClick = {
-                            ToastUtils.showShort("重做中...")
-//                            val json = clipboardManager.getText()?.text
-//                            json?.let { settingsSp.restore(it) }
+                            launcherForRestore.launch(arrayOf("application/json", "text/*", "*/*"))
                         }
                     )
 

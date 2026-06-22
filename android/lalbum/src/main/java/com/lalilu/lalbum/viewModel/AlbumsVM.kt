@@ -10,12 +10,15 @@ import com.lalilu.common.mviImplWithIntent
 import com.lalilu.component.extension.toState
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LAlbum
+import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.GroupIdentity
 import com.lalilu.lmedia.extension.ListAction
 import com.lalilu.lmedia.extension.SortDynamicAction
 import com.lalilu.lmedia.extension.SortStaticAction
+import com.lalilu.lmedia.repository.SongWorkStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -42,8 +45,16 @@ data class AlbumsState(
         albumIds.hashCode() + searchKeyWord.hashCode() + selectedSortAction.hashCode()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun getAlbumsFlow(): Flow<Map<GroupIdentity, List<LAlbum>>> {
-        val source = LMedia.getFlow<LAlbum>()
+    fun getAlbumsFlow(songWorkStore: SongWorkStore): Flow<Map<GroupIdentity, List<LAlbum>>> {
+        val source = combine(
+            LMedia.getFlow<LSong>(),
+            songWorkStore.changes,
+        ) { songs, _ ->
+            songWorkStore.buildWorks(songs)
+                .let { works ->
+                    if (albumIds.isEmpty()) works else works.filter { it.id in albumIds }
+                }
+        }
 
         val keywords: List<String> = when {
             searchKeyWord.isBlank() -> emptyList()
@@ -86,14 +97,15 @@ sealed interface AlbumsAction {
 
 @KoinViewModel
 class AlbumsVM(
-    val albumIds: List<String>
+    val albumIds: List<String>,
+    private val songWorkStore: SongWorkStore,
 ) : ViewModel(),
     MviWithIntent<AlbumsState, AlbumsEvent, AlbumsAction> by mviImplWithIntent(AlbumsState(albumIds)) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val albums = stateFlow()
         .distinctUntilChangedBy { it.distinctKey }
-        .flatMapLatest { it.getAlbumsFlow() }
+        .flatMapLatest { it.getAlbumsFlow(songWorkStore) }
         .toState(emptyMap(), viewModelScope)
     val state = stateFlow()
         .toState(AlbumsState(), viewModelScope)
@@ -106,6 +118,7 @@ class AlbumsVM(
             SortStaticAction.Duration,
             requestFor(named("sort_rule_play_count")),
             requestFor(named("sort_rule_last_play_time")),
+            requestFor(named("sort_rule_play_duration")),
         ).filterNotNull()
             .toSet()
 

@@ -9,9 +9,11 @@ import androidx.annotation.RequiresApi
 import androidx.core.database.getIntOrNull
 import androidx.core.database.getStringOrNull
 import com.lalilu.lmedia.extension.parsePositionNum
+import com.lalilu.lmedia.repository.LMediaSp
 
 @RequiresApi(Build.VERSION_CODES.R)
-class Api30MediaStoreScanner(context: Context) : Api21MediaStoreScanner(context) {
+class Api30MediaStoreScanner(context: Context, lMediaSp: LMediaSp) :
+    Api21MediaStoreScanner(context, lMediaSp) {
     private var trackIndex = -1
     private var discIndex = -1
     private var bitrateIndex = -1

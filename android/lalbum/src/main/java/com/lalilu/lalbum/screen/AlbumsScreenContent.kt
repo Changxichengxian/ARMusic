@@ -75,7 +75,7 @@ internal fun AlbumsScreenContent(
                 ) {
                     NavigatorHeader(
                         title = title(),
-                        subTitle = "共 ${albums().size} 张专辑"
+                        subTitle = "共 ${albums().size} 个作品"
                     )
                 }
             }

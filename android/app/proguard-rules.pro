@@ -24,6 +24,7 @@
 -keep class com.google.gson.reflect.TypeToken
 -keep class * extends com.google.gson.reflect.TypeToken
 -keep public class * implements java.lang.reflect.Type
+-keep class com.lalilu.lmusic.api.** { *; }
 
 # AndroidAop必备混淆规则
 #-keep class * { @androidx.annotation.Keep <fields>; }

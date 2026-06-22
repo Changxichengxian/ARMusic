@@ -8,8 +8,8 @@ interface LrcShareApi {
     @GET("/musicTag/get-tag")
     suspend fun searchForSong(
         @Query("song") song: String,
-        @Query("song") artist: String? = null,
-        @Query("song") album: String? = null
+        @Query("artist") artist: String? = null,
+        @Query("album") album: String? = null
     ): List<SongResult>
 
     @GET("/musicTag/get-lyric")

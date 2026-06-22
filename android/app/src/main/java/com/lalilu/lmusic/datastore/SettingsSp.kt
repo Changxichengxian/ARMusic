@@ -66,6 +66,42 @@ class SettingsSp(private val context: Application) : BaseSp() {
         Config.KEY_SETTINGS_KEEP_SCREEN_ON_WHEN_LYRIC_EXPANDED,
         Config.DEFAULT_SETTINGS_KEEP_SCREEN_ON_WHEN_LYRIC_EXPANDED
     )
+    val wishlistText = obtain<String>(
+        Config.KEY_SETTINGS_WISHLIST_TEXT,
+        Config.DEFAULT_SETTINGS_WISHLIST_TEXT
+    )
+    val wishlistAnimeText = obtain<String>(
+        Config.KEY_SETTINGS_WISHLIST_ANIME_TEXT,
+        Config.DEFAULT_SETTINGS_WISHLIST_ANIME_TEXT
+    )
+    val wishlistMangaText = obtain<String>(
+        Config.KEY_SETTINGS_WISHLIST_MANGA_TEXT,
+        Config.DEFAULT_SETTINGS_WISHLIST_MANGA_TEXT
+    )
+    val wishlistNovelText = obtain<String>(
+        Config.KEY_SETTINGS_WISHLIST_NOVEL_TEXT,
+        Config.DEFAULT_SETTINGS_WISHLIST_NOVEL_TEXT
+    )
+    val wishlistItems = obtainList<String>(
+        Config.KEY_SETTINGS_WISHLIST_ITEMS
+    )
+    val wishlistAnimeItems = obtainList<String>(
+        Config.KEY_SETTINGS_WISHLIST_ANIME_ITEMS
+    )
+    val wishlistMangaItems = obtainList<String>(
+        Config.KEY_SETTINGS_WISHLIST_MANGA_ITEMS
+    )
+    val wishlistNovelItems = obtainList<String>(
+        Config.KEY_SETTINGS_WISHLIST_NOVEL_ITEMS
+    )
+    val wishlistItemsMigrated = obtain<Boolean>(
+        Config.KEY_SETTINGS_WISHLIST_ITEMS_MIGRATED,
+        Config.DEFAULT_SETTINGS_WISHLIST_ITEMS_MIGRATED
+    )
+    val memoSeed20260622Imported = obtain<Boolean>(
+        Config.KEY_SETTINGS_MEMO_SEED_20260622_IMPORTED,
+        Config.DEFAULT_SETTINGS_MEMO_SEED_20260622_IMPORTED
+    )
     val durationFilter = obtain<Int>(
         Config.KEY_SETTINGS_DURATION_FILTER,
         Config.DEFAULT_SETTINGS_DURATION_FILTER

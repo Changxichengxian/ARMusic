@@ -7,5 +7,4 @@ object MPlayerKV : BaseKV(prefix = "mplayer") {
     val handleAudioFocus = obtain<Boolean>("handleAudioFocus")
     val handleBecomeNoisy = obtain<Boolean>("handleBecomeNoisy")
     val playMode = obtain<String>("play_mode")
-    val enableBluetoothLyricMetadata = obtain<Boolean>("enable_bluetooth_lyric_metadata")
 }

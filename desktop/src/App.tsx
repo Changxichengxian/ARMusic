@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "./components/Icon";
 import { localTracks, peers, remoteTracks } from "./data/sampleLibrary";
+import { createDesktopBridge } from "./desktopBridge";
 import { buildSyncPlan, createManifest, formatBytes, formatDuration } from "./lib/sync";
 import type { SyncServerStatus, Track } from "./types";
 
@@ -10,7 +11,7 @@ type SyncState = "idle" | "checking" | "ready";
 
 function App() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const bridge = window.armusic;
+  const bridge = useMemo(() => createDesktopBridge(), []);
   const [tracks, setTracks] = useState<Track[]>(localTracks);
   const [selectedTrack, setSelectedTrack] = useState<Track>(localTracks[0]);
   const [libraryFolder, setLibraryFolder] = useState<string>("");
@@ -70,7 +71,7 @@ function App() {
   async function chooseMusicFolder() {
     if (!bridge) {
       setScanState("error");
-      setScanMessage("当前是网页预览。运行 Electron 版后才能扫描本地音乐文件夹。");
+      setScanMessage("当前是网页预览。运行 Tauri 版后才能扫描本地音乐文件夹。");
       return;
     }
 

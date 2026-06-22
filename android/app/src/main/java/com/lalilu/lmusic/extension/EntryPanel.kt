@@ -29,6 +29,7 @@ import com.lalilu.component.divider
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
 import com.lalilu.component.rememberGridItemPadding
+import com.lalilu.lmusic.compose.new_screen.WishlistScreen
 import com.zhangke.krouter.KRouter
 
 
@@ -43,6 +44,7 @@ object EntryPanel : LazyGridContent {
                 KRouter.route("/pages/albums"),
                 KRouter.route("/pages/playlist"),
                 KRouter.route("/pages/history"),
+                WishlistScreen,
                 KRouter.route("/pages/folders"),
                 KRouter.route("/pages/settings")
             )

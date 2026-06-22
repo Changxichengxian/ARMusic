@@ -11,8 +11,6 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,7 +19,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -29,11 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.blankj.utilcode.util.ConvertUtils
 import com.blankj.utilcode.util.ToastUtils
-import com.lalilu.fpcalc.Fpcalc
-import com.lalilu.fpcalc.FpcalcParams
 import com.lalilu.lmedia.entity.LSong
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 
@@ -92,29 +85,6 @@ fun SongInformationCard(
                 )
             }
 
-            if (song.metadata.disc.isNotBlank() || song.metadata.track.isNotBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    song.metadata.disc.takeIf(String::isNotBlank)?.let { disc ->
-                        ColumnItem(
-                            modifier = Modifier.weight(1f),
-                            title = "光盘号",
-                            content = disc,
-                        )
-                    }
-                    song.metadata.track.takeIf(String::isNotBlank)?.let { track ->
-                        ColumnItem(
-                            modifier = Modifier.weight(1f),
-                            title = "音轨号",
-                            content = track,
-                        )
-                    }
-                }
-            }
-
             song.fileInfo.pathStr?.takeIf { it.isNotBlank() }?.let { path ->
                 ColumnItem(
                     title = "文件位置",
@@ -123,32 +93,6 @@ fun SongInformationCard(
                 )
             }
 
-            val chromaResult = remember { mutableStateOf<String?>("") }
-            val context = LocalContext.current
-
-            LaunchedEffect(Unit) {
-                withContext(Dispatchers.IO) {
-                    val fileDescriptor = context.contentResolver
-                        .openFileDescriptor(song.uri, "r")
-
-                    fileDescriptor?.use {
-                        val result = Fpcalc.calc(
-                            FpcalcParams(
-                                targetFd = it.fd,
-                                targetFilePath = ""
-                            )
-                        )
-                        chromaResult.value = result.fingerprint
-                    }
-                }
-            }
-
-            ColumnItem(
-                title = "音频指纹",
-                content = "{${chromaResult.value}}",
-                verticalAlignment = Alignment.Top,
-                showBorder = false
-            )
         }
     }
 }

@@ -4,6 +4,7 @@
     <string name="app_name_debug">ARMusic_Debug</string>
     <string name="app_name_beta">ARMusic_Beta</string>
     <string name="app_name_alpha">ARMusic_Alpha</string>
+    <string name="app_name_preview">ARMusic</string>
     <string name="app_name_release">ARMusic</string>
 
     <string name="screen_title_agreement">用户协议 | 隐私协议</string>

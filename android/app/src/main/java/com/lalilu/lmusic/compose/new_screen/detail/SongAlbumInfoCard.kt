@@ -78,7 +78,7 @@ fun SongAlbumInfoCard(
                         .error(R.drawable.ic_music_2_line_100dp)
                         .build(),
                     contentScale = ContentScale.Crop,
-                    contentDescription = "Recommend Card Cover Image"
+                    contentDescription = "Work Cover Image"
                 )
                 Column(
                     modifier = Modifier.fillMaxWidth()
@@ -141,7 +141,7 @@ fun GridAnimation(
                         .error(R.drawable.ic_music_2_line_100dp)
                         .build(),
                     contentScale = ContentScale.Crop,
-                    contentDescription = "Recommend Card Cover Image"
+                    contentDescription = "Work Cover Image"
                 )
             }
         }

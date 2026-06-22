@@ -124,6 +124,7 @@ class ArtistDetailVM(
             SortStaticAction.Duration,
             requestFor(named("sort_rule_play_count")),
             requestFor(named("sort_rule_last_play_time")),
+            requestFor(named("sort_rule_play_duration")),
         ).filterNotNull()
             .toSet()
 
@@ -157,4 +158,3 @@ class ArtistDetailVM(
         }
     }
 }
-

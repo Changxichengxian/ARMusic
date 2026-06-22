@@ -40,8 +40,11 @@ import com.lalilu.component.extension.rememberLazyListAnimateScroller
 import com.lalilu.component.extension.startRecord
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.state
+import com.lalilu.lhistory.historySortMetricText
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.GroupIdentity
+import com.lalilu.lmedia.extension.ListAction
+import com.lalilu.lmedia.extension.SortStaticAction
 import com.lalilu.lplayer.action.MediaControl
 import com.lalilu.lplaylist.entity.LPlaylist
 import com.lalilu.lplaylist.viewmodel.PlaylistDetailEvent
@@ -63,6 +66,7 @@ internal fun PlaylistDetailScreenContent(
     recorder: ItemRecorder = ItemRecorder(),
     isSelecting: () -> Boolean = { false },
     isSelected: (LSong) -> Boolean = { false },
+    selectedSortAction: ListAction = SortStaticAction.Normal,
     onSelect: (LSong) -> Unit = {},
     onClickGroup: (GroupIdentity) -> Unit = {},
     onUpdatePlaylist: (List<String>) -> Unit = {}
@@ -203,6 +207,7 @@ internal fun PlaylistDetailScreenContent(
                             song = { item },
                             isSelected = { isSelected(item) },
                             isFavour = { favouriteIds.value.contains(item.id) },
+                            sortMetricText = { historySortMetricText(item, selectedSortAction) },
                             onClick = {
                                 if (isSelecting()) {
                                     onSelect(item)
@@ -253,6 +258,7 @@ internal fun PlaylistDetailScreenContent(
                             song = { item },
                             isSelected = { isSelected(item) },
                             isFavour = { favouriteIds.value.contains(item.id) },
+                            sortMetricText = { historySortMetricText(item, selectedSortAction) },
                             onClick = {
                                 if (isSelecting()) {
                                     onSelect(item)

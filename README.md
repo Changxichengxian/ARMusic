@@ -1,32 +1,39 @@
 # ARMusic
 
-ARMusic 是一个基于 LMusic 改造的音乐播放器项目，目标是同时做好 Android 版和桌面版，并让两边通过局域网同步音乐库、歌词、封面和播放数据。
+ARMusic 是基于 LMusic 1.5.4 改造出来的音乐播放器项目。`1.0.0` 是 ARMusic 的第一个发布版本，保留 LMusic 原本好用的播放体验，同时开始加入桌面端、局域网同步、内置标签编辑、作品整理和播放统计这些 ARMusic 自己的功能。
 
-现在先走局域网同步，不做 USB 优先方案。这样日常用起来少一步插线，也更适合桌面端和 Android 端在同一个网络里自动发现。
+这个仓库里现在同时放 Android 端和桌面端。Android 端的包名是 `com.lalilu.lmusic.armusic`，不会覆盖你手机上原来的 LMusic；桌面端已经从 Electron 改成 Tauri。
 
-## 当前目录
+## 1.0.0 主要内容
+
+- Android 端不覆盖原 LMusic，方便继续把 LMusic 当保底使用。
+- 内置音乐标签编辑，不再依赖外部“音乐标签”应用。
+- 标签编辑里支持联网搜索歌曲信息、歌词和封面，并先预览，保存后才真正写入音乐文件。
+- 把“专辑”使用习惯改成“作品”，更适合动漫歌、游戏歌和同一作品多首歌的整理方式。
+- 支持同曲分组，同一首歌的不同版本可以合并统计播放次数和播放时长。
+- 播放统计增加播放次数、播放时长排序，并把历史导入数据和新统计相加。
+- 搜索支持歌曲、作品、艺术家和歌词。
+- 支持屏蔽指定文件夹，减少电话录音这类文件混进音乐库。
+- 设置里加入局域网同步入口，桌面端和 Android 端可以在同一网络内交换新增歌曲。
+- 桌面端使用 Tauri，负责本地音乐库扫描、基础播放和局域网同步服务。
+- 加入准备听、动漫、漫画、小说四类备忘，方便记录之后要补的内容。
+
+## 目录
 
 ```text
 ARMusic/
-  android/                 # 基于 LMusic 的 Android 工程
-  desktop/                 # 桌面版播放器骨架，当前是 React + Vite
-  docs/                    # 同步协议、路线图和安卓改造说明
-  tools/legacy-apk-packager # 旧的 APK 打包工具，先归档保留
+  android/                 # 基于 LMusic 1.5.4 改造的 Android 工程
+  desktop/                 # Tauri 桌面端
+  docs/                    # 同步协议、路线图、发布说明
+  scripts/                 # Android 和桌面端构建脚本
+  tools/legacy-apk-packager # 旧的 APK 打包工具，归档保留
 ```
 
-`阿婆的音乐/` 是本地测试素材，已加入忽略列表，不进 Git。
-
-## 第一阶段目标
-
-1. 桌面版能打开音乐库、播放本地歌曲，并维护自己的歌曲清单。
-2. Android 版保留 LMusic 的播放器体验，补上内置标签编辑和局域网同步入口。
-3. 两边在同一局域网内互相发现，先同步“新增歌曲”，不自动删除文件。
-4. 每首歌生成稳定的 `syncId`，避免只靠文件名判断同一首歌。
-5. 播放历史先沿用现有统计，后续再把推荐做明显。
+`阿婆的音乐/` 是本地测试素材，已经加入忽略列表，不进 Git。
 
 ## 开发入口
 
-桌面版：
+桌面端开发：
 
 ```powershell
 cd desktop
@@ -34,37 +41,42 @@ npm install
 npm run app:dev
 ```
 
-只看网页界面时可以用 `npm run dev`。
-
-Android 版：
+只看网页界面时可以用：
 
 ```powershell
-.\scripts\android-debug-build.ps1
+npm run desktop:web
 ```
 
-这个脚本会先写好 `android/local.properties`，有本机 JDK 21 时自动切过去，再临时把项目映射到纯英文盘符编译。`lmedia` 里有 native 编译，直接在中文路径下跑 Ninja 容易失败。
-
-如果已经在纯英文路径下，也可以手动运行：
+Android 端构建：
 
 ```powershell
-cd android
-.\gradlew.bat assembleDebug
+.\scripts\android-armusic-build.ps1
 ```
 
-## 当前状态
+这个脚本会写好 `android/local.properties`，有本机 JDK 21 时自动使用它，并临时把项目映射到纯英文盘符编译，避开中文路径导致的 native 编译问题。输出在：
 
-- Android 工程已整理到 `android/`。
-- `lmedia` 已补到和当前 LMusic 更匹配的版本，用来恢复媒体扫描、标签读取和歌词写入能力。
-- Android Gradle wrapper 已切到本机可用的 Gradle 8.9，项目加载已跑通。
-- Android debug APK 已能编译通过，输出在 `android/app/build/outputs/apk/debug/app-debug.apk`。
-- 桌面版已经有 Electron 外壳、本地音乐文件夹扫描、基础播放和局域网清单服务。
-- Android 设置里已经有“局域网同步”入口，可以手输桌面端地址、对比两边清单，并做新增歌曲互传。
-- 桌面端接收 Android 上传时，会把文件放到当前音乐库下的 `ARMusic Imports/`，然后重新扫描音乐库。
-- Android 歌词设置里新增“蓝牙歌词”兼容开关，会把当前歌词行临时作为媒体标题发给蓝牙设备；设备不支持时不会有额外效果。
-- 外部“音乐标签”应用的跳转点已定位，后续会改成 ARMusic 内置标签编辑页。
+```text
+android/app/build/outputs/apk/armusicPreview/app-armusicPreview.apk
+```
 
-## 近期不做
+桌面端 Windows 打包：
 
-- 不做 USB 优先同步。
-- 不自动删除另一台设备上的歌曲。
-- 不急着改 Android 包名，先保证能编译和功能能跑。
+```powershell
+npm run desktop:package
+```
+
+输出在：
+
+```text
+desktop/src-tauri/target/release/bundle/nsis/
+```
+
+如果已经有 Windows 代码签名证书，可以用：
+
+```powershell
+.\scripts\tauri-build-signed.ps1 -CertificateThumbprint "证书指纹"
+```
+
+## 发布说明
+
+ARMusic 1.0.0 是从 LMusic 1.5.4 分出来后的第一个 ARMusic 版本。它还不是“完全稳定版”，更像一个可以继续试用和改 bug 的起点。后续会继续处理视频播放、作品识别、同步体验和标签搜索准确度。

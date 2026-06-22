@@ -1,6 +1,6 @@
 # ARMusic Desktop
 
-桌面版播放器骨架，当前使用 React + Vite + Electron。React 负责界面，Electron 负责本地文件夹扫描、播放本地文件和提供局域网同步接口。
+桌面版播放器骨架，当前使用 React + Vite + Tauri。React 负责界面，Rust 后端负责本地文件夹扫描、播放本地文件和提供局域网同步接口。
 
 ## 运行
 
@@ -14,6 +14,14 @@ npm run dev
 ```powershell
 npm run app:dev
 ```
+
+打包成 Windows 可执行文件：
+
+```powershell
+npm run app:package
+```
+
+打包产物会放在 `src-tauri/target/release/bundle/nsis/`。
 
 ## 当前包含
 

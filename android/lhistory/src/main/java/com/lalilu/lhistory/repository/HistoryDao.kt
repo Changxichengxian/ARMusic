@@ -22,6 +22,9 @@ interface HistoryDao {
     @Query("UPDATE m_history SET duration = :duration, repeatCount = :repeatCount, startTime = :startTime WHERE id = :id;")
     fun updateHistory(id: Long, duration: Long, repeatCount: Int, startTime: Long)
 
+    @Query("UPDATE m_history SET parentId = :parentId, parentTitle = :parentTitle WHERE contentId = :contentId;")
+    fun updateParentForContentId(contentId: String, parentId: String, parentTitle: String)
+
     @Query("DELETE FROM m_history;")
     fun clear()
 
@@ -31,8 +34,14 @@ interface HistoryDao {
     @Query("SELECT * FROM m_history ORDER BY startTime DESC")
     fun getAllData(): PagingSource<Int, LHistory>
 
+    @Query("SELECT * FROM m_history ORDER BY startTime DESC")
+    fun getAllForBackup(): List<LHistory>
+
     @Query("SELECT * FROM m_history WHERE id = :id;")
     fun getById(id: Long): LHistory?
+
+    @Query("SELECT COUNT(*) FROM m_history WHERE contentId = :contentId AND startTime = :startTime AND duration = :duration")
+    fun countSimilar(contentId: String, startTime: Long, duration: Long): Int
 
     @Query("SELECT * FROM m_history ORDER BY id DESC LIMIT 1")
     fun getLatestHistory(): LHistory?
@@ -53,14 +62,14 @@ interface HistoryDao {
     @MapInfo(valueColumn = "count")
     @Query(
         "SELECT * FROM " +
-                "(SELECT id, contentId, contentTitle, parentId, parentTitle, duration, repeatCount, (count(contentId) + repeatCount) as 'count', max(startTime) as 'startTime' FROM m_history GROUP BY contentId) as A " +
+                "(SELECT id, contentId, contentTitle, parentId, parentTitle, duration, repeatCount, CAST((count(contentId) + sum(repeatCount)) AS INTEGER) as 'count', max(startTime) as 'startTime' FROM m_history GROUP BY contentId) as A " +
                 "ORDER BY A.startTime DESC LIMIT :limit;"
     )
     fun getFlowWithCount(limit: Int): Flow<Map<LHistory, Int>>
 
     @MapInfo(keyColumn = "contentId", valueColumn = "count")
     @Query(
-        "SELECT contentId, (count(contentId) + repeatCount) as 'count' FROM m_history GROUP BY contentId " +
+        "SELECT contentId, CAST((count(contentId) + sum(repeatCount)) AS INTEGER) as 'count' FROM m_history GROUP BY contentId " +
                 "LIMIT :limit;"
     )
     fun getFlowIdsMapWithCount(limit: Int): Flow<Map<String, Int>>
@@ -71,4 +80,38 @@ interface HistoryDao {
                 "LIMIT :limit;"
     )
     fun getFlowIdsMapWithLastTime(limit: Int): Flow<Map<String, Long>>
+
+    @MapInfo(keyColumn = "contentId", valueColumn = "duration")
+    @Query(
+        "SELECT contentId, sum(CASE WHEN duration > 0 THEN duration ELSE 0 END) as 'duration' FROM m_history GROUP BY contentId " +
+                "LIMIT :limit;"
+    )
+    fun getFlowIdsMapWithDuration(limit: Int): Flow<Map<String, Long>>
+
+    @MapInfo(keyColumn = "statId", valueColumn = "count")
+    @Query(
+        "SELECT " +
+                "CASE WHEN parentId IS NOT NULL AND parentId != '' THEN parentId ELSE contentId END as 'statId', " +
+                "CAST((count(*) + sum(repeatCount)) AS INTEGER) as 'count' " +
+                "FROM m_history GROUP BY statId LIMIT :limit;"
+    )
+    fun getFlowStatIdsMapWithCount(limit: Int): Flow<Map<String, Int>>
+
+    @MapInfo(keyColumn = "statId", valueColumn = "startTime")
+    @Query(
+        "SELECT " +
+                "CASE WHEN parentId IS NOT NULL AND parentId != '' THEN parentId ELSE contentId END as 'statId', " +
+                "max(startTime) as 'startTime' " +
+                "FROM m_history GROUP BY statId LIMIT :limit;"
+    )
+    fun getFlowStatIdsMapWithLastTime(limit: Int): Flow<Map<String, Long>>
+
+    @MapInfo(keyColumn = "statId", valueColumn = "duration")
+    @Query(
+        "SELECT " +
+                "CASE WHEN parentId IS NOT NULL AND parentId != '' THEN parentId ELSE contentId END as 'statId', " +
+                "sum(CASE WHEN duration > 0 THEN duration ELSE 0 END) as 'duration' " +
+                "FROM m_history GROUP BY statId LIMIT :limit;"
+    )
+    fun getFlowStatIdsMapWithDuration(limit: Int): Flow<Map<String, Long>>
 }

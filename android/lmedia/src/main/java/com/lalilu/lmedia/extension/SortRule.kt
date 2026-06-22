@@ -70,6 +70,8 @@ sealed class GroupIdentity : Serializable {
 interface ListAction {
     @get:StringRes
     val titleRes: Int
+    val actionKey: String
+        get() = titleRes.toString()
 }
 
 private val timeStrJustNow: String? =

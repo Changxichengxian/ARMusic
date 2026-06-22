@@ -17,6 +17,9 @@ desktop/dist/
 desktop/.vite/
 desktop/out/
 desktop/release/
+/releases/
+desktop/src-tauri/gen/
+desktop/src-tauri/target/
 *.tsbuildinfo
 
 # Android / Gradle
@@ -28,6 +31,7 @@ android/.kotlin/
 android/**/build/
 android/local.properties
 android/captures/
+android/mapping.txt
 
 # Local music libraries and generated media
 阿婆的音乐/
@@ -42,3 +46,10 @@ android/captures/
 
 # Sync runtime data
 .armusic/
+
+# Local phone backups and personal import seeds
+backup.ab
+backups/
+*.ab
+android/app/src/main/assets/armusic_seed_play_counts*.tsv
+android/app/src/main/assets/armusic_memo_seed_*.txt

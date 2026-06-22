@@ -1,6 +1,7 @@
 package com.lalilu.lmedia
 
 import android.annotation.SuppressLint
+import android.app.Application
 import android.content.Context
 import androidx.media3.common.MediaItem
 import com.lalilu.lmedia.entity.LAlbum
@@ -13,7 +14,9 @@ import com.lalilu.lmedia.indexer.BaseLibrary
 import com.lalilu.lmedia.indexer.Indexer
 import com.lalilu.lmedia.indexer.Library
 import com.lalilu.lmedia.repository.LMediaSp
+import com.lalilu.lmedia.repository.SongWorkStore
 import com.lalilu.lmedia.scanner.FileSystemScanner
+import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
@@ -29,10 +32,17 @@ object LMedia : BaseLibrary(), Library {
     const val ALL_ALBUMS = "all_albums"
 
     private var indexer: Indexer? = null
+    private var lMediaSp: LMediaSp? = null
 
     fun init(context: Context) {
-        indexer = (indexer ?: Indexer(this))
+        val sp = obtainSp(context).also { it.seedDefaultCallRecordingExclusions() }
+        indexer = (indexer ?: Indexer(this, sp))
             .also { it.init(context) }
+    }
+
+    fun obtainSp(context: Context): LMediaSp {
+        val application = context.applicationContext as Application
+        return lMediaSp ?: LMediaSp(application).also { lMediaSp = it }
     }
 
     override fun getItem(mediaId: String): MediaItem? {
@@ -81,7 +91,8 @@ object LMedia : BaseLibrary(), Library {
 
     @SuppressLint("ObsoleteSdkInt")
     val module = module {
-        singleOf(::LMediaSp)
+        single { obtainSp(androidApplication()) }
+        single { SongWorkStore(androidApplication()) }
         singleOf(::FileSystemScanner)
     }
 }

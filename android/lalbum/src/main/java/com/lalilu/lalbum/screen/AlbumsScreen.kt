@@ -52,7 +52,7 @@ data class AlbumsScreen(
         return remember {
             listOf(
                 ScreenAction.Static(
-                    title = { if (state.showText) "隐藏专辑名" else "显示专辑名" },
+                    title = { if (state.showText) "隐藏作品名" else "显示作品名" },
                     color = { Color(0xFF6E4AC3) },
                     icon = { if (state.showText) RemixIcon.Editor.text else RemixIcon.Editor.formatClear },
                     onAction = { albumsVM.intent(AlbumsAction.ToggleShowText) }
@@ -109,7 +109,7 @@ data class AlbumsScreen(
 
         AlbumsScreenContent(
             eventFlow = vm.eventFlow(),
-            title = { "全部专辑" },
+            title = { "全部作品" },
             albums = { albums },
             showText = { state.showText }
         )

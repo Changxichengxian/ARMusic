@@ -13,6 +13,7 @@ export interface Track {
   playSeconds: number;
   lastPlayedAt?: string;
   source: TrackSource;
+  localPath?: string;
 }
 
 export interface DevicePeer {

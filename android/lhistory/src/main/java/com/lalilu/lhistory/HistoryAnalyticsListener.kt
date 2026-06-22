@@ -21,7 +21,8 @@ import org.koin.core.annotation.Single
 @OptIn(UnstableApi::class)
 @Named("history_analytics_listener")
 class HistoryAnalyticsListener(
-    private val historyRepo: HistoryRepository
+    private val historyRepo: HistoryRepository,
+    private val statIdResolver: HistoryStatIdResolver,
 ) : AnalyticsListener {
     private val scope = CoroutineScope(Dispatchers.IO) + SupervisorJob()
     private var playingItem: PlayingItemHandler? = null
@@ -100,11 +101,14 @@ class HistoryAnalyticsListener(
         isPlaying: Boolean = false
     ) = scope.launch(Dispatchers.Main.immediate) {
         val startTime = System.currentTimeMillis()
+        val statIdentity = statIdResolver.resolve(mediaId, title)
         val unUsedHistory = historyRepo.getUnUsedPreSaveHistory(mediaId)
         val primaryKey = unUsedHistory?.id ?: historyRepo.preSaveHistory(
             LHistory(
                 contentId = mediaId,
                 contentTitle = title,
+                parentId = statIdentity.id.takeIf { it != mediaId }.orEmpty(),
+                parentTitle = statIdentity.title.takeIf { statIdentity.id != mediaId }.orEmpty(),
                 startTime = startTime,
                 duration = -1,
             )
