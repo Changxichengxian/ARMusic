@@ -35,7 +35,7 @@ object LMedia : BaseLibrary(), Library {
     private var lMediaSp: LMediaSp? = null
 
     fun init(context: Context) {
-        val sp = obtainSp(context).also { it.seedDefaultCallRecordingExclusions() }
+        val sp = obtainSp(context).also { it.seedDefaultRecordingExclusions() }
         indexer = (indexer ?: Indexer(this, sp))
             .also { it.init(context) }
     }

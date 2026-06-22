@@ -25,6 +25,9 @@ interface HistoryDao {
     @Query("UPDATE m_history SET parentId = :parentId, parentTitle = :parentTitle WHERE contentId = :contentId;")
     fun updateParentForContentId(contentId: String, parentId: String, parentTitle: String)
 
+    @Query("UPDATE m_history SET contentId = :newContentId, contentTitle = :newContentTitle WHERE contentId = :oldContentId;")
+    fun relinkContentId(oldContentId: String, newContentId: String, newContentTitle: String): Int
+
     @Query("DELETE FROM m_history;")
     fun clear()
 
