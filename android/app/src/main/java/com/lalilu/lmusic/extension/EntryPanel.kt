@@ -42,10 +42,8 @@ object EntryPanel : LazyGridContent {
                 KRouter.route("/pages/songs"),
                 KRouter.route("/pages/artists"),
                 KRouter.route("/pages/albums"),
-                KRouter.route("/pages/playlist"),
                 KRouter.route("/pages/history"),
                 WishlistScreen,
-                KRouter.route("/pages/folders"),
                 KRouter.route("/pages/settings")
             )
         }

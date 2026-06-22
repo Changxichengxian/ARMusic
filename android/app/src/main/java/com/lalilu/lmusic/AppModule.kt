@@ -9,10 +9,12 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.transitionFactory
+import com.lalilu.BuildConfig
 import com.funny.data_saver.core.DataSaverInterface
 import com.funny.data_saver.core.DataSaverPreferences
 import com.lalilu.R
 import com.lalilu.lhistory.HistoryStatIdResolver
+import com.lalilu.lmusic.lyric.ARMusicStatusLyricController
 import com.lalilu.lmusic.Config.ITUNES_BASEURL
 import com.lalilu.lmusic.Config.LRCSHARE_BASEURL
 import com.lalilu.lmusic.Config.LRCLIB_BASEURL
@@ -45,6 +47,7 @@ import com.lalilu.lmusic.utils.coil.keyer.LSongCoverKeyer
 import com.lalilu.lmusic.utils.coil.keyer.MediaItemKeyer
 import com.lalilu.lmusic.utils.extension.toBitmap
 import com.lalilu.lmusic.viewmodel.SearchLyricViewModel
+import com.lalilu.lplayer.service.StatusLyricController
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidApplication
@@ -109,12 +112,13 @@ val AppModule = module {
     single(createdAtStart = true) { ARMusicMemoSeedImporter(androidApplication(), get()) }
     single(createdAtStart = true) { ARMusicPlayCountSeedImporter(androidApplication(), get(), get()) }
     single { EQHelper(androidApplication()) }
+    single<StatusLyricController> { ARMusicStatusLyricController(get(), get()) }
     single {
         StatusBarLyric(
             androidContext(),
             ContextCompat.getDrawable(androidContext(), R.mipmap.ic_launcher)?.toBitmap()
                 ?.toDrawable(androidContext().resources),
-            "com.lalilu.lmusic",
+            BuildConfig.APPLICATION_ID,
             false
         )
     }

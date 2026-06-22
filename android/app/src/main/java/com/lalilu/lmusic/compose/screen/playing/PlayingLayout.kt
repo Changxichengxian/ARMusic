@@ -2,13 +2,19 @@ package com.lalilu.lmusic.compose.screen.playing
 
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -96,6 +102,11 @@ fun PlayingLayout() {
             manualHideExpandedControls.value && draggable.state.value == DragAnchor.Max
         }
     }
+    val hideControlsProgress = animateFloatAsState(
+        targetValue = if (hideComponent.value) 1f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "HideControlsProgress"
+    )
 
     LaunchedEffect(draggable.state.value) {
         if (draggable.state.value != DragAnchor.Max) {
@@ -142,19 +153,22 @@ fun PlayingLayout() {
                     .statusBarsPadding()
                     .padding(bottom = 10.dp)
                     .graphicsLayer {
-                        alpha = if (hideComponent.value) 0f else 1f
+                        alpha = 1f - hideControlsProgress.value
                         translationY = lerp(
                             start = 0f,
                             stop = -navigationBar
                                 .getBottom(density)
                                 .toFloat() + 10.dp.toPx(),
                             fraction = middleToMaxProgress.value
-                        )
+                        ) + hideControlsProgress.value * 80.dp.toPx()
                     }
             ) {
                 PlayingToolbar(
                     isItemPlaying = { mediaId -> MPlayer.isItemPlaying(mediaId) },
-                    isUserTouchEnable = { draggable.state.value == DragAnchor.Min || draggable.state.value == DragAnchor.Max },
+                    isUserTouchEnable = {
+                        !hideComponent.value &&
+                                (draggable.state.value == DragAnchor.Min || draggable.state.value == DragAnchor.Max)
+                    },
                     isExtraVisible = { draggable.state.value == DragAnchor.Max },
                     onClick = {
                         if (draggable.state.value == DragAnchor.Max) {
@@ -274,7 +288,7 @@ fun PlayingLayout() {
                         },
                     lyricEntry = lyrics,
                     listState = listState,
-                    currentTime = { animation.value.toLong() },
+                    currentTime = { currentPosition.floatValue.toLong() },
                     screenConstraints = constraints,
                     isUserClickEnable = { draggable.state.value == DragAnchor.Max },
                     isUserScrollEnable = { isLyricScrollEnable.value },
@@ -313,10 +327,22 @@ fun PlayingLayout() {
                 label = ""
             )
 
-            if (!hideComponent.value) {
+            AnimatedVisibility(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                visible = !hideComponent.value,
+                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow)) +
+                        slideInVertically(
+                            animationSpec = spring(stiffness = Spring.StiffnessLow),
+                            initialOffsetY = { it }
+                        ),
+                exit = fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow)) +
+                        slideOutVertically(
+                            animationSpec = spring(stiffness = Spring.StiffnessLow),
+                            targetOffsetY = { it }
+                        )
+            ) {
                 Box(
                     Modifier
-                        .align(Alignment.BottomCenter)
                         .graphicsLayer {
                             alpha = animateProgress.value / 100f
                             translationY = (1f - animateProgress.value / 100f) * 500f
@@ -364,16 +390,22 @@ fun PlayingLayout() {
                         }
                     )
                 }
-            } else {
+            }
+
+            AnimatedVisibility(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                visible = hideComponent.value,
+                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow)),
+                exit = fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow))
+            ) {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .height(76.dp)
                         .navigationBarsPadding()
                         .clickable(
                             indication = null,
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            interactionSource = remember { MutableInteractionSource() },
                         ) {
                             manualHideExpandedControls.value = false
                         }

@@ -51,6 +51,7 @@ import kotlin.coroutines.CoroutineContext
 class MService : MediaLibraryService(), CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO + SupervisorJob()
     private val historyAnalyticsListener by getKoin().injectOrNull<AnalyticsListener>(named("history_analytics_listener"))
+    private val statusLyricController by getKoin().injectOrNull<StatusLyricController>()
 
     private var exoPlayer: Player? = null
     private var mediaSession: MediaLibrarySession? = null
@@ -68,7 +69,7 @@ class MService : MediaLibraryService(), CoroutineScope {
         super.onCreate()
 
         setMediaNotificationProvider(
-            MNotificationProvider(this)
+            MNotificationProvider(this, statusLyricController)
         )
 
         exoPlayer = ExoPlayer.Builder(this)

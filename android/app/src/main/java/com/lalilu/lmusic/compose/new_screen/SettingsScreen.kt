@@ -1,6 +1,5 @@
 package com.lalilu.lmusic.compose.new_screen
 
-import StatusBarLyric.API.StatusBarLyric
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.media.MediaScannerConnection
@@ -28,14 +27,12 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import com.blankj.utilcode.util.ActivityUtils
 import com.blankj.utilcode.util.LogUtils
-import com.blankj.utilcode.util.RomUtils
 import com.blankj.utilcode.util.ToastUtils
 import com.google.accompanist.flowlayout.FlowRow
 import com.funny.data_saver.core.DataSaverMutableState
 import com.lalilu.BuildConfig
 import com.lalilu.R
 import com.lalilu.RemixIcon
-import com.lalilu.common.CustomRomUtils
 import com.lalilu.component.IconTextButton
 import com.lalilu.component.base.NavigatorHeader
 import com.lalilu.component.base.screen.ScreenInfo
@@ -63,6 +60,7 @@ import com.lalilu.lmusic.utils.EQHelper
 import com.lalilu.lmusic.utils.extension.getActivity
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.system.settings4Line
+import com.zhangke.krouter.KRouter
 import com.zhangke.krouter.annotation.Destination
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -95,7 +93,6 @@ private fun SettingsScreen(
     settingsSp: SettingsSp = koinInject(),
     migrationManager: LMusicMigrationManager = koinInject(),
     workMappingManager: ARMusicWorkMappingManager = koinInject(),
-    statusBarLyricExt: StatusBarLyric = koinInject(),
     fileSystemScanner: FileSystemScanner = koinInject(),
     lMediaSp: LMediaSp = koinInject(),
     lyricSettings: DataSaverMutableState<LyricSettings> = koinInject(named("LyricSettings")),
@@ -107,9 +104,7 @@ private fun SettingsScreen(
     val ignoreAudioFocus = settingsSp.ignoreAudioFocus
     val enableUnknownFilter = settingsSp.enableUnknownFilter
     val statusBarLyric = settingsSp.enableStatusLyric
-    val lyricGravity = settingsSp.lyricGravity
     val lyricTextSize = settingsSp.lyricTextSize
-    val playMode = settingsSp.playMode
     val volumeControl = settingsSp.volumeControl
     val lyricTypefacePath = settingsSp.lyricTypefacePath
     val enableSystemEq = settingsSp.enableSystemEq
@@ -215,11 +210,6 @@ private fun SettingsScreen(
                     title = "独立音量控制",
                     valueRange = 0..100
                 )
-                SettingStateSeekBar(
-                    state = playMode,
-                    selection = listOf("列表循环", "单曲循环", "随机播放"),
-                    title = "播放模式"
-                )
                 SettingSwitcher(
                     state = enableSystemEq,
                     title = "启用系统均衡器",
@@ -253,12 +243,10 @@ private fun SettingsScreen(
                 iconRes = com.lalilu.component.R.drawable.ic_lrc_fill,
                 titleRes = R.string.preference_lyric_settings
             ) {
-                if (RomUtils.isMeizu() || statusBarLyricExt.hasEnable() || CustomRomUtils.isFlyme) {
-                    SettingSwitcher(
-                        titleRes = R.string.preference_lyric_settings_status_bar_lyric,
-                        state = statusBarLyric
-                    )
-                }
+                SettingSwitcher(
+                    titleRes = R.string.preference_lyric_settings_status_bar_lyric,
+                    state = statusBarLyric
+                )
                 SettingSwitcher(
                     title = "歌词页展开时屏幕常亮",
                     subTitle = "小心烧屏",
@@ -275,11 +263,6 @@ private fun SettingsScreen(
                         lyricSettings.saveData()
                     }
                 )
-                SettingStateSeekBar(
-                    state = lyricGravity,
-                    selection = stringArrayResource(id = R.array.lyric_gravity_text).toList(),
-                    titleRes = R.string.preference_lyric_settings_text_gravity
-                )
 //                SettingProgressSeekBar(
 //                    state = lyricTextSize,
 //                    title = "歌词文字大小",
@@ -293,11 +276,22 @@ private fun SettingsScreen(
                 icon = painterResource(id = R.drawable.ic_download_cloud_2_line),
                 title = "ARMusic 同步"
             ) {
-                Row(
-                    Modifier.padding(horizontal = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    mainAxisSpacing = 10.dp,
+                    crossAxisSpacing = 8.dp
                 ) {
+                    IconTextButton(
+                        text = "添加新歌",
+                        iconPainter = painterResource(id = R.drawable.ic_scan_line),
+                        showIcon = { true },
+                        color = Color(0xFF006E7C),
+                        onClick = {
+                            KRouter.route<Screen>("/pages/folders")?.let {
+                                AppRouter.intent(NavIntent.Push(it))
+                            }
+                        }
+                    )
                     IconTextButton(
                         text = "局域网同步",
                         iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),

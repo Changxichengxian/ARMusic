@@ -50,7 +50,8 @@ const val FLAG_ONLY_UPDATE_TICKER = 0x2000000
 
 @UnstableApi
 class MNotificationProvider(
-    val context: Context
+    val context: Context,
+    private val statusLyricController: StatusLyricController? = null,
 ) : MediaNotification.Provider, CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO + SupervisorJob()
     private val notificationManager: NotificationManager by lazy {
@@ -176,6 +177,7 @@ class MNotificationProvider(
         onNotificationChangedCallback: Callback
     ) {
         loadLyricJob?.cancel()
+        statusLyricController?.stopLyric()
         if (mediaItem == null) return
 
         loadLyricJob = launch {
@@ -187,8 +189,20 @@ class MNotificationProvider(
             }
 
             var lastIndex = -1
+            var wasStatusLyricEnabled = false
             while (isActive) {
                 val list = lyrics?.second ?: break
+                val statusLyricEnabled = statusLyricController?.isEnabled() == true
+                if (!statusLyricEnabled) {
+                    if (wasStatusLyricEnabled) {
+                        statusLyricController?.stopLyric()
+                    }
+                    wasStatusLyricEnabled = false
+                    delay(300)
+                    continue
+                }
+                wasStatusLyricEnabled = true
+
                 val time = withContext(Dispatchers.Main) { mediaSession.player.currentPosition }
 
                 val index = list.findPlayingIndex(time)
@@ -207,7 +221,9 @@ class MNotificationProvider(
                             is LyricItem.WordsLyric -> current.getSentenceContent()
                             else -> ""
                         }
+                        if (text.isBlank()) return@post
 
+                        statusLyricController?.updateLyric(text)
                         builder.setTicker(text)
                         val notification = builder.build().apply {
                             flags = flags or FLAG_ALWAYS_SHOW_TICKER or FLAG_ONLY_UPDATE_TICKER
