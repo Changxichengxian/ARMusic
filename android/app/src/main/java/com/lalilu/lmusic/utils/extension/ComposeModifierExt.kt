@@ -164,10 +164,10 @@ fun Modifier.edgeTransparent(
     bottom: Dp = 0.dp
 ): Modifier = composed {
     val density = LocalDensity.current
-    val leftPx = remember { with(density) { left.toPx() } }
-    val topPx = remember { with(density) { top.toPx() } }
-    val rightPx = remember { with(density) { right.toPx() } }
-    val bottomPx = remember { with(density) { bottom.toPx() } }
+    val leftPx = remember(density, left) { with(density) { left.toPx() } }
+    val topPx = remember(density, top) { with(density) { top.toPx() } }
+    val rightPx = remember(density, right) { with(density) { right.toPx() } }
+    val bottomPx = remember(density, bottom) { with(density) { bottom.toPx() } }
     if (leftPx == 0f && topPx == 0f && rightPx == 0f && bottomPx == 0f) return@composed this
 
     return@composed edgeTransparent(leftPx, topPx, rightPx, bottomPx)
@@ -181,10 +181,46 @@ fun Modifier.edgeTransparent(
 ): Modifier = composed {
     if (left == 0f && top == 0f && right == 0f && bottom == 0f) return@composed this
 
-    var topBrush: Brush? = remember { null }
-    var bottomBrush: Brush? = remember { null }
-    var leftBrush: Brush? = remember { null }
-    var rightBrush: Brush? = remember { null }
+    val topBrush = remember(top) {
+        top.takeIf { it > 0f }?.let {
+            Brush.linearGradient(
+                colorStops = colorArray,
+                start = Offset.Zero,
+                end = Offset.Zero.copy(y = it),
+                tileMode = TileMode.Clamp
+            )
+        }
+    }
+    val bottomBrush = remember(bottom) {
+        bottom.takeIf { it > 0f }?.let {
+            Brush.linearGradient(
+                colorStops = colorArray,
+                start = Offset.Zero,
+                end = Offset.Zero.copy(y = it),
+                tileMode = TileMode.Clamp
+            )
+        }
+    }
+    val leftBrush = remember(left) {
+        left.takeIf { it > 0f }?.let {
+            Brush.linearGradient(
+                colorStops = colorArray,
+                start = Offset.Zero,
+                end = Offset.Zero.copy(x = it),
+                tileMode = TileMode.Clamp
+            )
+        }
+    }
+    val rightBrush = remember(right) {
+        right.takeIf { it > 0f }?.let {
+            Brush.linearGradient(
+                colorStops = colorArray,
+                start = Offset.Zero,
+                end = Offset.Zero.copy(x = it),
+                tileMode = TileMode.Clamp
+            )
+        }
+    }
     val blendMode = remember { BlendMode.DstOut }
 
     var layerSave: Int
@@ -195,71 +231,36 @@ fun Modifier.edgeTransparent(
         layerSave = canvas.saveLayer(0f, 0f, size.width, size.height, null)
 
         this@drawWithContent.drawContent()
-        if (top > 0) {
-            if (topBrush == null) {
-                topBrush = Brush.linearGradient(
-                    colorStops = colorArray,
-                    start = Offset.Zero,
-                    end = Offset.Zero.copy(y = top),
-                    tileMode = TileMode.Clamp
-                )
-            }
+        if (topBrush != null) {
             drawRect(
-                brush = topBrush!!,
+                brush = topBrush,
                 size = size.copy(height = top),
                 blendMode = blendMode
             )
         }
 
-        if (bottom > 0) {
+        if (bottomBrush != null) {
             rotate(180f) {
-                if (bottomBrush == null) {
-                    bottomBrush = Brush.linearGradient(
-                        colorStops = colorArray,
-                        start = Offset.Zero,
-                        end = Offset.Zero.copy(y = bottom),
-                        tileMode = TileMode.Clamp
-                    )
-                }
-
                 drawRect(
-                    brush = bottomBrush!!,
+                    brush = bottomBrush,
                     size = size.copy(height = bottom),
                     blendMode = blendMode
                 )
             }
         }
 
-        if (left > 0) {
-            if (leftBrush == null) {
-                leftBrush = Brush.linearGradient(
-                    colorStops = colorArray,
-                    start = Offset.Zero,
-                    end = Offset.Zero.copy(x = left),
-                    tileMode = TileMode.Clamp
-                )
-            }
-
+        if (leftBrush != null) {
             drawRect(
-                brush = leftBrush!!,
+                brush = leftBrush,
                 size = size.copy(width = left),
                 blendMode = blendMode
             )
         }
 
-        if (right > 0) {
+        if (rightBrush != null) {
             rotate(180f) {
-                if (rightBrush == null) {
-                    rightBrush = Brush.linearGradient(
-                        colorStops = colorArray,
-                        start = Offset.Zero,
-                        end = Offset.Zero.copy(x = right),
-                        tileMode = TileMode.Clamp
-                    )
-                }
-
                 drawRect(
-                    brush = rightBrush!!,
+                    brush = rightBrush,
                     size = size.copy(width = right),
                     blendMode = blendMode
                 )

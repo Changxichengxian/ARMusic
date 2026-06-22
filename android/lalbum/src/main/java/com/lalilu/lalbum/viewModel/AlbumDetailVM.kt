@@ -1,6 +1,7 @@
 package com.lalilu.lalbum.viewModel
 
 
+import android.app.Application
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
@@ -113,11 +114,17 @@ sealed interface AlbumDetailAction {
 class AlbumDetailVM(
     private val albumId: String,
     private val songWorkStore: SongWorkStore,
+    private val application: Application,
 ) : ViewModel(),
     MviWithIntent<AlbumDetailState, AlbumDetailEvent, AlbumDetailAction> by
     mviImplWithIntent(AlbumDetailState(albumId)) {
     val selector = ItemSelector<LSong>()
     val recorder = ItemRecorder()
+    private val sortPreferences = application.getSharedPreferences(
+        "armusic_sort_preferences",
+        Application.MODE_PRIVATE,
+    )
+    private val sortPreferenceKey = "work.detail"
 
     val songs = stateFlow()
         .distinctUntilChangedBy { it.distinctKey }
@@ -142,6 +149,16 @@ class AlbumDetailVM(
         ).filterNotNull()
             .toSet()
 
+    init {
+        supportSortActions
+            .firstOrNull { it.actionKey == sortPreferences.getString(sortPreferenceKey, "") }
+            ?.let { action ->
+                viewModelScope.launch {
+                    reduce { it.copy(selectedSortAction = action) }
+                }
+            }
+    }
+
     override fun intent(intent: AlbumDetailAction) = viewModelScope.launch {
         when (intent) {
             AlbumDetailAction.ToggleJumperDialog -> reduce { it.copy(showJumperDialog = !it.showJumperDialog) }
@@ -151,7 +168,12 @@ class AlbumDetailVM(
             AlbumDetailAction.HideSearcherPanel -> reduce { it.copy(showSearcherPanel = false) }
             AlbumDetailAction.HideJumperDialog -> reduce { it.copy(showJumperDialog = false) }
             is AlbumDetailAction.SearchFor -> reduce { it.copy(searchKeyWord = intent.keyword) }
-            is AlbumDetailAction.SelectSortAction -> reduce { it.copy(selectedSortAction = intent.action) }
+            is AlbumDetailAction.SelectSortAction -> {
+                sortPreferences.edit()
+                    .putString(sortPreferenceKey, intent.action.actionKey)
+                    .apply()
+                reduce { it.copy(selectedSortAction = intent.action) }
+            }
             is AlbumDetailAction.SetCoverUri -> {
                 album.value?.name?.let { songWorkStore.setWorkCoverUri(it, intent.uri) }
             }

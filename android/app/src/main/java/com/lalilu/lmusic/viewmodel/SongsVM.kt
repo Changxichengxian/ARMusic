@@ -1,5 +1,6 @@
 package com.lalilu.lmusic.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
@@ -95,10 +96,20 @@ sealed interface SongsAction {
 @KoinViewModel
 class SongsVM(
     private val mediaIds: List<String>,
+    private val application: Application,
 ) : ViewModel(),
     MviWithIntent<SongsState, SongsEvent, SongsAction> by mviImplWithIntent(SongsState(mediaIds)) {
     val selector = ItemSelector<LSong>()
     val recorder = ItemRecorder()
+    private val sortPreferences = application.getSharedPreferences(
+        "armusic_sort_preferences",
+        Application.MODE_PRIVATE,
+    )
+    private val sortPreferenceKey = if (mediaIds.isEmpty()) {
+        "songs.default"
+    } else {
+        "songs.filtered"
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val songs = stateFlow()
@@ -120,6 +131,16 @@ class SongsVM(
         ).filterNotNull()
             .toSet()
 
+    init {
+        supportSortActions
+            .firstOrNull { it.actionKey == sortPreferences.getString(sortPreferenceKey, "") }
+            ?.let { action ->
+                viewModelScope.launch {
+                    reduce { it.copy(selectedSortAction = action) }
+                }
+            }
+    }
+
     override fun intent(intent: SongsAction) = viewModelScope.launch {
         when (intent) {
             SongsAction.ToggleJumperDialog -> reduce { it.copy(showJumperDialog = !it.showJumperDialog) }
@@ -129,7 +150,12 @@ class SongsVM(
             SongsAction.HideSearcherPanel -> reduce { it.copy(showSearcherPanel = false) }
             SongsAction.HideJumperDialog -> reduce { it.copy(showJumperDialog = false) }
             is SongsAction.SearchFor -> reduce { it.copy(searchKeyWord = intent.keyword) }
-            is SongsAction.SelectSortAction -> reduce { it.copy(selectedSortAction = intent.action) }
+            is SongsAction.SelectSortAction -> {
+                sortPreferences.edit()
+                    .putString(sortPreferenceKey, intent.action.actionKey)
+                    .apply()
+                reduce { it.copy(selectedSortAction = intent.action) }
+            }
             is SongsAction.LocaleToGroupItem -> postEvent { SongsEvent.ScrollToItem(intent.item) }
             is SongsAction.LocaleToPlayingItem -> {
                 val mediaId = MPlayer.currentMediaItem?.mediaId ?: run {

@@ -67,6 +67,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.emptyFlow
 
+private const val UNKNOWN_WORK_INTERNAL_NAME = "\u65e0"
+private const val UNKNOWN_WORK_DISPLAY_NAME = "\u672a\u5206\u7c7b"
+
 @Composable
 fun AlbumDetailScreenContent(
     album: LAlbum? = null,
@@ -89,6 +92,8 @@ fun AlbumDetailScreenContent(
     val favouriteIds = state("favourite_ids", emptyList<String>())
     var coverMenuExpanded by remember { mutableStateOf(false) }
     val stickyHeaderContentType = remember { "group" }
+    val isUnknownWork = album?.name == UNKNOWN_WORK_INTERNAL_NAME
+    val albumDisplayName = if (isUnknownWork) UNKNOWN_WORK_DISPLAY_NAME else album?.name
     val scroller = rememberLazyListAnimateScroller(
         listState = listState,
         keys = keys
@@ -152,73 +157,75 @@ fun AlbumDetailScreenContent(
                         .statusBarsPadding(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(enabled = album != null) { coverMenuExpanded = true }
-                            .border(
-                                width = 1.dp,
-                                color = Color.White.copy(0.3f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .animateContentSize()
-                    ) {
-                        Image(
+                    if (!isUnknownWork) {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(1f),
-                            painter = painterResource(com.lalilu.component.R.drawable.ic_music_2_line_100dp),
-                            contentDescription = null
-                        )
-                        AsyncImage(
-                            modifier = Modifier.fillMaxWidth(),
-                            model = ImageRequest.Builder(LocalPlatformContext.current)
-                                .data(album)
-                                .crossfade(true)
-                                .build(),
-                            contentScale = ContentScale.FillWidth,
-                            contentDescription = "Work art"
-                        )
-
-                        DropdownMenu(
-                            expanded = coverMenuExpanded,
-                            onDismissRequest = { coverMenuExpanded = false },
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(enabled = album != null) { coverMenuExpanded = true }
+                                .border(
+                                    width = 1.dp,
+                                    color = Color.White.copy(0.3f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .animateContentSize()
                         ) {
-                            DropdownMenuItem(
-                                onClick = {
-                                    coverMenuExpanded = false
-                                    onPickCoverFromStorage()
-                                }
+                            Image(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f),
+                                painter = painterResource(com.lalilu.component.R.drawable.ic_music_2_line_100dp),
+                                contentDescription = null
+                            )
+                            AsyncImage(
+                                modifier = Modifier.fillMaxWidth(),
+                                model = ImageRequest.Builder(LocalPlatformContext.current)
+                                    .data(album)
+                                    .crossfade(true)
+                                    .build(),
+                                contentScale = ContentScale.FillWidth,
+                                contentDescription = "Work art"
+                            )
+
+                            DropdownMenu(
+                                expanded = coverMenuExpanded,
+                                onDismissRequest = { coverMenuExpanded = false },
                             ) {
-                                Text("选择图片")
-                            }
-                            album?.songs.orEmpty().forEach { song ->
                                 DropdownMenuItem(
                                     onClick = {
                                         coverMenuExpanded = false
-                                        onUseSongCover(song)
+                                        onPickCoverFromStorage()
                                     }
                                 ) {
-                                    Text(
-                                        text = "用《${song.metadata.title.ifBlank { song.name }}》封面",
-                                        maxLines = 2,
-                                    )
+                                    Text("选择图片")
                                 }
-                            }
-                            DropdownMenuItem(
-                                onClick = {
-                                    coverMenuExpanded = false
-                                    onClearCover()
+                                album?.songs.orEmpty().forEach { song ->
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            coverMenuExpanded = false
+                                            onUseSongCover(song)
+                                        }
+                                    ) {
+                                        Text(
+                                            text = "用《${song.metadata.title.ifBlank { song.name }}》封面",
+                                            maxLines = 2,
+                                        )
+                                    }
                                 }
-                            ) {
-                                Text("恢复默认")
+                                DropdownMenuItem(
+                                    onClick = {
+                                        coverMenuExpanded = false
+                                        onClearCover()
+                                    }
+                                ) {
+                                    Text("恢复默认")
+                                }
                             }
                         }
                     }
 
                     Text(
-                        text = album?.name ?: "未知作品",
+                        text = albumDisplayName ?: "未知作品",
                         fontSize = 20.sp,
                         lineHeight = 20.sp,
                         fontWeight = FontWeight.Bold,

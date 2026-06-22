@@ -1,5 +1,6 @@
 package com.lalilu.lalbum.viewModel
 
+import android.app.Application
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
@@ -99,8 +100,18 @@ sealed interface AlbumsAction {
 class AlbumsVM(
     val albumIds: List<String>,
     private val songWorkStore: SongWorkStore,
+    private val application: Application,
 ) : ViewModel(),
     MviWithIntent<AlbumsState, AlbumsEvent, AlbumsAction> by mviImplWithIntent(AlbumsState(albumIds)) {
+    private val sortPreferences = application.getSharedPreferences(
+        "armusic_sort_preferences",
+        Application.MODE_PRIVATE,
+    )
+    private val sortPreferenceKey = if (albumIds.isEmpty()) {
+        "works.default"
+    } else {
+        "works.filtered"
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val albums = stateFlow()
@@ -114,6 +125,7 @@ class AlbumsVM(
         setOf<ListAction?>(
             SortStaticAction.Normal,
             SortStaticAction.Title,
+            SortStaticAction.ItemsCount,
             SortStaticAction.Shuffle,
             SortStaticAction.Duration,
             requestFor(named("sort_rule_play_count")),
@@ -121,6 +133,16 @@ class AlbumsVM(
             requestFor(named("sort_rule_play_duration")),
         ).filterNotNull()
             .toSet()
+
+    init {
+        supportSortActions
+            .firstOrNull { it.actionKey == sortPreferences.getString(sortPreferenceKey, "") }
+            ?.let { action ->
+                viewModelScope.launch {
+                    reduce { it.copy(selectedSortAction = action) }
+                }
+            }
+    }
 
     override fun intent(intent: AlbumsAction): Any = viewModelScope.launch {
         when (intent) {
@@ -133,7 +155,12 @@ class AlbumsVM(
             AlbumsAction.ToggleShowText -> reduce { it.copy(showText = !it.showText) }
 
             is AlbumsAction.SearchFor -> reduce { it.copy(searchKeyWord = intent.keyword) }
-            is AlbumsAction.SelectSortAction -> reduce { it.copy(selectedSortAction = intent.action) }
+            is AlbumsAction.SelectSortAction -> {
+                sortPreferences.edit()
+                    .putString(sortPreferenceKey, intent.action.actionKey)
+                    .apply()
+                reduce { it.copy(selectedSortAction = intent.action) }
+            }
 
             AlbumsAction.LocaleToPlayingItem -> {}
         }

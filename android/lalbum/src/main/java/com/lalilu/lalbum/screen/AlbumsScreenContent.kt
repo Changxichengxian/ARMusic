@@ -1,5 +1,6 @@
 package com.lalilu.lalbum.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,6 +37,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 
+private const val UNKNOWN_WORK_INTERNAL_NAME = "\u65e0"
+private const val UNKNOWN_WORK_DISPLAY_NAME = "\u672a\u5206\u7c7b"
+
 @Composable
 internal fun AlbumsScreenContent(
     eventFlow: SharedFlow<AlbumsEvent> = MutableSharedFlow(),
@@ -46,6 +50,15 @@ internal fun AlbumsScreenContent(
     val isPad = LocalWindowSize.current.widthSizeClass != WindowWidthSizeClass.Compact
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val gridState = rememberLazyStaggeredGridState()
+    val visibleAlbums = albums()
+        .mapValues { (_, list) -> list.filterNot { it.isUnknownWork() } }
+        .filterValues { it.isNotEmpty() }
+    val unknownAlbum = albums()
+        .values
+        .flatten()
+        .firstOrNull { it.isUnknownWork() }
+    val workCount = visibleAlbums.values.sumOf { it.size }
+    val unclassifiedSongCount = unknownAlbum?.songs?.size ?: 0
 
     LaunchedEffect(Unit) {
         eventFlow.collectLatest { event ->
@@ -67,7 +80,16 @@ internal fun AlbumsScreenContent(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item(key = "Header", contentType = "Header") {
-            Surface(shape = RoundedCornerShape(5.dp)) {
+            Surface(
+                modifier = Modifier.clickable(enabled = unknownAlbum != null) {
+                    AppRouter.intent(
+                        NavIntent.Push(
+                            AlbumDetailScreen(unknownAlbum!!.id)
+                        )
+                    )
+                },
+                shape = RoundedCornerShape(5.dp)
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -75,13 +97,18 @@ internal fun AlbumsScreenContent(
                 ) {
                     NavigatorHeader(
                         title = title(),
-                        subTitle = "共 ${albums().values.sumOf { it.size }} 个作品"
+                        subTitle = buildString {
+                            append("共 ${workCount} 个作品")
+                            if (unclassifiedSongCount > 0) {
+                                append("\n${unclassifiedSongCount} 首歌未分类")
+                            }
+                        }
                     )
                 }
             }
         }
 
-        albums().forEach { (group, list) ->
+        visibleAlbums.forEach { (group, list) ->
             if (group !is GroupIdentity.None) {
                 item(
                     key = group,
@@ -118,4 +145,8 @@ internal fun AlbumsScreenContent(
 
         smartBarPadding()
     }
+}
+
+private fun LAlbum.isUnknownWork(): Boolean {
+    return name == UNKNOWN_WORK_INTERNAL_NAME
 }

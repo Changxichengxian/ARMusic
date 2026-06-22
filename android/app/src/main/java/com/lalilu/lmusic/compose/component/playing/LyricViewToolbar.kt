@@ -166,10 +166,16 @@ val LyricViewActionDialog = DialogItem.Dynamic(backgroundColor = Color.Transpare
                 valueRange = 0..500
             )
             SettingSmallProgressSeekBar(
-                value = { settings.value.highlightPosition.coerceIn(0.25f, 0.75f) * 100f },
+                value = {
+                    val position = settings.value.highlightPosition
+                        .takeIf { it <= 0.375f }
+                        ?.coerceIn(0.125f, 0.375f)
+                        ?: 0.25f
+                    100f - position * 200f
+                },
                 onValueUpdate = {
                     settings.value = settings.value.copy(
-                        highlightPosition = (it / 100f).coerceIn(0.25f, 0.75f)
+                        highlightPosition = ((100f - it) / 200f).coerceIn(0.125f, 0.375f)
                     )
                 },
                 onFinishedUpdate = { settings.saveData() },

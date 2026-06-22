@@ -27,6 +27,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,7 +54,6 @@ import kotlinx.coroutines.isActive
 import org.koin.compose.koinInject
 import org.koin.core.qualifier.named
 import kotlin.math.roundToInt
-
 
 @OptIn(FlowPreview::class)
 @Composable
@@ -98,18 +98,28 @@ fun LyricLayout(
         }
     }
 
+    fun displayFocusPosition(): Float {
+        return settings.value.highlightPosition
+            .takeIf { it <= 0.375f }
+            ?.coerceIn(0.125f, 0.375f)
+            ?: 0.25f
+    }
+
     fun focusScrollOffset(item: LazyListItemInfo): Int {
-        val position = settings.value.highlightPosition.coerceIn(0.25f, 0.75f)
-        val focusY = screenConstraints.maxHeight * position
+        val focusY = screenConstraints.maxHeight * displayFocusPosition()
         val targetTop = focusY - item.size / 2f
         return -targetTop.roundToInt()
     }
 
-    BackHandler(enabled = isUserScrolling.value) {
-        isUserScrolling.value = false
+    fun scrollCurrentItemToFocus() {
         currentItem.value?.key?.let {
             scroller.animateTo(it, offset = ::focusScrollOffset)
         }
+    }
+
+    BackHandler(enabled = isUserScrolling.value) {
+        isUserScrolling.value = false
+        scrollCurrentItemToFocus()
         onPositionReset()
     }
 
@@ -121,10 +131,13 @@ fun LyricLayout(
             }
     }
 
-    LaunchedEffect(settings.value.highlightPosition) {
-        currentItem.value?.key?.let {
-            scroller.animateTo(it, offset = ::focusScrollOffset)
-        }
+    LaunchedEffect(
+        settings.value.highlightPosition,
+        settings.value.translationVisible,
+        settings.value.hideMainWhenTranslationHidden,
+    ) {
+        withFrameNanos { }
+        scrollCurrentItemToFocus()
     }
 
     LaunchedEffect(Unit) {
@@ -135,9 +148,7 @@ fun LyricLayout(
                 if (!isActive || isDragging || !isScrolling) return@collectLatest
 
                 isUserScrolling.value = false
-                currentItem.value?.key?.let {
-                    scroller.animateTo(it, offset = ::focusScrollOffset)
-                }
+                scrollCurrentItemToFocus()
                 onPositionReset()
             }
     }
@@ -153,17 +164,20 @@ fun LyricLayout(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        val highlightPosition = settings.value.highlightPosition.coerceIn(0.25f, 0.75f)
+        val highlightPosition = displayFocusPosition()
         val topPadding = density.run { (screenConstraints.maxHeight * highlightPosition).toDp() }
         val bottomPadding = density.run {
             (screenConstraints.maxHeight * (1f - highlightPosition)).toDp()
         }
+        val highlightClearArea = 320.dp
+        val topFade = (topPadding - highlightClearArea).coerceAtLeast(0.dp)
+        val bottomFade = (bottomPadding - highlightClearArea).coerceAtLeast(0.dp)
 
         LazyColumn(
             state = listState,
             modifier = modifier
                 .fillMaxSize()
-                .edgeTransparent(top = topPadding, bottom = bottomPadding),
+                .edgeTransparent(top = topFade, bottom = bottomFade),
             userScrollEnabled = true,
             contentPadding = PaddingValues(
                 top = topPadding,
@@ -244,9 +258,7 @@ fun LyricLayout(
                 colors = colors,
                 onClick = {
                     isUserScrolling.value = false
-                    currentItem.value?.key?.let {
-                        scroller.animateTo(it, offset = ::focusScrollOffset)
-                    }
+                    scrollCurrentItemToFocus()
                     onPositionReset()
                 }
             ) {

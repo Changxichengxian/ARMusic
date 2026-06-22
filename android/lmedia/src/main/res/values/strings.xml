@@ -11,6 +11,6 @@
     <string name="sort_preset_by_modify_time">Modify Time</string>
     <string name="sort_preset_by_song_duration">Duration</string>
     <string name="sort_preset_by_shuffle">Shuffle</string>
-    <string name="sort_preset_by_item_count">Item Count</string>
+    <string name="sort_preset_by_item_count">Work Count</string>
     <string name="sort_preset_by_disk_and_track">Disk &amp; Track Number</string>
 </resources>
