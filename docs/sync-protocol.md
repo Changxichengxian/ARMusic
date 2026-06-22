@@ -77,17 +77,6 @@ android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicTrackDownloader.kt
 android/app/src/main/java/com/lalilu/lmusic/sync/ARMusicTrackUploader.kt
 ```
 
-iOS 端先用原生 Swift Package 做内核，对齐同一套接口：
-
-```text
-ios/ARMusicIOSCore/Sources/ARMusicIOSCore/Sync/ARMusicLanSyncClient.swift
-ios/ARMusicIOSCore/Sources/ARMusicIOSCore/Sync/ARMusicLanDiscoveryClient.swift
-ios/ARMusicIOSCore/Sources/ARMusicIOSCore/Library/ARMusicLibraryStore.swift
-ios/ARMusicIOSCore/Sources/ARMusicIOSCore/Playback/ARMusicPlaybackSession.swift
-```
-
-iOS 不能扫描整台手机的文件系统。它会把用户从“文件”App/分享面板授权的音乐，或者桌面端同步来的音乐，复制进 ARMusic 自己的沙盒音乐库，再基于这份库生成清单。
-
 第一步先支持手输桌面端地址，例如 `192.168.1.20:38689`。客户端会自动补 `http://`，然后读取 `/health`、`/manifest`，再用本地清单和对方清单生成下载、上传、冲突三类结果。Android 设置页里的“局域网同步”入口已经接上这条流程。
 
 ## 同步流程
