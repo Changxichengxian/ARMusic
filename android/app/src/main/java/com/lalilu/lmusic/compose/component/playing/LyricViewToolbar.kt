@@ -1,7 +1,9 @@
 package com.lalilu.lmusic.compose.component.playing
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blankj.utilcode.util.ToastUtils
 import com.funny.data_saver.core.DataSaverMutableState
 import com.lalilu.R
 import com.lalilu.component.extension.DialogItem
@@ -163,6 +166,17 @@ val LyricViewActionDialog = DialogItem.Dynamic(backgroundColor = Color.Transpare
                 valueRange = 0..500
             )
             SettingSmallProgressSeekBar(
+                value = { settings.value.highlightPosition.coerceIn(0.25f, 0.75f) * 100f },
+                onValueUpdate = {
+                    settings.value = settings.value.copy(
+                        highlightPosition = (it / 100f).coerceIn(0.25f, 0.75f)
+                    )
+                },
+                onFinishedUpdate = { settings.saveData() },
+                title = "\u9ad8\u4eae\u884c\u9ad8\u5ea6",
+                valueRange = 25..75
+            )
+            SettingSmallProgressSeekBar(
                 value = { settings.value.gapSize.value },
                 onValueUpdate = {
                     settings.value = settings.value.copy(gapSize = it.dp)
@@ -239,11 +253,32 @@ fun LyricViewToolbar() {
             )
         }
 
-        IconButton(onClick = {
-            settings.value = settings.value.copy(
-                translationVisible = !settings.value.translationVisible
-            )
-        }) {
+        Box(
+            modifier = Modifier
+                .combinedClickable(
+                    onClick = {
+                        settings.value = settings.value.copy(
+                            translationVisible = !settings.value.translationVisible
+                        )
+                        settings.saveData()
+                    },
+                    onLongClick = {
+                        val showTranslationOnly = !settings.value.hideMainWhenTranslationHidden
+                        settings.value = settings.value.copy(
+                            hideMainWhenTranslationHidden = showTranslationOnly
+                        )
+                        settings.saveData()
+                        ToastUtils.showShort(
+                            if (showTranslationOnly) {
+                                "\u5355\u884c\u663e\u793a\u7ffb\u8bd1"
+                            } else {
+                                "\u5355\u884c\u663e\u793a\u539f\u6587"
+                            }
+                        )
+                    }
+                )
+                .padding(12.dp)
+        ) {
             Icon(
                 modifier = Modifier.graphicsLayer { alpha = iconAlpha.value },
                 painter = painterResource(id = R.drawable.translate_2),

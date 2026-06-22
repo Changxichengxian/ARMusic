@@ -87,6 +87,14 @@ fun LyricContentWords(
         }
     }
 
+    val hasTranslation = translateResult != null
+    val showTranslationOnly = !settings.translationVisible &&
+            settings.hideMainWhenTranslationHidden &&
+            hasTranslation
+    val showBoth = settings.translationVisible && hasTranslation
+    val showMain = !showTranslationOnly
+    val showTranslation = showBoth || showTranslationOnly
+
     val scale = animateFloatAsState(
         targetValue = when {
             isCurrent -> settings.scaleRange.endInclusive
@@ -102,7 +110,7 @@ fun LyricContentWords(
     )
 
     val animateAlpha = animateFloatAsState(
-        targetValue = if (settings.translationVisible) 1f else 0f,
+        targetValue = if (showTranslation) 1f else 0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow
@@ -124,15 +132,17 @@ fun LyricContentWords(
 //    )
 
     val (heightDp, translationTopLeft, pivotOffset) = remember(
-        textResult, translateResult, settings
+        textResult, translateResult, settings, showTranslationOnly, showBoth, showMain
     ) {
         val gapHeight = with(density) { settings.gapSize.toPx() }
         val textHeight = textResult.getLineBottom(textResult.lineCount - 1)
         val translateHeight = translateResult?.let { it.getLineBottom(it.lineCount - 1) } ?: 0f
 
-        val height =
-            if (settings.translationVisible && translateHeight > 0) textHeight + translateHeight + gapHeight
-            else textHeight
+        val height = when {
+            showBoth -> textHeight + translateHeight + gapHeight
+            showTranslationOnly -> translateHeight
+            else -> textHeight
+        }
         val paddingVertical = settings.containerPadding.calculateTopPadding() +
                 settings.containerPadding.calculateBottomPadding()
 
@@ -146,7 +156,7 @@ fun LyricContentWords(
 
         listOf(
             density.run { height.toDp() + paddingVertical },
-            Offset.Zero.copy(y = textHeight + gapHeight),
+            Offset.Zero.copy(y = if (showMain) textHeight + gapHeight else 0f),
             pivotOffset
         )
     }
@@ -183,41 +193,46 @@ fun LyricContentWords(
             .padding(settings.containerPadding)
     ) {
         val now = context.currentTime()
-        val wordIndex = lyric.words.findPlayingIndexForWords(now)
+        val wordIndex = if (showMain) lyric.words.findPlayingIndexForWords(now) else -1
         val word = lyric.words.getOrNull(wordIndex)
 
         // 获取某一词的播放进度
-        var progress = normalized(
-            start = word?.startTime ?: 0,
-            end = word?.endTime ?: 0,
-            current = now
-        )
-
-        // 若当前句的歌词已经播放完毕，则进度固定为1
-        if (lyric.words.maxOf { it.endTime } < context.currentTime()) {
-            progress = 1f
+        var progress = if (showMain) {
+            normalized(
+                start = word?.startTime ?: 0,
+                end = word?.endTime ?: 0,
+                current = now
+            )
+        } else {
+            0f
         }
 
-        val offset = lyric.words.take(wordIndex)
-            .sumOf { it.content.length }
-
-        val (path, rect, position) = textResult.getPathForProgress(
-            progress = progress,
-            offset = offset,
-            length = word?.content?.length
-        )
+        // 若当前句的歌词已经播放完毕，则进度固定为1
+        if (showMain && lyric.words.isNotEmpty() && lyric.words.maxOf { it.endTime } < context.currentTime()) {
+            progress = 1f
+        }
 
         scale(
             scale = scale.value,
             pivot = pivotOffset as? Offset ?: Offset.Zero,
         ) {
-            drawText(
+            if (showMain) {
+                drawText(
                 color = Color(0x80FFFFFF),
                 shadow = DEFAULT_TEXT_SHADOW,
                 textLayoutResult = textResult,
             )
 
             if (progress > 0f) {
+                val offset = lyric.words.take(wordIndex)
+                    .sumOf { it.content.length }
+
+                val (path, rect, position) = textResult.getPathForProgress(
+                    progress = progress,
+                    offset = offset,
+                    length = word?.content?.length
+                )
+
                 val lineProgress = if (progress >= 0.99f) 1f else {
                     normalized(
                         start = rect.left,
@@ -262,14 +277,17 @@ fun LyricContentWords(
                 }
             }
 
-            if (translateResult == null) return@scale
-            drawText(
-                color = Color(0x80FFFFFF),
-                topLeft = translationTopLeft as? Offset ?: Offset.Zero,
+            }
+
+            if (translateResult != null && showTranslation) {
+                drawText(
+                    color = if (showTranslationOnly && isCurrent) Color.White else Color(0x80FFFFFF),
+                    topLeft = translationTopLeft as? Offset ?: Offset.Zero,
 //                shadow = DEFAULT_TEXT_SHADOW,
-                textLayoutResult = translateResult,
-                alpha = animateAlpha.value
-            )
+                    textLayoutResult = translateResult,
+                    alpha = animateAlpha.value
+                )
+            }
         }
     }
 }

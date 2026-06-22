@@ -74,16 +74,26 @@ fun LyricContentNormal(
             }
     }
 
+    val hasTranslation = translateResult != null
+    val showTranslationOnly = !settings.translationVisible &&
+            settings.hideMainWhenTranslationHidden &&
+            hasTranslation
+    val showBoth = settings.translationVisible && hasTranslation
+    val showMain = !showTranslationOnly
+    val showTranslation = showBoth || showTranslationOnly
+
     val (heightDp, translationTopLeft, pivotOffset) = remember(
-        textResult, translateResult, settings
+        textResult, translateResult, settings, showTranslationOnly, showBoth, showMain
     ) {
         val gapHeight = with(density) { settings.gapSize.toPx() }
         val textHeight = textResult.getLineBottom(textResult.lineCount - 1)
         val translateHeight = translateResult?.let { it.getLineBottom(it.lineCount - 1) } ?: 0f
 
-        val height =
-            if (settings.translationVisible && translateHeight > 0) textHeight + translateHeight + gapHeight
-            else textHeight
+        val height = when {
+            showBoth -> textHeight + translateHeight + gapHeight
+            showTranslationOnly -> translateHeight
+            else -> textHeight
+        }
         val paddingVertical = settings.containerPadding.calculateTopPadding() +
                 settings.containerPadding.calculateBottomPadding()
 
@@ -97,7 +107,7 @@ fun LyricContentNormal(
 
         listOf(
             density.run { height.toDp() + paddingVertical },
-            Offset.Zero.copy(y = textHeight + gapHeight),
+            Offset.Zero.copy(y = if (showMain) textHeight + gapHeight else 0f),
             pivotOffset
         )
     }
@@ -112,7 +122,7 @@ fun LyricContentNormal(
     )
 
     val animateAlpha = animateFloatAsState(
-        targetValue = if (settings.translationVisible) 1f else 0f,
+        targetValue = if (showTranslation) 1f else 0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow
@@ -167,19 +177,22 @@ fun LyricContentNormal(
             scale = scale.value,
             pivot = pivotOffset as? Offset ?: Offset.Zero
         ) {
-            drawText(
-                color = color.value,
-                shadow = DEFAULT_TEXT_SHADOW,
-                textLayoutResult = textResult
-            )
+            if (showMain) {
+                drawText(
+                    color = color.value,
+                    shadow = DEFAULT_TEXT_SHADOW,
+                    textLayoutResult = textResult
+                )
+            }
 
-            if (translateResult == null) return@scale
-            drawText(
-                color = color.value,
-                topLeft = translationTopLeft as? Offset ?: Offset.Zero,
-                textLayoutResult = translateResult,
-                alpha = animateAlpha.value
-            )
+            if (translateResult != null && showTranslation) {
+                drawText(
+                    color = color.value,
+                    topLeft = translationTopLeft as? Offset ?: Offset.Zero,
+                    textLayoutResult = translateResult,
+                    alpha = animateAlpha.value
+                )
+            }
         }
     }
 }

@@ -45,6 +45,7 @@ data class LyricSettings(
     val gapSize: Dp = 10.dp,
     val scaleRange: ClosedRange<Float> = 0.85f..1f,
     val timeOffset: Long = 50L,
+    val highlightPosition: Float = 0.5f,
 
     // 字体样式配置
     val mainFontSize: TextUnit = 26.sp,
@@ -59,6 +60,7 @@ data class LyricSettings(
     // 特殊效果开关
     val blurEffectEnable: Boolean = true,
     val translationVisible: Boolean = true,
+    val hideMainWhenTranslationHidden: Boolean = false,
     val variableFontWeightEnable: Boolean = false
 ) {
     @Transient
