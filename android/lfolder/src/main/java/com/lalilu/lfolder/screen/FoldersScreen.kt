@@ -60,6 +60,7 @@ import com.lalilu.lmedia.repository.LMediaSp
 import com.lalilu.lmedia.scanner.FileSystemScanner
 import com.lalilu.lmedia.scanner.FileSource
 import com.lalilu.lmedia.scanner.PathExclusionMatcher
+import com.lalilu.lplaylist.repository.PlaylistRepository
 import com.lalilu.remixicon.Document
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.document.folderMusicLine
@@ -84,6 +85,7 @@ class DictionaryScreenModel(
     private val lMediaSp: LMediaSp,
     private val fileSystemScanner: FileSystemScanner,
     private val historyDao: HistoryDao,
+    private val playlistRepository: PlaylistRepository,
 ) : ScreenModel {
     val targetDirectory = lMediaSp.includePath
         .flow(true)
@@ -261,6 +263,7 @@ class DictionaryScreenModel(
             newContentId = newId,
             newContentTitle = newTitle,
         )
+        playlistRepository.relinkMediaId(oldId, newId)
         relinkPrefs(
             prefsName = "armusic_song_works",
             oldId = oldId,

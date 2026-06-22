@@ -142,6 +142,26 @@ internal class PlaylistRepositoryImpl(
         setPlaylists(playlists)
     }
 
+    override fun relinkMediaId(oldMediaId: String, newMediaId: String): Int {
+        if (oldMediaId.isBlank() || newMediaId.isBlank() || oldMediaId == newMediaId) return 0
+
+        var changedCount = 0
+        val playlists = getPlaylists().map { playlist ->
+            if (oldMediaId !in playlist.mediaIds) return@map playlist
+
+            changedCount += 1
+            playlist.copy(
+                mediaIds = playlist.mediaIds
+                    .map { if (it == oldMediaId) newMediaId else it }
+                    .distinct(),
+                modifyTime = System.currentTimeMillis(),
+            )
+        }
+
+        if (changedCount > 0) setPlaylists(playlists)
+        return changedCount
+    }
+
     override fun updateMediaIdsToFavourite(mediaIds: List<String>) {
         updateMediaIdsToPlaylist(mediaIds, PlaylistRepository.FAVOURITE_PLAYLIST_ID)
     }

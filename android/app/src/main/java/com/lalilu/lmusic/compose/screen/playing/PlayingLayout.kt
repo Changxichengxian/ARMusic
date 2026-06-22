@@ -8,6 +8,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -15,7 +16,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -45,7 +48,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.lalilu.component.base.LocalEnhanceSheetState
 import com.lalilu.component.extension.DynamicTipsItem
-import com.lalilu.component.extension.hideControl
 import com.lalilu.lmedia.lyric.LyricItem
 import com.lalilu.lmedia.lyric.LyricSourceEmbedded
 import com.lalilu.lmedia.lyric.LyricUtils
@@ -54,7 +56,6 @@ import com.lalilu.lmusic.compose.component.playing.PlayingToolbar
 import com.lalilu.lmusic.compose.screen.playing.lyric.LyricLayout
 import com.lalilu.lmusic.compose.screen.playing.seekbar.ClickPart
 import com.lalilu.lmusic.compose.screen.playing.seekbar.SeekbarLayout
-import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lplayer.MPlayer
 import com.lalilu.lplayer.action.PlayerAction
 import com.lalilu.lplayer.extensions.PlayMode
@@ -65,9 +66,7 @@ import org.koin.compose.koinInject
 import kotlin.math.pow
 
 @Composable
-fun PlayingLayout(
-    settingsSp: SettingsSp = koinInject(),
-) {
+fun PlayingLayout() {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val lifecycle = LocalLifecycleOwner.current
@@ -81,6 +80,7 @@ fun PlayingLayout(
     val scrollToTopEvent = remember { mutableStateOf(0L) }
     val currentPosition = remember { mutableFloatStateOf(0f) }
     val animation = remember { Animatable(0f) }
+    val manualHideExpandedControls = remember { mutableStateOf(false) }
 
     val draggable = rememberCustomAnchoredDraggableState { oldState, newState ->
         if (newState == DragAnchor.MiddleXMax && oldState != DragAnchor.MiddleXMax) {
@@ -93,7 +93,13 @@ fun PlayingLayout(
 
     val hideComponent = remember {
         derivedStateOf {
-            settingsSp.autoHideSeekbar.value && draggable.state.value == DragAnchor.Max
+            manualHideExpandedControls.value && draggable.state.value == DragAnchor.Max
+        }
+    }
+
+    LaunchedEffect(draggable.state.value) {
+        if (draggable.state.value != DragAnchor.Max) {
+            manualHideExpandedControls.value = false
         }
     }
 
@@ -132,14 +138,11 @@ fun PlayingLayout(
 
             Column(
                 modifier = Modifier
-                    .hideControl(
-                        enable = { hideComponent.value },
-                        intercept = { true }
-                    )
                     .fillMaxWidth()
                     .statusBarsPadding()
                     .padding(bottom = 10.dp)
                     .graphicsLayer {
+                        alpha = if (hideComponent.value) 0f else 1f
                         translationY = lerp(
                             start = 0f,
                             stop = -navigationBar
@@ -153,7 +156,13 @@ fun PlayingLayout(
                     isItemPlaying = { mediaId -> MPlayer.isItemPlaying(mediaId) },
                     isUserTouchEnable = { draggable.state.value == DragAnchor.Min || draggable.state.value == DragAnchor.Max },
                     isExtraVisible = { draggable.state.value == DragAnchor.Max },
-                    onClick = { scrollToTopEvent.value = System.currentTimeMillis() },
+                    onClick = {
+                        if (draggable.state.value == DragAnchor.Max) {
+                            manualHideExpandedControls.value = true
+                        } else {
+                            scrollToTopEvent.value = System.currentTimeMillis()
+                        }
+                    },
                     extraContent = { LyricViewToolbar() }
                 )
             }
@@ -304,55 +313,70 @@ fun PlayingLayout(
                 label = ""
             )
 
-            Box(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .graphicsLayer {
-                        alpha = animateProgress.value / 100f
-                        translationY = (1f - animateProgress.value / 100f) * 500f
-                    }
-            ) {
-                SeekbarLayout(
+            if (!hideComponent.value) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer {
+                            alpha = animateProgress.value / 100f
+                            translationY = (1f - animateProgress.value / 100f) * 500f
+                        }
+                ) {
+                    SeekbarLayout(
+                        modifier = Modifier
+                            .padding(horizontal = 40.dp)
+                            .padding(bottom = 100.dp),
+                        animateColor = { animateColor.value },
+                        maxValue = { MPlayer.currentDuration.toFloat() },
+                        animation = animation,
+                        dataValue = { currentPosition.floatValue },
+                        onDispatchDragOffset = { enhanceSheetState?.dispatch(it) },
+                        onDragStop = { result ->
+                            if (result == -1) enhanceSheetState?.hide()
+                            else enhanceSheetState?.settle(0f)
+                        },
+                        onSeekTo = { position ->
+                            PlayerAction.SeekTo(position.toLong()).action()
+                        },
+                        onSwitchTo = { index ->
+                            val playMode = when (index) {
+                                1 -> PlayMode.RepeatOne
+                                2 -> PlayMode.Shuffle
+                                else -> PlayMode.ListRecycle
+                            }
+                            PlayerAction.SetPlayMode(playMode)
+                                .action()
+                            DynamicTipsItem.Static(
+                                title = when (playMode) {
+                                    PlayMode.ListRecycle -> "列表循环"
+                                    PlayMode.RepeatOne -> "单曲循环"
+                                    PlayMode.Shuffle -> "随机播放"
+                                },
+                                subTitle = "切换播放模式",
+                            ).show()
+                        },
+                        onClick = { clickPart ->
+                            when (clickPart) {
+                                ClickPart.Start -> PlayerAction.SkipToPrevious.action()
+                                ClickPart.Middle -> PlayerAction.PlayOrPause.action()
+                                ClickPart.End -> PlayerAction.SkipToNext.action()
+                            }
+                        }
+                    )
+                }
+            } else {
+                Box(
                     modifier = Modifier
-                        .hideControl(enable = { hideComponent.value })
-                        .padding(horizontal = 40.dp)
-                        .padding(bottom = 100.dp),
-                    animateColor = { animateColor.value },
-                    maxValue = { MPlayer.currentDuration.toFloat() },
-                    animation = animation,
-                    dataValue = { currentPosition.floatValue },
-                    onDispatchDragOffset = { enhanceSheetState?.dispatch(it) },
-                    onDragStop = { result ->
-                        if (result == -1) enhanceSheetState?.hide()
-                        else enhanceSheetState?.settle(0f)
-                    },
-                    onSeekTo = { position ->
-                        PlayerAction.SeekTo(position.toLong()).action()
-                    },
-                    onSwitchTo = { index ->
-                        val playMode = when (index) {
-                            1 -> PlayMode.RepeatOne
-                            2 -> PlayMode.Shuffle
-                            else -> PlayMode.ListRecycle
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(76.dp)
+                        .navigationBarsPadding()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        ) {
+                            manualHideExpandedControls.value = false
                         }
-                        PlayerAction.SetPlayMode(playMode)
-                            .action()
-                        DynamicTipsItem.Static(
-                            title = when (playMode) {
-                                PlayMode.ListRecycle -> "列表循环"
-                                PlayMode.RepeatOne -> "单曲循环"
-                                PlayMode.Shuffle -> "随机播放"
-                            },
-                            subTitle = "切换播放模式",
-                        ).show()
-                    },
-                    onClick = { clickPart ->
-                        when (clickPart) {
-                            ClickPart.Start -> PlayerAction.SkipToPrevious.action()
-                            ClickPart.Middle -> PlayerAction.PlayOrPause.action()
-                            ClickPart.End -> PlayerAction.SkipToNext.action()
-                        }
-                    }
                 )
             }
         }

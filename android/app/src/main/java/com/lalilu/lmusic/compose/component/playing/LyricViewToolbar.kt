@@ -34,7 +34,6 @@ import com.lalilu.component.extension.DialogItem
 import com.lalilu.component.extension.DialogWrapper
 import com.lalilu.component.extension.split
 import com.lalilu.component.extension.transform
-import com.lalilu.component.settings.SettingFilePicker
 import com.lalilu.component.settings.SettingSmallProgressSeekBar
 import com.lalilu.component.settings.SettingStateSeekBar
 import com.lalilu.component.settings.SettingSwitcher
@@ -202,16 +201,13 @@ val LyricViewActionDialog = DialogItem.Dynamic(backgroundColor = Color.Transpare
                     settings.saveData()
                 }
             )
-            SettingSwitcher(
-                title = "歌词页展开时隐藏其他组件",
-                subTitle = "简化界面显示效果",
-                state = settingsSp.autoHideSeekbar,
-            )
-            SettingFilePicker(
-                state = lyricTypefacePath,
-                title = "自定义字体",
-                subTitle = "请选择TTF格式的字体文件（存在bug，待修复）",
-                mimeType = "font/ttf"
+            SettingFontLibrary(
+                currentPath = { lyricTypefacePath.value },
+                onPathSelected = { path ->
+                    lyricTypefacePath.value = path
+                    settingsSp.lyricTypefacePath.value = path
+                    settings.saveData()
+                }
             )
         }
     }

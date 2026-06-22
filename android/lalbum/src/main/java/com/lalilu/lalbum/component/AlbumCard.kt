@@ -54,12 +54,12 @@ fun AlbumCard(
     isPlaying: () -> Boolean = { false },
     onClick: () -> Unit = {}
 ) {
-    val item = remember { album() }
+    val item = album()
 
     AlbumCard(
         modifier = modifier,
         imageData = { item },
-        title = { item.name },
+        title = { "${item.name} · ${item.songs.size} 首" },
         showTitle = showTitle,
         isPlaying = isPlaying,
         onClick = onClick

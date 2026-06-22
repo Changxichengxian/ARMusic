@@ -17,15 +17,25 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.funny.data_saver.core.DataSaverMutableState
 import com.lalilu.R
 import com.lalilu.component.extension.enableFor
+import com.lalilu.lmedia.LMedia
+import com.lalilu.lmedia.entity.LSong
+import com.lalilu.lmedia.repository.SongWorkStore
+import com.lalilu.lmusic.compose.screen.playing.lyric.LyricSettings
 import com.lalilu.lplayer.MPlayer
+import org.koin.compose.koinInject
+import org.koin.core.qualifier.named
 
 
 @Composable
@@ -38,7 +48,24 @@ fun PlayingToolbar(
     fixContent: @Composable RowScope.() -> Unit = {},
     extraContent: @Composable AnimatedVisibilityScope.() -> Unit = {}
 ) {
+    val songWorkStore: SongWorkStore = koinInject()
+    val lyricSettings: DataSaverMutableState<LyricSettings> = koinInject(named("LyricSettings"))
     val metadata = MPlayer.currentMediaMetadata
+    val mediaId = MPlayer.currentMediaItem?.mediaId
+    val workVersion by songWorkStore.changes.collectAsState()
+    val originalSong = remember(mediaId, workVersion) {
+        mediaId?.let { LMedia.get<LSong>(it) }
+    }
+    val originalTitle = originalSong?.name
+    val metadataTitle = metadata?.title?.toString()
+    val lyricTitle = metadataTitle
+        ?.takeIf { it.isNotBlank() && it != originalTitle }
+    val displayTitle = lyricTitle ?: originalTitle ?: metadataTitle
+    val displaySubTitle = originalSong?.let { song ->
+        songWorkStore.getWork(song)
+            .ifBlank { song.metadata.artist }
+            .ifBlank { song.metadata.album }
+    } ?: metadata?.subtitle?.toString()
     val defaultSloganStr = stringResource(id = R.string.default_slogan)
 
     val enter = remember {
@@ -96,9 +123,19 @@ fun PlayingToolbar(
             modifier = Modifier
                 .weight(1f)
                 .padding(end = 10.dp),
-            title = { metadata?.title?.toString()?.takeIf(String::isNotBlank) ?: defaultSloganStr },
-            subTitle = { metadata?.subtitle?.toString()?.takeIf(String::isNotBlank) ?: defaultSloganStr },
-            isPlaying = { MPlayer.isPlaying }
+            title = { displayTitle?.takeIf(String::isNotBlank) ?: defaultSloganStr },
+            subTitle = { displaySubTitle?.takeIf(String::isNotBlank) ?: defaultSloganStr },
+            isPlaying = { MPlayer.isPlaying },
+            titleStyle = {
+                if (lyricTitle == null) {
+                    MaterialTheme.typography.subtitle1
+                } else {
+                    MaterialTheme.typography.subtitle1.copy(
+                        fontFamily = lyricSettings.value.mainTextStyle.fontFamily,
+                        fontWeight = lyricSettings.value.mainTextStyle.fontWeight,
+                    )
+                }
+            }
         )
 
         fixContent()

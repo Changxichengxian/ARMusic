@@ -16,6 +16,9 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -24,13 +27,32 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.lalilu.lmedia.LMedia
+import com.lalilu.lmedia.entity.LSong
+import com.lalilu.lmedia.repository.SongWorkStore
 import com.lalilu.lplayer.MPlayer
+import org.koin.compose.koinInject
 
 @Composable
 fun PlayingSmartCard(
     modifier: Modifier = Modifier,
 ) {
+    val songWorkStore: SongWorkStore = koinInject()
     val currentPlaying = MPlayer.currentMediaItem
+    val mediaId = currentPlaying?.mediaId
+    val workVersion by songWorkStore.changes.collectAsState()
+    val originalSong = remember(mediaId, workVersion) {
+        mediaId?.let { LMedia.get<LSong>(it) }
+    }
+    val displayTitle = originalSong?.name
+        ?: currentPlaying?.mediaMetadata?.title?.toString()
+        ?: "Unknown"
+    val displaySubTitle = originalSong?.let { song ->
+        songWorkStore.getWork(song)
+            .ifBlank { song.metadata.artist }
+            .ifBlank { song.metadata.album }
+    } ?: currentPlaying?.mediaMetadata?.subtitle?.toString()
+        ?: "Unknown"
 
     Surface(modifier) {
         AnimatedContent(
@@ -66,7 +88,7 @@ fun PlayingSmartCard(
                             iterations = Int.MAX_VALUE,
                             spacing = MarqueeSpacing(30.dp)
                         ),
-                        text = playing?.mediaMetadata?.title?.toString() ?: "Unknown",
+                        text = displayTitle,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colors.onBackground,
                         fontSize = 14.sp,
@@ -79,7 +101,7 @@ fun PlayingSmartCard(
                             iterations = Int.MAX_VALUE,
                             spacing = MarqueeSpacing(30.dp)
                         ),
-                        text = playing?.mediaMetadata?.subtitle?.toString() ?: "Unknown",
+                        text = displaySubTitle,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colors.onBackground.copy(0.6f),
                         fontSize = 10.sp,

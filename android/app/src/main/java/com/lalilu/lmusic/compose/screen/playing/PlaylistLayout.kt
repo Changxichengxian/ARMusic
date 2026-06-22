@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,10 +27,14 @@ import com.lalilu.component.card.SongCard
 import com.lalilu.component.card.StickerRow
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.state
+import com.lalilu.lmedia.LMedia
+import com.lalilu.lmedia.entity.LSong
+import com.lalilu.lmedia.repository.SongWorkStore
 import com.lalilu.lmusic.compose.screen.playing.util.DiffUtil
 import com.lalilu.lmusic.compose.screen.playing.util.ListUpdateCallback
 import com.lalilu.lplayer.action.PlayerAction
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 
 data class Item<T>(
@@ -90,12 +95,14 @@ fun <T : Any> List<Item<T>>.diff(
 fun PlaylistLayout(
     modifier: Modifier = Modifier,
     forceRefresh: () -> Boolean = { false },
-    items: () -> List<MediaItem> = { emptyList() }
+    items: () -> List<MediaItem> = { emptyList() },
+    songWorkStore: SongWorkStore = koinInject(),
 ) {
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val favouriteIds = state("favourite_ids", emptyList<String>())
+    val workVersion by songWorkStore.changes.collectAsState()
 
     var actualItems by remember { mutableStateOf(emptyList<Item<MediaItem>>()) }
 
@@ -145,6 +152,8 @@ fun PlaylistLayout(
                 modifier = Modifier.animateItem(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 song = { item.data },
+                workVersion = { workVersion },
+                songWorkStore = songWorkStore,
                 isFavour = { favouriteIds.value.contains(item.data.mediaId) },
                 onClick = { PlayerAction.PlayById(item.data.mediaId).action() },
                 onLongClick = {
@@ -180,16 +189,28 @@ private fun SongCardReverse(
             extSticker = Sticker.ExtSticker(song().localConfiguration?.mimeType ?: "")
         )
     },
-    prefixContent: @Composable (Modifier) -> Unit = {}
+    prefixContent: @Composable (Modifier) -> Unit = {},
+    workVersion: () -> Int = { 0 },
+    songWorkStore: SongWorkStore = koinInject(),
 ) {
+    val originalSong = remember(song().mediaId, workVersion()) {
+        LMedia.get<LSong>(song().mediaId)
+    }
+    val displayTitle = originalSong?.name ?: song().mediaMetadata.title.toString()
+    val displaySubTitle = originalSong?.let { item ->
+        songWorkStore.getWork(item)
+            .ifBlank { item.metadata.artist }
+            .ifBlank { item.metadata.album }
+    } ?: song().mediaMetadata.artist.toString()
+
     SongCard(
         modifier = modifier,
         dragModifier = dragModifier,
         horizontalArrangement = horizontalArrangement,
         interactionSource = interactionSource,
         paddingValues = PaddingValues(16.dp),
-        title = { song().mediaMetadata.title.toString() },
-        subTitle = { song().mediaMetadata.artist.toString() },
+        title = { displayTitle },
+        subTitle = { displaySubTitle },
         duration = { song().mediaMetadata.durationMs ?: 0L },
         imageData = song,
         onClick = onClick,

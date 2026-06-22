@@ -24,6 +24,7 @@ interface PlaylistRepository {
     fun addMediaIdsToPlaylists(mediaIds: List<String>, playlistIds: List<String>)
     fun removeMediaIdsFromPlaylist(mediaIds: List<String>, playlistId: String)
     fun removeMediaIdsFromPlaylists(mediaIds: List<String>, playlistIds: List<String>)
+    fun relinkMediaId(oldMediaId: String, newMediaId: String): Int
 
     fun updateMediaIdsToFavourite(mediaIds: List<String>)
     fun addMediaIdsToFavourite(mediaIds: List<String>)

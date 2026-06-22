@@ -37,4 +37,5 @@ composeCompiler {
 dependencies {
     implementation(project(":component"))
     implementation(project(":lhistory"))
+    implementation(project(":lplaylist"))
 }

@@ -31,6 +31,7 @@ import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.RomUtils
 import com.blankj.utilcode.util.ToastUtils
 import com.google.accompanist.flowlayout.FlowRow
+import com.funny.data_saver.core.DataSaverMutableState
 import com.lalilu.BuildConfig
 import com.lalilu.R
 import com.lalilu.RemixIcon
@@ -42,7 +43,6 @@ import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.extension.rememberFixedStatusBarHeightDp
 import com.lalilu.component.settings.SettingCategory
-import com.lalilu.component.settings.SettingFilePicker
 import com.lalilu.component.settings.SettingProgressSeekBar
 import com.lalilu.component.settings.SettingStateSeekBar
 import com.lalilu.component.settings.SettingSwitcher
@@ -53,6 +53,9 @@ import com.lalilu.lmedia.repository.LMediaSp
 import com.lalilu.lmedia.scanner.FileSystemScanner
 import com.lalilu.lmedia.scanner.PathExclusionMatcher
 import com.lalilu.lmusic.GuidingActivity
+import com.lalilu.lmusic.compose.component.playing.SettingFontLibrary
+import com.lalilu.lmusic.compose.screen.playing.lyric.LyricSettings
+import com.lalilu.lmusic.compose.screen.playing.lyric.SerializableFont
 import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.migration.ARMusicWorkMappingManager
 import com.lalilu.lmusic.migration.LMusicMigrationManager
@@ -63,6 +66,7 @@ import com.lalilu.remixicon.system.settings4Line
 import com.zhangke.krouter.annotation.Destination
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import org.koin.core.qualifier.named
 import kotlin.math.roundToInt
 
 @Destination("/pages/settings")
@@ -93,7 +97,8 @@ private fun SettingsScreen(
     workMappingManager: ARMusicWorkMappingManager = koinInject(),
     statusBarLyricExt: StatusBarLyric = koinInject(),
     fileSystemScanner: FileSystemScanner = koinInject(),
-    lMediaSp: LMediaSp = koinInject()
+    lMediaSp: LMediaSp = koinInject(),
+    lyricSettings: DataSaverMutableState<LyricSettings> = koinInject(named("LyricSettings")),
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -109,7 +114,6 @@ private fun SettingsScreen(
     val lyricTypefacePath = settingsSp.lyricTypefacePath
     val enableSystemEq = settingsSp.enableSystemEq
     val enableDynamicTips = settingsSp.enableDynamicTips
-    val autoHideSeekBar = settingsSp.autoHideSeekbar
     val forceHideStatusBar = settingsSp.forceHideStatusBar
     val keepScreenOnWhenLyricExpanded = settingsSp.keepScreenOnWhenLyricExpanded
     val durationFilter = settingsSp.durationFilter
@@ -256,20 +260,20 @@ private fun SettingsScreen(
                     )
                 }
                 SettingSwitcher(
-                    title = "歌词页展开时隐藏其他组件",
-                    subTitle = "简化界面显示效果",
-                    state = autoHideSeekBar,
-                )
-                SettingSwitcher(
                     title = "歌词页展开时屏幕常亮",
                     subTitle = "小心烧屏",
                     state = keepScreenOnWhenLyricExpanded,
                 )
-                SettingFilePicker(
-                    state = lyricTypefacePath,
-                    title = "自定义字体",
-                    subTitle = "请选择TTF格式的字体文件",
-                    mimeType = "font/ttf"
+                SettingFontLibrary(
+                    currentPath = { lyricTypefacePath.value },
+                    onPathSelected = { path ->
+                        lyricTypefacePath.value = path
+                        lyricSettings.value = lyricSettings.value.copy(
+                            mainFont = path.takeIf { it.isNotBlank() }
+                                ?.let { SerializableFont.LoadedFont(it) }
+                        )
+                        lyricSettings.saveData()
+                    }
                 )
                 SettingStateSeekBar(
                     state = lyricGravity,

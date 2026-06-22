@@ -30,7 +30,9 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,9 +56,12 @@ import coil3.request.crossfade
 import coil3.request.transformations
 import com.lalilu.R
 import com.lalilu.component.extension.DialogWrapper
+import com.lalilu.lmedia.LMedia
+import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.lyric.LyricItem
 import com.lalilu.lmedia.lyric.LyricSourceEmbedded
 import com.lalilu.lmedia.lyric.LyricUtils
+import com.lalilu.lmedia.repository.SongWorkStore
 import com.lalilu.lmusic.compose.component.playing.LyricViewActionDialog
 import com.lalilu.lmusic.compose.screen.playing.lyric.LyricLayout
 import com.lalilu.lmusic.datastore.SettingsSp
@@ -244,19 +249,31 @@ private fun SongDetailPanel(
         )
         return
     }
+    val songWorkStore: SongWorkStore = koinInject()
+    val workVersion by songWorkStore.changes.collectAsState()
+    val song = remember(playable.mediaId, workVersion) {
+        LMedia.get<LSong>(playable.mediaId)
+    }
+    val title = song?.name ?: playable.mediaMetadata.title.toString()
+    val subTitle = song?.let { item ->
+        songWorkStore.getWork(item)
+            .ifBlank { item.metadata.artist }
+            .ifBlank { item.metadata.album }
+    } ?: playable.mediaMetadata.subtitle.toString()
+
     Column(
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = playable.mediaMetadata.title.toString(),
+            text = title,
             color = Color.White,
             fontSize = 24.sp,
             lineHeight = 32.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = playable.mediaMetadata.subtitle.toString(),
+            text = subTitle,
             color = Color.White,
             fontSize = 12.sp,
             lineHeight = 18.sp
