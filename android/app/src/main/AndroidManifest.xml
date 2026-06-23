@@ -99,6 +99,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".lmusic.agent.ARMusicAgentActivity"
+            android:exported="true"
+            android:theme="@style/Theme.ARMusic.Agent">
+            <intent-filter>
+                <action android:name="com.lalilu.lmusic.armusic.AGENT_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

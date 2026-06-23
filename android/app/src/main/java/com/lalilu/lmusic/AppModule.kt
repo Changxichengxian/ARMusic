@@ -24,6 +24,7 @@ import com.lalilu.lmusic.api.lrcshare.LrcShareApi
 import com.lalilu.lmusic.api.lrclib.LrclibApi
 import com.lalilu.lmusic.api.netease.NeteaseMusicApi
 import com.lalilu.lmusic.api.tag.OnlineTagSearchService
+import com.lalilu.lmusic.agent.ARMusicAgentManager
 import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.datastore.TempSp
 import com.lalilu.lmusic.migration.ARMusicMemoSeedImporter
@@ -109,6 +110,7 @@ val AppModule = module {
     single<HistoryStatIdResolver> { ARMusicHistoryStatIdResolver(get()) }
     single { LMusicMigrationManager(androidApplication(), get()) }
     single { ARMusicWorkMappingManager(androidApplication(), get()) }
+    single { ARMusicAgentManager(androidApplication(), get(), get(), get()) }
     single(createdAtStart = true) { ARMusicMemoSeedImporter(androidApplication(), get()) }
     single(createdAtStart = true) { ARMusicPlayCountSeedImporter(androidApplication(), get(), get()) }
     single { EQHelper(androidApplication()) }
