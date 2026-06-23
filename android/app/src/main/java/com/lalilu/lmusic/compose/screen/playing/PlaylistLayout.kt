@@ -82,7 +82,7 @@ fun <T : Any> List<Item<T>>.diff(
         val newItem = items.getOrNull(index)
         if (oldItem == null && newItem != null) {
             tempList[index] = Item(
-                key = "${newGenerationId}_${getId(newItem)}",
+                key = "${newGenerationId}_${index}_${getId(newItem)}",
                 data = newItem
             )
         }
