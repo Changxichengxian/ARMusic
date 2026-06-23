@@ -106,6 +106,10 @@ class SettingsSp(private val context: Application) : BaseSp() {
         Config.KEY_SETTINGS_DURATION_FILTER,
         Config.DEFAULT_SETTINGS_DURATION_FILTER
     )
+    val historyDurationFilter = obtain<Int>(
+        Config.KEY_SETTINGS_HISTORY_DURATION_FILTER,
+        Config.DEFAULT_SETTINGS_HISTORY_DURATION_FILTER
+    )
     val isDrawTranslation = obtain<Boolean>(
         Config.KEY_SETTINGS_IS_DRAW_TRANSLATION,
         Config.DEFAULT_SETTINGS_IS_DRAW_TRANSLATION

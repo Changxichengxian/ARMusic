@@ -1,60 +1,87 @@
 package com.lalilu.lhistory.repository
 
+import android.app.Application
+import android.content.SharedPreferences
 import androidx.paging.PagingSource
 import com.lalilu.common.toCachedFlow
+import com.lalilu.lhistory.KEY_SETTINGS_HISTORY_DURATION_FILTER
 import com.lalilu.lhistory.entity.LHistory
+import com.lalilu.lhistory.historyDurationFilterMs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
 @Single(binds = [HistoryRepository::class])
+@OptIn(ExperimentalCoroutinesApi::class)
 class HistoryRepositoryImpl(
     private val historyDao: HistoryDao,
     private val statIdResolver: com.lalilu.lhistory.HistoryStatIdResolver,
+    application: Application,
 ) : HistoryRepository, CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO
+    private val settingsSp = application.getSharedPreferences(
+        application.packageName,
+        Application.MODE_PRIVATE,
+    )
+    private val minDurationFlow = MutableStateFlow(settingsSp.historyDurationFilterMs())
+    private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
+        if (key == KEY_SETTINGS_HISTORY_DURATION_FILTER) {
+            minDurationFlow.value = sp.historyDurationFilterMs()
+        }
+    }
 
     private val countMap = historyDao
-        .getFlowIdsMapWithCount(Int.MAX_VALUE)
+        .let { filteredHistory { minDuration -> it.getFlowIdsMapWithCount(Int.MAX_VALUE, minDuration) } }
         .distinctUntilChanged()
         .toCachedFlow()
         .also { it.launchIn(this) }
 
     private val lastTimeMap = historyDao
-        .getFlowIdsMapWithLastTime(Int.MAX_VALUE)
+        .let { filteredHistory { minDuration -> it.getFlowIdsMapWithLastTime(Int.MAX_VALUE, minDuration) } }
         .distinctUntilChanged()
         .toCachedFlow()
         .also { it.launchIn(this) }
 
     private val durationMap = historyDao
-        .getFlowIdsMapWithDuration(Int.MAX_VALUE)
+        .let { filteredHistory { minDuration -> it.getFlowIdsMapWithDuration(Int.MAX_VALUE, minDuration) } }
         .distinctUntilChanged()
         .toCachedFlow()
         .also { it.launchIn(this) }
 
     private val statCountMap = historyDao
-        .getFlowStatIdsMapWithCount(Int.MAX_VALUE)
+        .let { filteredHistory { minDuration -> it.getFlowStatIdsMapWithCount(Int.MAX_VALUE, minDuration) } }
         .distinctUntilChanged()
         .toCachedFlow()
         .also { it.launchIn(this) }
 
     private val statLastTimeMap = historyDao
-        .getFlowStatIdsMapWithLastTime(Int.MAX_VALUE)
+        .let { filteredHistory { minDuration -> it.getFlowStatIdsMapWithLastTime(Int.MAX_VALUE, minDuration) } }
         .distinctUntilChanged()
         .toCachedFlow()
         .also { it.launchIn(this) }
 
     private val statDurationMap = historyDao
-        .getFlowStatIdsMapWithDuration(Int.MAX_VALUE)
+        .let { filteredHistory { minDuration -> it.getFlowStatIdsMapWithDuration(Int.MAX_VALUE, minDuration) } }
         .distinctUntilChanged()
         .toCachedFlow()
         .also { it.launchIn(this) }
+
+    init {
+        settingsSp.registerOnSharedPreferenceChangeListener(settingsListener)
+    }
+
+    private fun <T> filteredHistory(block: (Long) -> Flow<T>): Flow<T> {
+        return minDurationFlow.flatMapLatest(block)
+    }
 
     override suspend fun getUnUsedPreSaveHistory(mediaId: String): LHistory? =
         withContext(Dispatchers.IO) {
@@ -85,18 +112,18 @@ class HistoryRepositoryImpl(
     }
 
     override fun getAllData(): PagingSource<Int, LHistory> {
-        return historyDao.getAllData()
+        return historyDao.getAllData(settingsSp.historyDurationFilterMs())
     }
 
     override fun getHistoriesFlow(limit: Int): Flow<List<LHistory>> {
-        return historyDao
-            .getFlow(limit)
+        return minDurationFlow
+            .flatMapLatest { historyDao.getFlow(limit, it) }
             .distinctUntilChanged()
     }
 
     override fun getHistoriesWithCount(limit: Int): Flow<Map<LHistory, Int>> {
-        return historyDao
-            .getFlowWithCount(limit)
+        return minDurationFlow
+            .flatMapLatest { historyDao.getFlowWithCount(limit, it) }
             .distinctUntilChanged()
     }
 

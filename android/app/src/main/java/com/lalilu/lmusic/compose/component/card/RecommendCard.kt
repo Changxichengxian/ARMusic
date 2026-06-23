@@ -5,7 +5,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,6 +75,8 @@ fun RecommendCard(
     width: () -> Dp = { 150.dp },
     height: () -> Dp = { 150.dp },
     onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
+    showActionButton: Boolean = true,
     onClickButton: () -> Unit = {}
 ) {
     val song = remember { item() }
@@ -89,6 +91,8 @@ fun RecommendCard(
         width = width,
         height = height,
         onClick = onClick,
+        onLongClick = onLongClick,
+        showActionButton = showActionButton,
         onClickButton = onClickButton
     )
 }
@@ -105,6 +109,8 @@ fun RecommendCard(
     width: () -> Dp = { 150.dp },
     height: () -> Dp = { 150.dp },
     onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
+    showActionButton: Boolean = true,
     onClickButton: () -> Unit = {}
 ) {
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset("anim/90463-wave.json"))
@@ -125,7 +131,8 @@ fun RecommendCard(
             width = width,
             height = height,
             imageData = imageData,
-            onClick = onClick
+            onClick = onClick,
+            onLongClick = onLongClick
         ) { palette ->
             val mainColor = Color(
                 palette()?.getLightMutedColor(android.graphics.Color.GRAY)
@@ -159,23 +166,25 @@ fun RecommendCard(
                     )
                 }
             }
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 10.dp, bottom = 10.dp),
-                elevation = 1.dp,
-                color = mainColor,
-                shape = CircleShape
-            ) {
-                IconButton(
-                    modifier = Modifier.size(32.dp),
-                    onClick = onClickButton
+            if (showActionButton) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 10.dp, bottom = 10.dp),
+                    elevation = 1.dp,
+                    color = mainColor,
+                    shape = CircleShape
                 ) {
-                    AnimatedContent(targetState = isPlaying()) { playing ->
-                        Icon(
-                            painter = painterResource(id = if (playing) R.drawable.ic_pause_line else R.drawable.ic_play_line),
-                            contentDescription = "Play / Pause Button"
-                        )
+                    IconButton(
+                        modifier = Modifier.size(32.dp),
+                        onClick = onClickButton
+                    ) {
+                        AnimatedContent(targetState = isPlaying()) { playing ->
+                            Icon(
+                                painter = painterResource(id = if (playing) R.drawable.ic_pause_line else R.drawable.ic_play_line),
+                                contentDescription = "Play / Pause Button"
+                            )
+                        }
                     }
                 }
             }
@@ -197,6 +206,7 @@ fun RecommendCardCover(
     shape: Shape = RoundedCornerShape(10.dp),
     imageData: () -> Any?,
     onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
     extraContent: @Composable BoxScope.(palette: () -> Palette?) -> Unit = {}
 ) {
     var palette by remember { mutableStateOf<Palette?>(null) }
@@ -213,7 +223,10 @@ fun RecommendCardCover(
             AsyncImage(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clickable(onClick = onClick),
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = onLongClick
+                    ),
                 model = ImageRequest.Builder(LocalContext.current).data(imageData())
                     .placeholder(R.drawable.ic_music_2_line_100dp)
                     .error(R.drawable.ic_music_2_line_100dp)

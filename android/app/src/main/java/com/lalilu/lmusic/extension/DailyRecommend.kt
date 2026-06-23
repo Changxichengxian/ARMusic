@@ -2,32 +2,48 @@ package com.lalilu.lmusic.extension
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.Chip
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.lalilu.component.LazyGridContent
 import com.lalilu.component.base.LocalWindowSize
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
+import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmusic.compose.component.card.RecommendCard2
-import com.lalilu.lmusic.compose.component.card.RecommendRow
 import com.lalilu.lmusic.compose.component.card.RecommendTitle
 import com.lalilu.lmusic.compose.screen.songs.SongsScreen
 import com.lalilu.lmusic.viewmodel.LibraryViewModel
+import com.lalilu.lplayer.action.MediaControl
 import org.koin.compose.koinInject
+import kotlin.math.max
+import kotlin.random.Random
 
 object DailyRecommend : LazyGridContent {
 
@@ -36,6 +52,7 @@ object DailyRecommend : LazyGridContent {
     override fun register(): LazyGridScope.() -> Unit {
         val libraryVM: LibraryViewModel = koinInject()
         val windowWidthClass = LocalWindowSize.current.widthSizeClass
+        var autoScroll by rememberSaveable { mutableStateOf(true) }
 
         return fun LazyGridScope.() {
             item(
@@ -51,25 +68,33 @@ object DailyRecommend : LazyGridContent {
                         AppRouter.intent(NavIntent.Push(SongsScreen(mediaIds = ids)))
                     }
                 ) {
-                    Chip(onClick = { libraryVM.forceUpdate() }) {
-                        Text(
-                            style = MaterialTheme.typography.caption,
-                            text = "换一换"
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip(onClick = { autoScroll = !autoScroll }) {
+                            Text(
+                                style = MaterialTheme.typography.caption,
+                                text = if (autoScroll) "关闭滚动" else "开启滚动"
+                            )
+                        }
+                        Chip(onClick = { libraryVM.forceUpdate() }) {
+                            Text(
+                                style = MaterialTheme.typography.caption,
+                                text = "换一换"
+                            )
+                        }
                     }
                 }
             }
 
             when (windowWidthClass) {
-                WindowWidthSizeClass.Compact -> dailyRecommendForSideCompat()
-                WindowWidthSizeClass.Medium -> dailyRecommendForSideMedium()
-                WindowWidthSizeClass.Expanded -> dailyRecommendForSideExpanded(libraryVM)
+                WindowWidthSizeClass.Compact -> dailyRecommendForSideCompat(autoScroll)
+                WindowWidthSizeClass.Medium -> dailyRecommendForSideMedium(autoScroll)
+                WindowWidthSizeClass.Expanded -> dailyRecommendForSideCompat(autoScroll)
             }
         }
     }
 }
 
-fun LazyGridScope.dailyRecommendForSideCompat() {
+fun LazyGridScope.dailyRecommendForSideCompat(autoScroll: Boolean) {
     item(
         key = "daily_recommend",
         contentType = "daily_recommend",
@@ -77,16 +102,96 @@ fun LazyGridScope.dailyRecommendForSideCompat() {
     ) {
         val libraryVM: LibraryViewModel = koinInject()
 
-        RecommendRow(
-            items = { libraryVM.dailyRecommends.value },
-            getId = { it.id }
-        ) {
+        DailyRecommendAutoRow(
+            libraryVM = libraryVM,
+            autoScroll = autoScroll,
+        )
+    }
+}
+
+fun LazyGridScope.dailyRecommendForSideMedium(autoScroll: Boolean) {
+    dailyRecommendForSideCompat(autoScroll)
+}
+
+@Composable
+private fun DailyRecommendAutoRow(
+    libraryVM: LibraryViewModel,
+    autoScroll: Boolean,
+) {
+    val source = libraryVM.dailyRecommends.value.distinctBy { it.id }
+    if (source.isEmpty()) return
+
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val speedPx = with(density) { 7.dp.toPx() }
+    val random = remember(source) { Random(System.currentTimeMillis()) }
+    val rowItems = remember(source) { mutableStateListOf<LSong>() }
+    val historyCount = 42
+    val futureCount = 26
+    val minQueueSize = 72
+
+    LaunchedEffect(source) {
+        rowItems.clear()
+        appendDailyRecommendItems(rowItems, source, random, minQueueSize)
+        listState.scrollToItem(0)
+    }
+
+    LaunchedEffect(source, autoScroll) {
+        var lastFrameNanos = 0L
+        while (true) {
+            val frameNanos = withFrameNanos { it }
+            if (lastFrameNanos != 0L) {
+                val deltaSeconds = (frameNanos - lastFrameNanos) / 1_000_000_000f
+                if (autoScroll) {
+                    listState.scroll {
+                        scrollBy(speedPx * deltaSeconds)
+                    }
+                }
+
+                val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                if (rowItems.size - lastVisibleIndex < futureCount) {
+                    appendDailyRecommendItems(rowItems, source, random, futureCount)
+                }
+
+                val firstVisibleIndex = listState.firstVisibleItemIndex
+                if (firstVisibleIndex > historyCount * 2) {
+                    val removeCount = firstVisibleIndex - historyCount
+                    val actualRemove = removeCount.coerceAtMost(max(rowItems.size - minQueueSize, 0))
+                    repeat(actualRemove) {
+                        rowItems.removeAt(0)
+                    }
+                    if (actualRemove > 0) {
+                        listState.scrollToItem(
+                            index = max(firstVisibleIndex - actualRemove, 0),
+                            scrollOffset = listState.firstVisibleItemScrollOffset,
+                        )
+                    }
+                }
+            }
+            lastFrameNanos = frameNanos
+        }
+    }
+
+    LazyRow(
+        state = listState,
+        modifier = Modifier
+            .fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(15.dp),
+        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 10.dp),
+    ) {
+        itemsIndexed(items = rowItems) { _, song ->
             RecommendCard2(
-                item = { it },
+                item = { song },
                 modifier = Modifier.size(width = 250.dp, height = 250.dp),
                 onClick = {
+                    MediaControl.playWithList(
+                        mediaIds = rowItems.map { song -> song.id },
+                        mediaId = song.id
+                    )
+                },
+                onLongClick = {
                     AppRouter.route("/pages/songs/detail")
-                        .with("mediaId", it.id)
+                        .with("mediaId", song.id)
                         .jump()
                 }
             )
@@ -94,8 +199,25 @@ fun LazyGridScope.dailyRecommendForSideCompat() {
     }
 }
 
-fun LazyGridScope.dailyRecommendForSideMedium() {
-    dailyRecommendForSideCompat()
+private fun appendDailyRecommendItems(
+    queue: MutableList<LSong>,
+    source: List<LSong>,
+    random: Random,
+    count: Int,
+) {
+    if (count <= 0) return
+
+    var appended = 0
+    while (appended < count) {
+        val batch = source.shuffled(random).toMutableList()
+        if (batch.size > 1 && batch.firstOrNull()?.id == queue.lastOrNull()?.id) {
+            val first = batch.removeAt(0)
+            batch.add(first)
+        }
+        val takeCount = minOf(count - appended, batch.size)
+        queue.addAll(batch.take(takeCount))
+        appended += takeCount
+    }
 }
 
 fun LazyGridScope.dailyRecommendForSideExpanded(
@@ -119,6 +241,12 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                 item = { item },
                 modifier = Modifier.fillMaxSize(),
                 onClick = {
+                    MediaControl.playWithList(
+                        mediaIds = libraryVM.dailyRecommends.value.map { song -> song.id },
+                        mediaId = item.id
+                    )
+                },
+                onLongClick = {
                     AppRouter.route("/pages/songs/detail")
                         .with("mediaId", item.id)
                         .jump()
@@ -150,6 +278,12 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                     .weight(1f)
                     .fillMaxWidth(),
                 onClick = {
+                    MediaControl.playWithList(
+                        mediaIds = libraryVM.dailyRecommends.value.map { song -> song.id },
+                        mediaId = item.id
+                    )
+                },
+                onLongClick = {
                     AppRouter.route("/pages/songs/detail")
                         .with("mediaId", item.id)
                         .jump()
@@ -162,6 +296,12 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                     .weight(1f)
                     .fillMaxWidth(),
                 onClick = {
+                    MediaControl.playWithList(
+                        mediaIds = libraryVM.dailyRecommends.value.map { song -> song.id },
+                        mediaId = item2.id
+                    )
+                },
+                onLongClick = {
                     AppRouter.route("/pages/songs/detail")
                         .with("mediaId", item2.id)
                         .jump()

@@ -1,5 +1,6 @@
 package com.lalilu.lhistory
 
+import android.app.Application
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
@@ -23,10 +24,14 @@ import org.koin.core.annotation.Single
 class HistoryAnalyticsListener(
     private val historyRepo: HistoryRepository,
     private val statIdResolver: HistoryStatIdResolver,
+    private val application: Application,
 ) : AnalyticsListener {
     private val scope = CoroutineScope(Dispatchers.IO) + SupervisorJob()
     private var playingItem: PlayingItemHandler? = null
     private val handler = Handler(Looper.getMainLooper())
+    private val settingsSp by lazy {
+        application.getSharedPreferences(application.packageName, Application.MODE_PRIVATE)
+    }
 
     init {
         loopUpdate()
@@ -86,8 +91,11 @@ class HistoryAnalyticsListener(
         }
 
         scope.launch {
+            val thresholdMs = settingsSp.historyDurationFilterMs()
+            if (!item.shouldRecord(thresholdMs)) return@launch
+            val primaryKey = item.ensureSaved(historyRepo)
             historyRepo.updateHistory(
-                id = item.primaryKey,
+                id = primaryKey,
                 duration = item.duration,
                 repeatCount = item.repeatCount,
                 startTime = item.startTime
@@ -102,22 +110,13 @@ class HistoryAnalyticsListener(
     ) = scope.launch(Dispatchers.Main.immediate) {
         val startTime = System.currentTimeMillis()
         val statIdentity = statIdResolver.resolve(mediaId, title)
-        val unUsedHistory = historyRepo.getUnUsedPreSaveHistory(mediaId)
-        val primaryKey = unUsedHistory?.id ?: historyRepo.preSaveHistory(
-            LHistory(
-                contentId = mediaId,
-                contentTitle = title,
-                parentId = statIdentity.id.takeIf { it != mediaId }.orEmpty(),
-                parentTitle = statIdentity.title.takeIf { statIdentity.id != mediaId }.orEmpty(),
-                startTime = startTime,
-                duration = -1,
-            )
-        )
 
         playingItem = PlayingItemHandler(
-            primaryKey = primaryKey,
             mediaId = mediaId,
-            startTime = startTime
+            title = title,
+            parentId = statIdentity.id.takeIf { it != mediaId }.orEmpty(),
+            parentTitle = statIdentity.title.takeIf { statIdentity.id != mediaId }.orEmpty(),
+            startTime = startTime,
         ).apply {
             updateIsPlaying(isPlaying)
         }
@@ -125,10 +124,13 @@ class HistoryAnalyticsListener(
 }
 
 private class PlayingItemHandler(
-    val primaryKey: Long,
     val mediaId: String,
+    val title: String,
+    val parentId: String,
+    val parentTitle: String,
     val startTime: Long = System.currentTimeMillis(),
 ) {
+    private var primaryKey: Long? = null
     var lastPlayTime = startTime
         private set
     var isPlaying: Boolean = false
@@ -157,5 +159,24 @@ private class PlayingItemHandler(
         val now = System.currentTimeMillis()
         duration += now - lastPlayTime
         lastPlayTime = now
+    }
+
+    fun shouldRecord(thresholdMs: Long): Boolean {
+        return duration >= thresholdMs
+    }
+
+    suspend fun ensureSaved(historyRepo: HistoryRepository): Long {
+        primaryKey?.let { return it }
+
+        return historyRepo.preSaveHistory(
+            LHistory(
+                contentId = mediaId,
+                contentTitle = title,
+                parentId = parentId,
+                parentTitle = parentTitle,
+                startTime = startTime,
+                duration = duration,
+            )
+        ).also { primaryKey = it }
     }
 }

@@ -112,6 +112,11 @@ class AlbumsVM(
     } else {
         "works.filtered"
     }
+    private val showTextPreferenceKey = if (albumIds.isEmpty()) {
+        "works.show_text.default"
+    } else {
+        "works.show_text.filtered"
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val albums = stateFlow()
@@ -135,24 +140,40 @@ class AlbumsVM(
             .toSet()
 
     init {
-        supportSortActions
+        val selectedAction = supportSortActions
             .firstOrNull { it.actionKey == sortPreferences.getString(sortPreferenceKey, "") }
-            ?.let { action ->
-                viewModelScope.launch {
-                    reduce { it.copy(selectedSortAction = action) }
-                }
+        val showText = sortPreferences.getBoolean(showTextPreferenceKey, false)
+
+        viewModelScope.launch {
+            reduce {
+                it.copy(
+                    selectedSortAction = selectedAction ?: it.selectedSortAction,
+                    showText = showText,
+                )
             }
+        }
     }
 
     override fun intent(intent: AlbumsAction): Any = viewModelScope.launch {
         when (intent) {
             AlbumsAction.HideSearcherPanel -> reduce { it.copy(showSearcherPanel = false) }
             AlbumsAction.HideSortPanel -> reduce { it.copy(showSortPanel = false) }
-            AlbumsAction.HideShowText -> reduce { it.copy(showText = false) }
+            AlbumsAction.HideShowText -> {
+                sortPreferences.edit()
+                    .putBoolean(showTextPreferenceKey, false)
+                    .apply()
+                reduce { it.copy(showText = false) }
+            }
 
             AlbumsAction.ToggleSearcherPanel -> reduce { it.copy(showSearcherPanel = !it.showSearcherPanel) }
             AlbumsAction.ToggleSortPanel -> reduce { it.copy(showSortPanel = !it.showSortPanel) }
-            AlbumsAction.ToggleShowText -> reduce { it.copy(showText = !it.showText) }
+            AlbumsAction.ToggleShowText -> reduce {
+                val next = !it.showText
+                sortPreferences.edit()
+                    .putBoolean(showTextPreferenceKey, next)
+                    .apply()
+                it.copy(showText = next)
+            }
 
             is AlbumsAction.SearchFor -> reduce { it.copy(searchKeyWord = intent.keyword) }
             is AlbumsAction.SelectSortAction -> {

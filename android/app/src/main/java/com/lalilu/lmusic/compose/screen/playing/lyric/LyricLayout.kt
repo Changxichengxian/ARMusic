@@ -48,6 +48,7 @@ import com.lalilu.lmusic.compose.screen.playing.lyric.impl.LyricContentNormal
 import com.lalilu.lmusic.compose.screen.playing.lyric.impl.LyricContentWords
 import com.lalilu.lmusic.utils.extension.edgeTransparent
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.isActive
@@ -117,6 +118,14 @@ fun LyricLayout(
         }
     }
 
+    suspend fun keepCurrentItemAtFocus() {
+        repeat(7) {
+            withFrameNanos { }
+            scrollCurrentItemToFocus()
+            delay(90)
+        }
+    }
+
     BackHandler(enabled = isUserScrolling.value) {
         isUserScrolling.value = false
         scrollCurrentItemToFocus()
@@ -136,8 +145,7 @@ fun LyricLayout(
         settings.value.translationVisible,
         settings.value.hideMainWhenTranslationHidden,
     ) {
-        withFrameNanos { }
-        scrollCurrentItemToFocus()
+        keepCurrentItemAtFocus()
     }
 
     LaunchedEffect(Unit) {

@@ -10,18 +10,6 @@ __pycache__/
 input/
 output/
 
-# Desktop app
-node_modules/
-desktop/node_modules/
-desktop/dist/
-desktop/.vite/
-desktop/out/
-desktop/release/
-/releases/
-desktop/src-tauri/gen/
-desktop/src-tauri/target/
-*.tsbuildinfo
-
 # Android / Gradle
 .gradle/
 .kotlin/

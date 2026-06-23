@@ -34,8 +34,8 @@ interface HistoryDao {
     @Delete(entity = LHistory::class)
     fun delete(vararg history: LHistory)
 
-    @Query("SELECT * FROM m_history ORDER BY startTime DESC")
-    fun getAllData(): PagingSource<Int, LHistory>
+    @Query("SELECT * FROM m_history WHERE duration >= :minDuration ORDER BY startTime DESC")
+    fun getAllData(minDuration: Long): PagingSource<Int, LHistory>
 
     @Query("SELECT * FROM m_history ORDER BY startTime DESC")
     fun getAllForBackup(): List<LHistory>
@@ -54,10 +54,10 @@ interface HistoryDao {
      */
     @Query(
         "SELECT * FROM " +
-                "(SELECT id, contentId, contentTitle, parentId, parentTitle, duration, repeatCount, max(startTime) as 'startTime' FROM m_history GROUP BY contentId) as A " +
+                "(SELECT id, contentId, contentTitle, parentId, parentTitle, duration, repeatCount, max(startTime) as 'startTime' FROM m_history WHERE duration >= :minDuration GROUP BY contentId) as A " +
                 "ORDER BY A.startTime DESC LIMIT :limit;"
     )
-    fun getFlow(limit: Int): Flow<List<LHistory>>
+    fun getFlow(limit: Int, minDuration: Long): Flow<List<LHistory>>
 
     /**
      * 查询播放历史，按照最近播放时间排序且计算每首歌的播放次数
@@ -65,56 +65,56 @@ interface HistoryDao {
     @MapInfo(valueColumn = "count")
     @Query(
         "SELECT * FROM " +
-                "(SELECT id, contentId, contentTitle, parentId, parentTitle, duration, repeatCount, CAST((count(contentId) + sum(repeatCount)) AS INTEGER) as 'count', max(startTime) as 'startTime' FROM m_history GROUP BY contentId) as A " +
+                "(SELECT id, contentId, contentTitle, parentId, parentTitle, duration, repeatCount, CAST((count(contentId) + sum(repeatCount)) AS INTEGER) as 'count', max(startTime) as 'startTime' FROM m_history WHERE duration >= :minDuration GROUP BY contentId) as A " +
                 "ORDER BY A.startTime DESC LIMIT :limit;"
     )
-    fun getFlowWithCount(limit: Int): Flow<Map<LHistory, Int>>
+    fun getFlowWithCount(limit: Int, minDuration: Long): Flow<Map<LHistory, Int>>
 
     @MapInfo(keyColumn = "contentId", valueColumn = "count")
     @Query(
-        "SELECT contentId, CAST((count(contentId) + sum(repeatCount)) AS INTEGER) as 'count' FROM m_history GROUP BY contentId " +
+        "SELECT contentId, CAST((count(contentId) + sum(repeatCount)) AS INTEGER) as 'count' FROM m_history WHERE duration >= :minDuration GROUP BY contentId " +
                 "LIMIT :limit;"
     )
-    fun getFlowIdsMapWithCount(limit: Int): Flow<Map<String, Int>>
+    fun getFlowIdsMapWithCount(limit: Int, minDuration: Long): Flow<Map<String, Int>>
 
     @MapInfo(keyColumn = "contentId", valueColumn = "startTime")
     @Query(
-        "SELECT contentId, max(startTime) as 'startTime' FROM m_history GROUP BY contentId " +
+        "SELECT contentId, max(startTime) as 'startTime' FROM m_history WHERE duration >= :minDuration GROUP BY contentId " +
                 "LIMIT :limit;"
     )
-    fun getFlowIdsMapWithLastTime(limit: Int): Flow<Map<String, Long>>
+    fun getFlowIdsMapWithLastTime(limit: Int, minDuration: Long): Flow<Map<String, Long>>
 
     @MapInfo(keyColumn = "contentId", valueColumn = "duration")
     @Query(
-        "SELECT contentId, sum(CASE WHEN duration > 0 THEN duration ELSE 0 END) as 'duration' FROM m_history GROUP BY contentId " +
+        "SELECT contentId, sum(CASE WHEN duration > 0 THEN duration ELSE 0 END) as 'duration' FROM m_history WHERE duration >= :minDuration GROUP BY contentId " +
                 "LIMIT :limit;"
     )
-    fun getFlowIdsMapWithDuration(limit: Int): Flow<Map<String, Long>>
+    fun getFlowIdsMapWithDuration(limit: Int, minDuration: Long): Flow<Map<String, Long>>
 
     @MapInfo(keyColumn = "statId", valueColumn = "count")
     @Query(
-        "SELECT " +
+                "SELECT " +
                 "CASE WHEN parentId IS NOT NULL AND parentId != '' THEN parentId ELSE contentId END as 'statId', " +
                 "CAST((count(*) + sum(repeatCount)) AS INTEGER) as 'count' " +
-                "FROM m_history GROUP BY statId LIMIT :limit;"
+                "FROM m_history WHERE duration >= :minDuration GROUP BY statId LIMIT :limit;"
     )
-    fun getFlowStatIdsMapWithCount(limit: Int): Flow<Map<String, Int>>
+    fun getFlowStatIdsMapWithCount(limit: Int, minDuration: Long): Flow<Map<String, Int>>
 
     @MapInfo(keyColumn = "statId", valueColumn = "startTime")
     @Query(
-        "SELECT " +
+                "SELECT " +
                 "CASE WHEN parentId IS NOT NULL AND parentId != '' THEN parentId ELSE contentId END as 'statId', " +
                 "max(startTime) as 'startTime' " +
-                "FROM m_history GROUP BY statId LIMIT :limit;"
+                "FROM m_history WHERE duration >= :minDuration GROUP BY statId LIMIT :limit;"
     )
-    fun getFlowStatIdsMapWithLastTime(limit: Int): Flow<Map<String, Long>>
+    fun getFlowStatIdsMapWithLastTime(limit: Int, minDuration: Long): Flow<Map<String, Long>>
 
     @MapInfo(keyColumn = "statId", valueColumn = "duration")
     @Query(
-        "SELECT " +
+                "SELECT " +
                 "CASE WHEN parentId IS NOT NULL AND parentId != '' THEN parentId ELSE contentId END as 'statId', " +
                 "sum(CASE WHEN duration > 0 THEN duration ELSE 0 END) as 'duration' " +
-                "FROM m_history GROUP BY statId LIMIT :limit;"
+                "FROM m_history WHERE duration >= :minDuration GROUP BY statId LIMIT :limit;"
     )
-    fun getFlowStatIdsMapWithDuration(limit: Int): Flow<Map<String, Long>>
+    fun getFlowStatIdsMapWithDuration(limit: Int, minDuration: Long): Flow<Map<String, Long>>
 }

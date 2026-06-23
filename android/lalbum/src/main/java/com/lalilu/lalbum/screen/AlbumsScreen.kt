@@ -49,7 +49,7 @@ data class AlbumsScreen(
         )
         val state by albumsVM.state
 
-        return remember {
+        return remember(state.showText, state.searchKeyWord) {
             listOf(
                 ScreenAction.Static(
                     title = { if (state.showText) "隐藏作品名" else "显示作品名" },

@@ -27,8 +27,10 @@ import androidx.compose.ui.unit.sp
 import com.lalilu.RemixIcon
 import com.lalilu.component.LazyGridContent
 import com.lalilu.component.card.SongCard
+import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.state
 import com.lalilu.lmedia.entity.LSong
+import com.lalilu.lplayer.action.MediaControl
 import com.lalilu.remixicon.Arrows
 import com.lalilu.remixicon.Media
 import com.lalilu.remixicon.arrows.arrowDownSLine
@@ -105,7 +107,18 @@ class SearchSongsResult(
                             .fillMaxWidth()
                             .animateItem(),
                         song = { it },
-                        isFavour = { favouriteIds.value.contains(it.id) }
+                        isFavour = { favouriteIds.value.contains(it.id) },
+                        onClick = {
+                            MediaControl.playWithList(
+                                mediaIds = songsResult().map(LSong::id),
+                                mediaId = it.id
+                            )
+                        },
+                        onLongClick = {
+                            AppRouter.route("/pages/songs/detail")
+                                .with("mediaId", it.id)
+                                .jump()
+                        }
                     )
                 }
             }

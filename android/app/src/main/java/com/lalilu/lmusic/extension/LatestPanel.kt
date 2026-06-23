@@ -16,7 +16,6 @@ import com.lalilu.lmusic.compose.component.card.RecommendCard
 import com.lalilu.lmusic.compose.component.card.RecommendRow
 import com.lalilu.lmusic.compose.component.card.RecommendTitle
 import com.lalilu.lmusic.viewmodel.LibraryViewModel
-import com.lalilu.lplayer.MPlayer
 import com.lalilu.lplayer.action.MediaControl
 import org.koin.compose.koinInject
 
@@ -66,12 +65,18 @@ object LatestPanel : LazyGridContent {
                         height = { 100.dp },
                         modifier = Modifier.animateItem(),
                         onClick = {
+                            MediaControl.playWithList(
+                                mediaIds = items.map { song -> song.id },
+                                mediaId = it.id
+                            )
+                        },
+                        onLongClick = {
                             AppRouter.route("/pages/songs/detail")
                                 .with("mediaId", it.id)
                                 .jump()
                         },
-                        isPlaying = { MPlayer.isItemPlaying(it.id) },
-                        onClickButton = { MediaControl.addAndPlay(mediaId = it.id) }
+                        isPlaying = { false },
+                        showActionButton = false
                     )
                 }
             }

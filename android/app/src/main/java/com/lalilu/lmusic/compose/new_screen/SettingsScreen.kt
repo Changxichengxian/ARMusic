@@ -111,8 +111,9 @@ private fun SettingsScreen(
     val enableDynamicTips = settingsSp.enableDynamicTips
     val forceHideStatusBar = settingsSp.forceHideStatusBar
     val keepScreenOnWhenLyricExpanded = settingsSp.keepScreenOnWhenLyricExpanded
-    val durationFilter = settingsSp.durationFilter
+    val historyDurationFilter = settingsSp.historyDurationFilter
     val excludedFolders = lMediaSp.excludePath
+    val excludedFoldersExpanded = remember { mutableStateOf(false) }
 
     val launcherForAudioFx = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -209,6 +210,16 @@ private fun SettingsScreen(
                     onValueUpdate = { volumeControl.value = it.roundToInt() },
                     title = "独立音量控制",
                     valueRange = 0..100
+                )
+                SettingProgressSeekBar(
+                    value = { historyDurationFilter.value.toFloat() },
+                    onValueUpdate = { historyDurationFilter.value = it.roundToInt() },
+                    title = "播放记录过滤",
+                    subTitle = historyDurationFilter.value
+                        .takeIf { it > 0 }
+                        ?.let { "播放不足 ${it} 秒时，不计入历史、次数和时长" }
+                        ?: "记录所有播放",
+                    valueRange = 0..60
                 )
                 SettingSwitcher(
                     state = enableSystemEq,
@@ -376,6 +387,17 @@ private fun SettingsScreen(
                     )
                     if (excludedFolders.value.isNotEmpty()) {
                         IconTextButton(
+                            text = if (excludedFoldersExpanded.value) {
+                                "隐藏屏蔽文件夹"
+                            } else {
+                                "展开屏蔽文件夹 (${excludedFolders.value.size})"
+                            },
+                            color = Color(0xFF6E4AC3),
+                            onClick = {
+                                excludedFoldersExpanded.value = !excludedFoldersExpanded.value
+                            }
+                        )
+                        IconTextButton(
                             text = "清空屏蔽",
                             color = Color(0xFFC13D1A),
                             onClick = {
@@ -386,30 +408,34 @@ private fun SettingsScreen(
                         )
                     }
                 }
-                excludedFolders.value.forEach { path ->
-                    SettingSwitcher(
-                        enableContentClickable = false,
-                        contentStart = {
-                            androidx.compose.material.Text(
-                                text = PathExclusionMatcher.displayPath(path)
-                            )
-                            androidx.compose.material.Text(
-                                text = "已屏蔽，重新扫描后不会出现在曲库里",
-                                color = Color.Gray
-                            )
-                        },
-                        contentEnd = {
-                            IconTextButton(
-                                text = "移除",
-                                color = Color(0xFFC13D1A),
-                                onClick = {
-                                    excludedFolders.remove(path)
-                                    fileSystemScanner.updateAsync()
-                                    ToastUtils.showShort("已移除屏蔽文件夹")
+                AnimatedVisibility(visible = excludedFoldersExpanded.value) {
+                    androidx.compose.foundation.layout.Column {
+                        excludedFolders.value.forEach { path ->
+                            SettingSwitcher(
+                                enableContentClickable = false,
+                                contentStart = {
+                                    androidx.compose.material.Text(
+                                        text = PathExclusionMatcher.displayPath(path)
+                                    )
+                                    androidx.compose.material.Text(
+                                        text = "已屏蔽，重新扫描后不会出现在曲库里",
+                                        color = Color.Gray
+                                    )
+                                },
+                                contentEnd = {
+                                    IconTextButton(
+                                        text = "移除",
+                                        color = Color(0xFFC13D1A),
+                                        onClick = {
+                                            excludedFolders.remove(path)
+                                            fileSystemScanner.updateAsync()
+                                            ToastUtils.showShort("已移除屏蔽文件夹")
+                                        }
+                                    )
                                 }
                             )
                         }
-                    )
+                    }
                 }
             }
         }

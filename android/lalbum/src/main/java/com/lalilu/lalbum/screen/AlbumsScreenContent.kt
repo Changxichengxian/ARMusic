@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
@@ -81,22 +82,30 @@ internal fun AlbumsScreenContent(
     ) {
         item(key = "Header", contentType = "Header") {
             Surface(
-                modifier = Modifier.clickable(enabled = unknownAlbum != null) {
-                    AppRouter.intent(
-                        NavIntent.Push(
-                            AlbumDetailScreen(unknownAlbum!!.id)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(126.dp)
+                    .clickable(enabled = unknownAlbum != null) {
+                        AppRouter.intent(
+                            NavIntent.Push(
+                                AlbumDetailScreen(unknownAlbum!!.id)
+                            )
                         )
-                    )
-                },
+                    },
                 shape = RoundedCornerShape(5.dp)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 10.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     NavigatorHeader(
                         title = title(),
+                        titleScale = 0.82f,
+                        paddingValues = PaddingValues(
+                            top = 8.dp,
+                            bottom = 6.dp,
+                            start = 16.dp,
+                            end = 16.dp,
+                        ),
                         subTitle = buildString {
                             append("共 ${workCount} 个作品")
                             if (unclassifiedSongCount > 0) {

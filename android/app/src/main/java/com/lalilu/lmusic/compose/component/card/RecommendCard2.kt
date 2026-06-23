@@ -22,7 +22,8 @@ fun RecommendCard2(
     modifier: Modifier = Modifier,
     contentModifier: Modifier = Modifier,
     item: () -> LSong,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
 ) {
     val song = remember { item() }
 
@@ -32,7 +33,8 @@ fun RecommendCard2(
         imageData = { song },
         title = { song.name },
         subTitle = { song.metadata.artist },
-        onClick = onClick
+        onClick = onClick,
+        onLongClick = onLongClick
     )
 }
 
@@ -43,13 +45,15 @@ fun RecommendCard2(
     imageData: () -> Any?,
     title: () -> String,
     subTitle: () -> String,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
 ) {
     RecommendCardCover(
         modifier = modifier.width(IntrinsicSize.Min),
         contentModifier = contentModifier,
         imageData = imageData,
-        onClick = onClick
+        onClick = onClick,
+        onLongClick = onLongClick
     ) { palette ->
         val mainColor =  Color(
             palette()?.getDarkVibrantColor(android.graphics.Color.GRAY)
