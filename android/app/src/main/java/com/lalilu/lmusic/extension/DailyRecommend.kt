@@ -1,6 +1,7 @@
 package com.lalilu.lmusic.extension
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import com.lalilu.lmusic.compose.component.card.RecommendTitle
 import com.lalilu.lmusic.compose.screen.songs.SongsScreen
 import com.lalilu.lmusic.viewmodel.LibraryViewModel
 import com.lalilu.lplayer.action.MediaControl
+import kotlinx.coroutines.CancellationException
 import org.koin.compose.koinInject
 import kotlin.math.max
 import kotlin.random.Random
@@ -132,8 +134,15 @@ private fun DailyRecommendAutoRow(
 
     LaunchedEffect(source) {
         rowItems.clear()
-        appendDailyRecommendItems(rowItems, source, random, minQueueSize)
-        listState.scrollToItem(0)
+        appendDailyRecommendItems(rowItems, source, random, historyCount)
+        rowItems.addAll(source)
+        appendDailyRecommendItems(
+            queue = rowItems,
+            source = source,
+            random = random,
+            count = max(minQueueSize - rowItems.size, 0)
+        )
+        listState.scrollToItem(historyCount)
     }
 
     LaunchedEffect(source, autoScroll) {
@@ -142,9 +151,14 @@ private fun DailyRecommendAutoRow(
             val frameNanos = withFrameNanos { it }
             if (lastFrameNanos != 0L) {
                 val deltaSeconds = (frameNanos - lastFrameNanos) / 1_000_000_000f
-                if (autoScroll) {
-                    listState.scroll {
-                        scrollBy(speedPx * deltaSeconds)
+                if (autoScroll && !listState.isScrollInProgress) {
+                    try {
+                        listState.scroll {
+                            scrollBy(speedPx * deltaSeconds)
+                        }
+                    } catch (_: CancellationException) {
+                        lastFrameNanos = frameNanos
+                        continue
                     }
                 }
 
@@ -154,6 +168,12 @@ private fun DailyRecommendAutoRow(
                 }
 
                 val firstVisibleIndex = listState.firstVisibleItemIndex
+                if (firstVisibleIndex < futureCount) {
+                    val offset = listState.firstVisibleItemScrollOffset
+                    prependDailyRecommendItems(rowItems, source, random, futureCount)
+                    listState.scrollToItem(firstVisibleIndex + futureCount, offset)
+                }
+
                 if (firstVisibleIndex > historyCount * 2) {
                     val removeCount = firstVisibleIndex - historyCount
                     val actualRemove = removeCount.coerceAtMost(max(rowItems.size - minQueueSize, 0))
@@ -172,29 +192,33 @@ private fun DailyRecommendAutoRow(
         }
     }
 
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(15.dp),
-        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 10.dp),
-    ) {
-        itemsIndexed(items = rowItems) { _, song ->
-            RecommendCard2(
-                item = { song },
-                modifier = Modifier.size(width = 250.dp, height = 250.dp),
-                onClick = {
-                    MediaControl.playWithList(
-                        mediaIds = rowItems.map { song -> song.id },
-                        mediaId = song.id
-                    )
-                },
-                onLongClick = {
-                    AppRouter.route("/pages/songs/detail")
-                        .with("mediaId", song.id)
-                        .jump()
-                }
-            )
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val cardWidth = 250.dp
+        val edgePadding = ((maxWidth - cardWidth) / 2).let { if (it > 0.dp) it else 0.dp }
+
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(15.dp),
+            contentPadding = PaddingValues(horizontal = edgePadding, vertical = 10.dp),
+        ) {
+            itemsIndexed(items = rowItems) { _, song ->
+                RecommendCard2(
+                    item = { song },
+                    modifier = Modifier.size(width = cardWidth, height = 250.dp),
+                    onClick = {
+                        MediaControl.playWithList(
+                            mediaIds = rowItems.map { song -> song.id },
+                            mediaId = song.id
+                        )
+                    },
+                    onLongClick = {
+                        AppRouter.route("/pages/songs/detail")
+                            .with("mediaId", song.id)
+                            .jump()
+                    }
+                )
+            }
         }
     }
 }
@@ -218,6 +242,23 @@ private fun appendDailyRecommendItems(
         queue.addAll(batch.take(takeCount))
         appended += takeCount
     }
+}
+
+private fun prependDailyRecommendItems(
+    queue: MutableList<LSong>,
+    source: List<LSong>,
+    random: Random,
+    count: Int,
+) {
+    if (count <= 0) return
+
+    val batchQueue = mutableListOf<LSong>()
+    appendDailyRecommendItems(batchQueue, source, random, count)
+    if (batchQueue.size > 1 && batchQueue.lastOrNull()?.id == queue.firstOrNull()?.id) {
+        val last = batchQueue.removeAt(batchQueue.lastIndex)
+        batchQueue.add(0, last)
+    }
+    queue.addAll(0, batchQueue)
 }
 
 fun LazyGridScope.dailyRecommendForSideExpanded(

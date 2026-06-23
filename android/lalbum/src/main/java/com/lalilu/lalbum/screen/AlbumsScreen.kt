@@ -16,6 +16,7 @@ import com.lalilu.component.base.songs.SongsSearcherPanel
 import com.lalilu.component.base.songs.SongsSortPanelDialog
 import com.lalilu.component.extension.DialogWrapper
 import com.lalilu.component.extension.screenVM
+import com.lalilu.component.work.rememberWorkLabel
 import com.lalilu.lalbum.R
 import com.lalilu.lalbum.viewModel.AlbumsAction
 import com.lalilu.lalbum.viewModel.AlbumsVM
@@ -35,11 +36,14 @@ data class AlbumsScreen(
     val albumsId: List<String> = emptyList()
 ) : Screen, ScreenInfoFactory, ScreenActionFactory, ScreenBarFactory {
     @Composable
-    override fun provideScreenInfo(): ScreenInfo = remember {
+    override fun provideScreenInfo(): ScreenInfo {
+        val workLabel = rememberWorkLabel()
+        return remember(workLabel) {
         ScreenInfo(
-            title = { stringResource(id = R.string.album_screen_title) },
+            title = { workLabel },
             icon = RemixIcon.Media.albumFill
         )
+        }
     }
 
     @Composable
@@ -48,11 +52,12 @@ data class AlbumsScreen(
             parameters = { parametersOf(albumsId) }
         )
         val state by albumsVM.state
+        val workLabel = rememberWorkLabel()
 
-        return remember(state.showText, state.searchKeyWord) {
+        return remember(state.showText, state.searchKeyWord, workLabel) {
             listOf(
                 ScreenAction.Static(
-                    title = { if (state.showText) "隐藏作品名" else "显示作品名" },
+                    title = { if (state.showText) "隐藏${workLabel}名" else "显示${workLabel}名" },
                     color = { Color(0xFF6E4AC3) },
                     icon = { if (state.showText) RemixIcon.Editor.text else RemixIcon.Editor.formatClear },
                     onAction = { albumsVM.intent(AlbumsAction.ToggleShowText) }
@@ -91,6 +96,7 @@ data class AlbumsScreen(
         )
         val state by vm.state
         val albums by vm.albums
+        val workLabel = rememberWorkLabel()
 
         SongsSortPanelDialog(
             isVisible = { state.showSortPanel },
@@ -109,7 +115,8 @@ data class AlbumsScreen(
 
         AlbumsScreenContent(
             eventFlow = vm.eventFlow(),
-            title = { "全部作品" },
+            title = { "全部$workLabel" },
+            workLabel = { workLabel },
             albums = { albums },
             showText = { state.showText }
         )

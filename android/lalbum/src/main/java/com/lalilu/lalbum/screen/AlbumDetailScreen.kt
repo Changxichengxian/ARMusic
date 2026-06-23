@@ -24,6 +24,7 @@ import com.lalilu.component.base.songs.SongsSelectorPanel
 import com.lalilu.component.base.songs.SongsSortPanelDialog
 import com.lalilu.component.extension.DialogWrapper
 import com.lalilu.component.extension.screenVM
+import com.lalilu.component.work.rememberWorkLabel
 import com.lalilu.lalbum.R
 import com.lalilu.lalbum.viewModel.AlbumDetailAction
 import com.lalilu.lalbum.viewModel.AlbumDetailVM
@@ -47,10 +48,13 @@ data class AlbumDetailScreen(
     override val key: ScreenKey = "${super.key}:$albumId"
 
     @Composable
-    override fun provideScreenInfo(): ScreenInfo = remember {
-        ScreenInfo(
-            title = { stringResource(id = R.string.album_screen_title) }
-        )
+    override fun provideScreenInfo(): ScreenInfo {
+        val workLabel = rememberWorkLabel()
+        return remember(workLabel) {
+            ScreenInfo(
+                title = { workLabel }
+            )
+        }
     }
 
     @Composable
@@ -110,6 +114,7 @@ data class AlbumDetailScreen(
         val state by vm.state
         val album by vm.album
         val context = LocalContext.current
+        val workLabel = rememberWorkLabel()
         val coverPickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument()
         ) { uri ->
@@ -186,6 +191,7 @@ data class AlbumDetailScreen(
             onPickCoverFromStorage = { coverPickerLauncher.launch(arrayOf("image/*")) },
             onUseSongCover = { vm.intent(AlbumDetailAction.SetCoverSong(it)) },
             onClearCover = { vm.intent(AlbumDetailAction.ClearCover) },
+            workLabel = { workLabel },
         )
     }
 }

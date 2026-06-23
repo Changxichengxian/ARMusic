@@ -45,6 +45,7 @@ private const val UNKNOWN_WORK_DISPLAY_NAME = "\u672a\u5206\u7c7b"
 internal fun AlbumsScreenContent(
     eventFlow: SharedFlow<AlbumsEvent> = MutableSharedFlow(),
     title: () -> String = { "" },
+    workLabel: () -> String = { "作品" },
     albums: () -> Map<GroupIdentity, List<LAlbum>> = { emptyMap() },
     showText: () -> Boolean = { false },
 ) {
@@ -107,7 +108,7 @@ internal fun AlbumsScreenContent(
                             end = 16.dp,
                         ),
                         subTitle = buildString {
-                            append("共 ${workCount} 个作品")
+                            append("共 ${workCount} 个${workLabel()}")
                             if (unclassifiedSongCount > 0) {
                                 append("\n${unclassifiedSongCount} 首歌未分类")
                             }

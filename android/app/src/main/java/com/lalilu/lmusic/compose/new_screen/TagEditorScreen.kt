@@ -66,6 +66,7 @@ import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.extension.dayNightTextColor
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
+import com.lalilu.component.work.rememberWorkLabel
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.repository.SongWorkStore
@@ -157,6 +158,7 @@ private fun TagEditorContent(
             .distinct()
             .sorted()
     }
+    val workLabel = rememberWorkLabel()
 
     fun notify(text: String) {
         message = text
@@ -633,7 +635,7 @@ private fun TagEditorContent(
                         TagField("标题", title, { title = it })
                         TagField("歌手", artist, { artist = it })
                         TagField("同曲分组", sameSongGroup, { sameSongGroup = it })
-                        WorkTagField("作品", work, { work = it }, knownWorks)
+                        WorkTagField(workLabel, work, { work = it }, knownWorks)
                         TagField("作曲", composer, { composer = it })
                         TagField("作词", lyricist, { lyricist = it })
                         TagField("备注", comment, { comment = it })

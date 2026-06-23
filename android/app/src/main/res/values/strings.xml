@@ -7,9 +7,6 @@
     <string name="app_name_preview">ARMusic</string>
     <string name="app_name_release">ARMusic</string>
 
-    <string name="screen_title_agreement">用户协议 | 隐私协议</string>
-    <string name="screen_title_permissions">必要权限授予</string>
-    <string name="screen_title_guiding">操作引导教程</string>
     <string name="screen_title_home">首页</string>
     <string name="screen_title_search">搜索</string>
     <string name="screen_title_settings">设置</string>

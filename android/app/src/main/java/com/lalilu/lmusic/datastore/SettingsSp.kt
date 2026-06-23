@@ -98,9 +98,17 @@ class SettingsSp(private val context: Application) : BaseSp() {
         Config.KEY_SETTINGS_WISHLIST_ITEMS_MIGRATED,
         Config.DEFAULT_SETTINGS_WISHLIST_ITEMS_MIGRATED
     )
+    val wishlistCategoriesJson = obtain<String>(
+        Config.KEY_SETTINGS_WISHLIST_CATEGORIES_JSON,
+        Config.DEFAULT_SETTINGS_WISHLIST_CATEGORIES_JSON
+    )
     val memoSeed20260622Imported = obtain<Boolean>(
         Config.KEY_SETTINGS_MEMO_SEED_20260622_IMPORTED,
         Config.DEFAULT_SETTINGS_MEMO_SEED_20260622_IMPORTED
+    )
+    val workLabelMode = obtain<Int>(
+        Config.KEY_SETTINGS_WORK_LABEL_MODE,
+        Config.DEFAULT_SETTINGS_WORK_LABEL_MODE
     )
     val durationFilter = obtain<Int>(
         Config.KEY_SETTINGS_DURATION_FILTER,
@@ -117,9 +125,5 @@ class SettingsSp(private val context: Application) : BaseSp() {
     val isEnableBlurEffect = obtain<Boolean>(
         Config.KEY_SETTINGS_IS_ENABLE_BLUR_EFFECT,
         Config.DEFAULT_SETTINGS_IS_ENABLE_BLUR_EFFECT
-    )
-    val isGuidingOver = obtain<Boolean>(
-        Config.KEY_REMEMBER_IS_GUIDING_OVER,
-        false
     )
 }

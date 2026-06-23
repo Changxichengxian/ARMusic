@@ -69,6 +69,7 @@ import com.lalilu.component.base.screen.ScreenInfo
 import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.navigation.AppRouter
+import com.lalilu.component.work.rememberWorkLabel
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmusic.compose.screen.search.extensions.SearchArtistsResult
@@ -121,6 +122,7 @@ private fun SearchScreenContent(
     val songs = LMedia.getFlow<LSong>()
         .collectAsState(initial = emptyList())
         .value
+    val workLabel = rememberWorkLabel()
 
     DisposableEffect(Unit) {
         onDispose { keyboard?.hide() }
@@ -163,8 +165,10 @@ private fun SearchScreenContent(
             )
         }.register()
 
-        val worksResult = remember {
-            SearchWorksResult {
+        val worksResult = remember(workLabel) {
+            SearchWorksResult(
+                workLabel = { workLabel },
+            ) {
                 (searchVM.searchState.value as? SearchScreenState.Searching)
                     ?.works ?: emptyList()
             }
@@ -200,6 +204,7 @@ private fun SearchScreenContent(
                 SearchScopeRow(
                     modifier = Modifier.animateItem(),
                     searchVM = searchVM,
+                    workLabel = workLabel,
                 )
             }
             songsResult(this)
@@ -611,6 +616,7 @@ private fun SearchPosterTile(
 private fun SearchScopeRow(
     modifier: Modifier = Modifier,
     searchVM: SearchVM,
+    workLabel: String,
 ) {
     Row(
         modifier = modifier
@@ -625,7 +631,7 @@ private fun SearchScopeRow(
             onClick = { searchVM.includeSongs = !searchVM.includeSongs },
         )
         SearchScopeButton(
-            text = "作品",
+            text = workLabel,
             selected = searchVM.includeWorks,
             onClick = { searchVM.includeWorks = !searchVM.includeWorks },
         )

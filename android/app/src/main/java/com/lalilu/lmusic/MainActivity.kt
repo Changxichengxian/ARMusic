@@ -12,7 +12,6 @@ import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
 import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
 import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
 import androidx.core.app.ActivityCompat
-import com.blankj.utilcode.util.ActivityUtils
 import com.lalilu.common.SystemUiUtil
 import com.lalilu.component.extension.collectWithLifeCycleOwner
 import com.lalilu.lmusic.Config.REQUIRE_PERMISSIONS
@@ -29,13 +28,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 判断是否已完成初次启动时的用户引导
-        val isGuidingOver = settingsSp.isGuidingOver.value
         val isPermissionsGranted = ActivityCompat.checkSelfPermission(this, REQUIRE_PERMISSIONS)
-        if (!isGuidingOver || isPermissionsGranted != PackageManager.PERMISSION_GRANTED) {
-            ActivityUtils.startActivity(GuidingActivity::class.java)
-            finish()
-            return
+        if (isPermissionsGranted != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(REQUIRE_PERMISSIONS), 1001)
         }
 
         // 深色模式控制
@@ -68,4 +63,3 @@ class MainActivity : ComponentActivity() {
         return super.dispatchTouchEvent(ev)
     }
 }
-

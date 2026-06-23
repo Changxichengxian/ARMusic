@@ -25,7 +25,6 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import com.blankj.utilcode.util.ActivityUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.ToastUtils
 import com.google.accompanist.flowlayout.FlowRow
@@ -43,13 +42,13 @@ import com.lalilu.component.settings.SettingCategory
 import com.lalilu.component.settings.SettingProgressSeekBar
 import com.lalilu.component.settings.SettingStateSeekBar
 import com.lalilu.component.settings.SettingSwitcher
+import com.lalilu.component.work.WorkLabel
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
 import com.lalilu.crash.CrashHelper
 import com.lalilu.lmedia.repository.LMediaSp
 import com.lalilu.lmedia.scanner.FileSystemScanner
 import com.lalilu.lmedia.scanner.PathExclusionMatcher
-import com.lalilu.lmusic.GuidingActivity
 import com.lalilu.lmusic.compose.component.playing.SettingFontLibrary
 import com.lalilu.lmusic.compose.screen.playing.lyric.LyricSettings
 import com.lalilu.lmusic.compose.screen.playing.lyric.SerializableFont
@@ -112,6 +111,7 @@ private fun SettingsScreen(
     val forceHideStatusBar = settingsSp.forceHideStatusBar
     val keepScreenOnWhenLyricExpanded = settingsSp.keepScreenOnWhenLyricExpanded
     val historyDurationFilter = settingsSp.historyDurationFilter
+    val workLabelMode = settingsSp.workLabelMode
     val excludedFolders = lMediaSp.excludePath
     val excludedFoldersExpanded = remember { mutableStateOf(false) }
 
@@ -455,6 +455,12 @@ private fun SettingsScreen(
                     selection = stringArrayResource(id = R.array.dark_mode_options).toList(),
                     titleRes = R.string.preference_dark_mode
                 )
+                SettingStateSeekBar(
+                    state = workLabelMode,
+                    selection = WorkLabel.options,
+                    title = "作品栏名称",
+                    subTitle = "只改界面叫法，不改歌曲文件里的字段"
+                )
                 SettingSwitcher(
                     state = enableDynamicTips,
                     titleRes = R.string.preference_media_source_settings_enable_dynamic_tips,
@@ -464,15 +470,6 @@ private fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 20.dp),
                     mainAxisSpacing = 10.dp
                 ) {
-                    IconTextButton(
-                        text = "新手引导",
-                        color = Color(0xFF3EA22C),
-                        onClick = {
-                            context.getActivity()?.apply {
-                                ActivityUtils.startActivity(GuidingActivity::class.java)
-                            }
-                        })
-
                     IconTextButton(
                         text = "日志分享",
                         color = Color(0xFF0040FF),

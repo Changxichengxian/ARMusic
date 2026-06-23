@@ -39,6 +39,7 @@ import com.lalilu.remixicon.arrows.arrowUpSLine
 import com.lalilu.remixicon.media.music2Line
 
 class SearchWorksResult(
+    private val workLabel: () -> String = { "作品" },
     private val worksResult: () -> List<LAlbum>,
 ) : LazyGridContent {
 
@@ -71,7 +72,7 @@ class SearchWorksResult(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            text = "作品搜索结果 (${worksResult().size})",
+                            text = "${workLabel()}搜索结果 (${worksResult().size})",
                             fontSize = 16.sp,
                             lineHeight = 16.sp,
                             color = MaterialTheme.colors.onBackground,

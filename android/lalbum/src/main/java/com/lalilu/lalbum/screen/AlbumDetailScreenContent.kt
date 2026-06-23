@@ -85,6 +85,7 @@ fun AlbumDetailScreenContent(
     onPickCoverFromStorage: () -> Unit = {},
     onUseSongCover: (LSong) -> Unit = {},
     onClearCover: () -> Unit = {},
+    workLabel: () -> String = { "作品" },
 ) {
     val listState = rememberLazyListState()
     val statusBar = WindowInsets.statusBars
@@ -225,7 +226,7 @@ fun AlbumDetailScreenContent(
                     }
 
                     Text(
-                        text = albumDisplayName ?: "未知作品",
+                        text = albumDisplayName ?: "未知${workLabel()}",
                         fontSize = 20.sp,
                         lineHeight = 20.sp,
                         fontWeight = FontWeight.Bold,
