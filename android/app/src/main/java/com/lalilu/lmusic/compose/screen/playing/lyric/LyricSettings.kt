@@ -88,12 +88,12 @@ data class LyricSettings(
         lineHeight = translationLineHeight,
         fontWeight = FontWeight(translationFontWeight),
         fontFamily = FontFamily(
-            translationFont?.toFont(
-                weight = FontWeight(mainFontWeight),
-                variationSettings = FontVariation.Settings(FontVariation.weight(mainFontWeight))
+            (translationFont ?: mainFont)?.toFont(
+                weight = FontWeight(translationFontWeight),
+                variationSettings = FontVariation.Settings(FontVariation.weight(translationFontWeight))
             ) ?: Font(
                 familyName = DeviceFontFamilyName("FontFamily.Monospace"),
-                weight = FontWeight(mainFontWeight),
+                weight = FontWeight(translationFontWeight),
                 variationSettings = FontVariation.Settings(
                     FontVariation.weight(translationFontWeight)
                 )

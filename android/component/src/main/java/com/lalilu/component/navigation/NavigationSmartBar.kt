@@ -19,8 +19,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
+import com.lalilu.component.R
 import com.lalilu.component.base.screen.ScreenBarComponent
 import com.lalilu.component.base.TabScreen
 import com.lalilu.component.base.screen.ScreenBarFactory
@@ -106,7 +108,7 @@ fun NavigationSmartBar(
                     val previousTitle = (previousScreen as? ScreenInfoFactory)
                         ?.provideScreenInfo()
                         ?.title?.invoke()
-                        ?: "返回"
+                        ?: stringResource(id = R.string.navigation_back)
 
                     NavigateCommonBar(
                         modifier = Modifier.fillMaxHeight(),

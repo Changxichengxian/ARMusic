@@ -57,10 +57,10 @@ data class SongsState(
             searchKeyWord.isBlank() -> emptyList()
             searchKeyWord.contains(' ') -> searchKeyWord.split(' ')
             else -> listOf(searchKeyWord)
-        }
+        }.map { it.uppercase() }
 
         val searchResult = source.mapLatest { flow ->
-            flow.filter { item -> keywords.all { item.getMatchStr().contains(it.uppercase()) } }
+            flow.filter { item -> keywords.all { keyword -> item.getMatchStr().contains(keyword) } }
         }
 
         return when (selectedSortAction) {

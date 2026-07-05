@@ -21,9 +21,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lalilu.R
 import com.lalilu.RemixIcon
 import com.lalilu.component.LazyGridContent
 import com.lalilu.component.navigation.AppRouter
@@ -39,7 +41,7 @@ import com.lalilu.remixicon.arrows.arrowUpSLine
 import com.lalilu.remixicon.media.music2Line
 
 class SearchWorksResult(
-    private val workLabel: () -> String = { "作品" },
+    private val workLabel: () -> String = { "" },
     private val worksResult: () -> List<LAlbum>,
 ) : LazyGridContent {
 
@@ -72,7 +74,16 @@ class SearchWorksResult(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            text = "${workLabel()}搜索结果 (${worksResult().size})",
+                            text = stringResource(
+                                id = R.string.search_result_title_count,
+                                stringResource(
+                                    id = R.string.search_work_result_title,
+                                    workLabel().ifBlank {
+                                        stringResource(id = R.string.search_scope_work)
+                                    }
+                                ),
+                                worksResult().size
+                            ),
                             fontSize = 16.sp,
                             lineHeight = 16.sp,
                             color = MaterialTheme.colors.onBackground,

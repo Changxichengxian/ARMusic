@@ -1,17 +1,29 @@
 package com.lalilu.lmusic.compose.new_screen
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.media.MediaScannerConnection
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.Icon
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
+import androidx.compose.material.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,11 +36,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.ToastUtils
 import com.google.accompanist.flowlayout.FlowRow
 import com.funny.data_saver.core.DataSaverMutableState
+import com.lalilu.lmusic.ARMusicLanguage
 import com.lalilu.BuildConfig
 import com.lalilu.R
 import com.lalilu.RemixIcon
@@ -43,6 +57,7 @@ import com.lalilu.component.settings.SettingProgressSeekBar
 import com.lalilu.component.settings.SettingStateSeekBar
 import com.lalilu.component.settings.SettingSwitcher
 import com.lalilu.component.work.WorkLabel
+import com.lalilu.component.work.rememberWorkLabelOptions
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
 import com.lalilu.crash.CrashHelper
@@ -61,10 +76,24 @@ import com.lalilu.remixicon.System
 import com.lalilu.remixicon.system.settings4Line
 import com.zhangke.krouter.KRouter
 import com.zhangke.krouter.annotation.Destination
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONArray
+import org.json.JSONObject
 import org.koin.compose.koinInject
 import org.koin.core.qualifier.named
 import kotlin.math.roundToInt
+
+private const val ARMUSIC_GITHUB_URL = "https://github.com/Changxichengxian/ARMusic"
+private const val ARMUSIC_GITHUB_LATEST_RELEASE_URL =
+    "https://github.com/Changxichengxian/ARMusic/releases/latest"
+private const val ARMUSIC_GITHUB_LATEST_RELEASE_API =
+    "https://api.github.com/repos/Changxichengxian/ARMusic/releases/latest"
+private const val ARMUSIC_GITHUB_TAGS_API =
+    "https://api.github.com/repos/Changxichengxian/ARMusic/tags"
 
 @Destination("/pages/settings")
 object SettingsScreen : Screen, ScreenInfoFactory {
@@ -94,13 +123,13 @@ private fun SettingsScreen(
     workMappingManager: ARMusicWorkMappingManager = koinInject(),
     fileSystemScanner: FileSystemScanner = koinInject(),
     lMediaSp: LMediaSp = koinInject(),
+    httpClient: OkHttpClient = koinInject(),
     lyricSettings: DataSaverMutableState<LyricSettings> = koinInject(named("LyricSettings")),
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val isMigrationBusy = remember { mutableStateOf(false) }
-    val darkModeOption = settingsSp.darkModeOption
-    val ignoreAudioFocus = settingsSp.ignoreAudioFocus
+    val appLanguageOption = settingsSp.appLanguageOption
     val enableUnknownFilter = settingsSp.enableUnknownFilter
     val statusBarLyric = settingsSp.enableStatusLyric
     val lyricTextSize = settingsSp.lyricTextSize
@@ -109,11 +138,47 @@ private fun SettingsScreen(
     val enableSystemEq = settingsSp.enableSystemEq
     val enableDynamicTips = settingsSp.enableDynamicTips
     val forceHideStatusBar = settingsSp.forceHideStatusBar
+    val rotateMultipleCovers = settingsSp.rotateMultipleCovers
     val keepScreenOnWhenLyricExpanded = settingsSp.keepScreenOnWhenLyricExpanded
     val historyDurationFilter = settingsSp.historyDurationFilter
     val workLabelMode = settingsSp.workLabelMode
     val excludedFolders = lMediaSp.excludePath
     val excludedFoldersExpanded = remember { mutableStateOf(false) }
+    val isCheckingUpdate = remember { mutableStateOf(false) }
+
+    fun checkForUpdate() {
+        if (isCheckingUpdate.value) return
+
+        scope.launch {
+            isCheckingUpdate.value = true
+            val result = withContext(Dispatchers.IO) {
+                runCatching { fetchLatestGithubVersion(httpClient) }
+            }
+
+            result
+                .onSuccess { info ->
+                    if (compareVersionName(info.version, BuildConfig.VERSION_NAME) > 0) {
+                        ToastUtils.showLong(
+                            context.getString(R.string.settings_update_found, info.version)
+                        )
+                    } else {
+                        ToastUtils.showShort(
+                            context.getString(
+                                R.string.settings_update_current,
+                                BuildConfig.VERSION_NAME
+                            )
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    ToastUtils.showLong(
+                        error.message ?: context.getString(R.string.settings_update_failed)
+                    )
+                }
+
+            isCheckingUpdate.value = false
+        }
+    }
 
     val launcherForAudioFx = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -183,7 +248,12 @@ private fun SettingsScreen(
         }
         excludedFolders.add(uri.toString())
         fileSystemScanner.updateAsync()
-        ToastUtils.showLong("已屏蔽：${PathExclusionMatcher.displayPath(uri.toString())}")
+        ToastUtils.showLong(
+            context.getString(
+                R.string.settings_excluded_folder_added,
+                PathExclusionMatcher.displayPath(uri.toString())
+            )
+        )
     }
 
     LazyColumn(
@@ -202,29 +272,37 @@ private fun SettingsScreen(
                 titleRes = R.string.preference_player_settings
             ) {
                 SettingSwitcher(
-                    titleRes = R.string.preference_player_settings_ignore_audio_focus,
-                    state = ignoreAudioFocus
+                    title = stringResource(id = R.string.settings_player_rotate_multiple_covers),
+                    subTitle = stringResource(
+                        id = R.string.settings_player_rotate_multiple_covers_subtitle
+                    ),
+                    state = rotateMultipleCovers,
                 )
                 SettingProgressSeekBar(
                     value = { volumeControl.value.toFloat() },
                     onValueUpdate = { volumeControl.value = it.roundToInt() },
-                    title = "独立音量控制",
+                    title = stringResource(id = R.string.settings_volume_control),
                     valueRange = 0..100
                 )
                 SettingProgressSeekBar(
                     value = { historyDurationFilter.value.toFloat() },
                     onValueUpdate = { historyDurationFilter.value = it.roundToInt() },
-                    title = "播放记录过滤",
+                    title = stringResource(id = R.string.settings_history_duration_filter),
                     subTitle = historyDurationFilter.value
                         .takeIf { it > 0 }
-                        ?.let { "播放不足 ${it} 秒时，不计入历史、次数和时长" }
-                        ?: "记录所有播放",
+                        ?.let {
+                            stringResource(
+                                id = R.string.settings_history_duration_filter_value,
+                                it
+                            )
+                        }
+                        ?: stringResource(id = R.string.settings_history_duration_filter_all),
                     valueRange = 0..60
                 )
                 SettingSwitcher(
                     state = enableSystemEq,
-                    title = "启用系统均衡器",
-                    subTitle = "实验性功能，存在较大机型差异"
+                    title = stringResource(id = R.string.settings_enable_system_eq),
+                    subTitle = stringResource(id = R.string.settings_enable_system_eq_subtitle)
                 )
                 val enableSystemEqValue by enableSystemEq
                 AnimatedVisibility(visible = enableSystemEqValue) {
@@ -234,7 +312,7 @@ private fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         IconTextButton(
-                            text = "系统均衡器",
+                            text = stringResource(id = R.string.settings_system_eq),
                             iconPainter = painterResource(id = R.drawable.equalizer_line),
                             showIcon = { true },
                             color = Color(0xFF006E7C),
@@ -259,8 +337,10 @@ private fun SettingsScreen(
                     state = statusBarLyric
                 )
                 SettingSwitcher(
-                    title = "歌词页展开时屏幕常亮",
-                    subTitle = "小心烧屏",
+                    title = stringResource(id = R.string.settings_keep_screen_on_when_lyric_expanded),
+                    subTitle = stringResource(
+                        id = R.string.settings_keep_screen_on_when_lyric_expanded_subtitle
+                    ),
                     state = keepScreenOnWhenLyricExpanded,
                 )
                 SettingFontLibrary(
@@ -285,7 +365,7 @@ private fun SettingsScreen(
         item {
             SettingCategory(
                 icon = painterResource(id = R.drawable.ic_download_cloud_2_line),
-                title = "ARMusic 同步"
+                title = stringResource(id = R.string.settings_armusic_sync)
             ) {
                 FlowRow(
                     modifier = Modifier.padding(horizontal = 20.dp),
@@ -293,7 +373,7 @@ private fun SettingsScreen(
                     crossAxisSpacing = 8.dp
                 ) {
                     IconTextButton(
-                        text = "添加新歌",
+                        text = stringResource(id = R.string.settings_add_new_song),
                         iconPainter = painterResource(id = R.drawable.ic_scan_line),
                         showIcon = { true },
                         color = Color(0xFF006E7C),
@@ -304,7 +384,7 @@ private fun SettingsScreen(
                         }
                     )
                     IconTextButton(
-                        text = "局域网同步",
+                        text = stringResource(id = R.string.settings_lan_sync),
                         iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
                         showIcon = { true },
                         color = Color(0xFF006E7C),
@@ -313,7 +393,11 @@ private fun SettingsScreen(
                         }
                     )
                     IconTextButton(
-                        text = if (isMigrationBusy.value) "迁移中" else "从 LMusic 迁移",
+                        text = if (isMigrationBusy.value) {
+                            stringResource(id = R.string.settings_migrating)
+                        } else {
+                            stringResource(id = R.string.settings_migrate_from_lmusic)
+                        },
                         iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
                         showIcon = { true },
                         color = Color(0xFF6D5B00),
@@ -329,7 +413,7 @@ private fun SettingsScreen(
                         }
                     )
                     IconTextButton(
-                        text = "导入备份",
+                        text = stringResource(id = R.string.settings_import_backup),
                         iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
                         showIcon = { true },
                         color = Color(0xFF006E7C),
@@ -338,7 +422,7 @@ private fun SettingsScreen(
                         }
                     )
                     IconTextButton(
-                        text = "导出作品映射",
+                        text = stringResource(id = R.string.settings_export_work_mapping),
                         iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
                         showIcon = { true },
                         color = Color(0xFF3EA22C),
@@ -347,7 +431,7 @@ private fun SettingsScreen(
                         }
                     )
                     IconTextButton(
-                        text = "导入作品映射",
+                        text = stringResource(id = R.string.settings_import_work_mapping),
                         iconPainter = painterResource(id = R.drawable.ic_download_cloud_2_line),
                         showIcon = { true },
                         color = Color(0xFF6D5B00),
@@ -379,7 +463,7 @@ private fun SettingsScreen(
                     mainAxisSpacing = 10.dp
                 ) {
                     IconTextButton(
-                        text = "添加屏蔽文件夹",
+                        text = stringResource(id = R.string.settings_add_excluded_folder),
                         color = Color(0xFF006E7C),
                         onClick = {
                             launcherForExcludedFolder.launch(null)
@@ -388,9 +472,12 @@ private fun SettingsScreen(
                     if (excludedFolders.value.isNotEmpty()) {
                         IconTextButton(
                             text = if (excludedFoldersExpanded.value) {
-                                "隐藏屏蔽文件夹"
+                                stringResource(id = R.string.settings_hide_excluded_folders)
                             } else {
-                                "展开屏蔽文件夹 (${excludedFolders.value.size})"
+                                stringResource(
+                                    id = R.string.settings_show_excluded_folders,
+                                    excludedFolders.value.size
+                                )
                             },
                             color = Color(0xFF6E4AC3),
                             onClick = {
@@ -398,12 +485,14 @@ private fun SettingsScreen(
                             }
                         )
                         IconTextButton(
-                            text = "清空屏蔽",
+                            text = stringResource(id = R.string.settings_clear_excluded_folders),
                             color = Color(0xFFC13D1A),
                             onClick = {
                                 excludedFolders.value = emptyList()
                                 fileSystemScanner.updateAsync()
-                                ToastUtils.showShort("已清空屏蔽文件夹")
+                                ToastUtils.showShort(
+                                    context.getString(R.string.settings_excluded_folder_cleared)
+                                )
                             }
                         )
                     }
@@ -418,18 +507,24 @@ private fun SettingsScreen(
                                         text = PathExclusionMatcher.displayPath(path)
                                     )
                                     androidx.compose.material.Text(
-                                        text = "已屏蔽，重新扫描后不会出现在曲库里",
+                                        text = stringResource(
+                                            id = R.string.settings_excluded_folder_description
+                                        ),
                                         color = Color.Gray
                                     )
                                 },
                                 contentEnd = {
                                     IconTextButton(
-                                        text = "移除",
+                                        text = stringResource(id = R.string.settings_remove),
                                         color = Color(0xFFC13D1A),
                                         onClick = {
                                             excludedFolders.remove(path)
                                             fileSystemScanner.updateAsync()
-                                            ToastUtils.showShort("已移除屏蔽文件夹")
+                                            ToastUtils.showShort(
+                                                context.getString(
+                                                    R.string.settings_excluded_folder_removed
+                                                )
+                                            )
                                         }
                                     )
                                 }
@@ -441,25 +536,67 @@ private fun SettingsScreen(
         }
 
         item {
+            AboutUpdateCategory(
+                icon = painterResource(id = R.drawable.ic_download_cloud_2_line),
+            ) {
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    mainAxisSpacing = 10.dp,
+                    crossAxisSpacing = 8.dp
+                ) {
+                    IconTextButton(
+                        text = if (isCheckingUpdate.value) {
+                            stringResource(id = R.string.settings_checking_update)
+                        } else {
+                            stringResource(id = R.string.settings_check_update)
+                        },
+                        iconPainter = painterResource(id = R.drawable.ic_loader_line),
+                        showIcon = { true },
+                        color = Color(0xFF006E7C),
+                        onClick = { checkForUpdate() }
+                    )
+                    IconTextButton(
+                        text = stringResource(id = R.string.settings_github_project),
+                        iconPainter = painterResource(id = R.drawable.ic_arrow_right_s_line),
+                        showIcon = { true },
+                        color = Color(0xFF6E4AC3),
+                        onClick = { openUrl(context, ARMUSIC_GITHUB_URL) }
+                    )
+                }
+            }
+        }
+
+        item {
             SettingCategory(
                 icon = painterResource(id = R.drawable.ic_loader_line),
-                title = "其他"
+                title = stringResource(id = R.string.settings_other)
             ) {
                 SettingSwitcher(
-                    title = "全局隐藏状态栏",
-                    subTitle = "简化界面显示效果",
+                    title = stringResource(id = R.string.settings_force_hide_status_bar),
+                    subTitle = stringResource(id = R.string.settings_force_hide_status_bar_subtitle),
                     state = forceHideStatusBar,
                 )
                 SettingStateSeekBar(
-                    state = darkModeOption,
-                    selection = stringArrayResource(id = R.array.dark_mode_options).toList(),
-                    titleRes = R.string.preference_dark_mode
+                    state = { appLanguageOption.value },
+                    onStateUpdate = { option ->
+                        val value = option.coerceIn(
+                            ARMusicLanguage.OPTION_CHINESE,
+                            ARMusicLanguage.OPTION_ENGLISH
+                        )
+                        if (appLanguageOption.value != value) {
+                            appLanguageOption.value = value
+                            context.getActivity()?.recreate()
+                        }
+                    },
+                    selection = stringArrayResource(id = R.array.app_language_options).toList(),
+                    title = stringResource(id = R.string.preference_app_language),
+                    subTitle = stringResource(id = R.string.preference_app_language_tips)
                 )
                 SettingStateSeekBar(
                     state = workLabelMode,
-                    selection = WorkLabel.options,
-                    title = "作品栏名称",
-                    subTitle = "只改界面叫法，不改歌曲文件里的字段"
+                    selection = rememberWorkLabelOptions(),
+                    title = stringResource(id = R.string.settings_work_label_mode),
+                    subTitle = stringResource(id = R.string.settings_work_label_mode_subtitle)
                 )
                 SettingSwitcher(
                     state = enableDynamicTips,
@@ -471,51 +608,65 @@ private fun SettingsScreen(
                     mainAxisSpacing = 10.dp
                 ) {
                     IconTextButton(
-                        text = "日志分享",
+                        text = stringResource(id = R.string.settings_share_log),
                         color = Color(0xFF0040FF),
                         onClick = {
                             scope.launch {
                                 context.getActivity()?.apply {
                                     CrashHelper.shareLog(this)
                                 } ?: run {
-                                    ToastUtils.showShort("日志分享失败")
+                                    ToastUtils.showShort(
+                                        context.getString(R.string.settings_share_log_failed)
+                                    )
                                 }
                             }
                         }
                     )
 
                     IconTextButton(
-                        text = "MediaStore重新扫描",
+                        text = stringResource(id = R.string.settings_media_store_rescan),
                         color = Color(0xFFFF8B3F),
                         onClick = {
-                            Toast.makeText(context, "扫描开始", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.settings_scan_started),
+                                Toast.LENGTH_SHORT
+                            ).show()
                             // TODO 存在扫描不到的情况，改进方向为先遍历出fileList然后交由其进行scanFile
                             MediaScannerConnection.scanFile(
                                 context, arrayOf("/storage/emulated/0/"), null
                             ) { path, uri ->
-                                Toast.makeText(context, "扫描结束", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.settings_scan_finished),
+                                    Toast.LENGTH_SHORT
+                                ).show()
                                 LogUtils.i("MediaScannerConnection", "path: $path, uri: $uri")
                             }
                         }
                     )
 
                     IconTextButton(
-                        text = "FileSystem重新扫描",
+                        text = stringResource(id = R.string.settings_file_system_rescan),
                         color = Color(0xFFFF8B3F),
                         onClick = {
-                            Toast.makeText(context, "扫描开始", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.settings_scan_started),
+                                Toast.LENGTH_SHORT
+                            ).show()
                             fileSystemScanner.updateAsync()
                         }
                     )
                     IconTextButton(
-                        text = "备份数据",
+                        text = stringResource(id = R.string.settings_backup_data),
                         color = Color(0xFFFF8B3F),
                         onClick = {
                             launcherForBackup.launch("armusic_backup.json")
                         }
                     )
                     IconTextButton(
-                        text = "恢复数据",
+                        text = stringResource(id = R.string.settings_restore_data),
                         color = Color(0xFFFF8B3F),
                         onClick = {
                             launcherForRestore.launch(arrayOf("application/json", "text/*", "*/*"))
@@ -524,7 +675,7 @@ private fun SettingsScreen(
 
                     if (BuildConfig.DEBUG) {
                         IconTextButton(
-                            text = "测试异常捕获",
+                            text = stringResource(id = R.string.settings_test_crash),
                             color = Color(0xFFF12121),
                             onClick = {
                                 throw RuntimeException("Exception test")
@@ -536,5 +687,156 @@ private fun SettingsScreen(
         }
 
         smartBarPadding()
+    }
+}
+
+@Composable
+private fun AboutUpdateCategory(
+    icon: androidx.compose.ui.graphics.painter.Painter,
+    content: @Composable ColumnScope.() -> Unit = {},
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            val title = stringResource(id = R.string.settings_about_update)
+            val color = contentColorFor(MaterialTheme.colors.background).copy(0.7f)
+            Icon(
+                modifier = Modifier.size(24.dp),
+                painter = icon,
+                contentDescription = title,
+                tint = color,
+            )
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                color = color,
+            )
+            Text(
+                text = "v${BuildConfig.VERSION_NAME}",
+                fontSize = 11.sp,
+                color = color.copy(alpha = 0.58f),
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        content()
+        Spacer(modifier = Modifier.height(30.dp))
+    }
+}
+
+private data class GithubVersionInfo(
+    val version: String,
+    val url: String,
+)
+
+private fun fetchLatestGithubVersion(client: OkHttpClient): GithubVersionInfo {
+    fetchLatestReleaseRedirect(client)?.let { return it }
+    fetchLatestRelease(client)?.let { return it }
+    fetchLatestTag(client)?.let { return it }
+    error("没有找到可用的 GitHub 版本信息")
+}
+
+private fun fetchLatestReleaseRedirect(client: OkHttpClient): GithubVersionInfo? {
+    val request = Request.Builder()
+        .url(ARMUSIC_GITHUB_LATEST_RELEASE_URL)
+        .header("User-Agent", "ARMusic/${BuildConfig.VERSION_NAME}")
+        .build()
+
+    return client.newCall(request).execute().use { response ->
+        if (!response.isSuccessful) return null
+
+        val finalUrl = response.request.url.toString()
+        val version = finalUrl
+            .substringAfter("/releases/tag/", missingDelimiterValue = "")
+            .substringBefore("?")
+            .takeIf(String::isNotBlank)
+            ?: return null
+
+        GithubVersionInfo(
+            version = version,
+            url = finalUrl
+        )
+    }
+}
+
+private fun fetchLatestRelease(client: OkHttpClient): GithubVersionInfo? {
+    val request = Request.Builder()
+        .url(ARMUSIC_GITHUB_LATEST_RELEASE_API)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "ARMusic/${BuildConfig.VERSION_NAME}")
+        .build()
+
+    return client.newCall(request).execute().use { response ->
+        if (response.code == 404) return null
+        if (!response.isSuccessful) error("GitHub 返回 ${response.code}")
+
+        val json = JSONObject(response.body?.string().orEmpty())
+        val version = json.optString("tag_name").ifBlank { json.optString("name") }
+        if (version.isBlank()) return null
+
+        GithubVersionInfo(
+            version = version,
+            url = json.optString("html_url").ifBlank { ARMUSIC_GITHUB_URL }
+        )
+    }
+}
+
+private fun fetchLatestTag(client: OkHttpClient): GithubVersionInfo? {
+    val request = Request.Builder()
+        .url(ARMUSIC_GITHUB_TAGS_API)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "ARMusic/${BuildConfig.VERSION_NAME}")
+        .build()
+
+    return client.newCall(request).execute().use { response ->
+        if (!response.isSuccessful) error("GitHub 返回 ${response.code}")
+
+        val tags = JSONArray(response.body?.string().orEmpty())
+        if (tags.length() == 0) return null
+
+        val tag = tags.getJSONObject(0)
+        val version = tag.optString("name")
+        if (version.isBlank()) return null
+
+        GithubVersionInfo(
+            version = version,
+            url = "$ARMUSIC_GITHUB_URL/releases/tag/$version"
+        )
+    }
+}
+
+private fun compareVersionName(left: String, right: String): Int {
+    val leftParts = left.versionParts()
+    val rightParts = right.versionParts()
+    val size = maxOf(leftParts.size, rightParts.size)
+
+    repeat(size) { index ->
+        val leftValue = leftParts.getOrElse(index) { 0 }
+        val rightValue = rightParts.getOrElse(index) { 0 }
+        if (leftValue != rightValue) return leftValue.compareTo(rightValue)
+    }
+
+    return 0
+}
+
+private fun String.versionParts(): List<Int> {
+    return trim()
+        .trimStart('v', 'V')
+        .substringBefore('-')
+        .split('.', '_')
+        .mapNotNull { part -> part.filter(Char::isDigit).toIntOrNull() }
+        .ifEmpty { listOf(0) }
+}
+
+private fun openUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }.onFailure {
+        ToastUtils.showShort(context.getString(R.string.settings_no_browser))
     }
 }

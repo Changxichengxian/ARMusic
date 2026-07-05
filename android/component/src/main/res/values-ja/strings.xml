@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="select_action_title_select_all">すべて選択</string>
+    <string name="select_action_title_clear_all">すべて解除</string>
+    <string name="empty_screen_no_items">項目がありません</string>
+    <string name="common_close">閉じる</string>
+    <string name="navigation_back">戻る</string>
+    <string name="search_input_hint">キーワードを入力して検索</string>
+    <string name="search_clear">クリア</string>
+    <string name="work_label_album">アルバム</string>
+    <string name="work_label_series">シリーズ</string>
+    <string name="work_label_work">作品</string>
+</resources>

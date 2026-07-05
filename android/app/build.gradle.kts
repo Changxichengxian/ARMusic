@@ -26,7 +26,7 @@ fun releaseTime(pattern: String = "MMdd_HHmm"): String = SimpleDateFormat(patter
 
 androidAopConfig {
     enabled = true
-    debug = true
+    debug = false
 
 //    include 'com.flyjingfish'
 //    cutInfoJson = true
@@ -48,8 +48,8 @@ android {
         applicationId = "com.lalilu.lmusic"
         minSdk = libs.versions.min.sdk.version.get().toIntOrNull()
         targetSdk = libs.versions.compile.version.get().toIntOrNull()
-        versionCode = 121
-        versionName = "1.2.1"
+        versionCode = 134
+        versionName = "1.3.4"
 
         vectorDrawables {
             useSupportLibrary = true

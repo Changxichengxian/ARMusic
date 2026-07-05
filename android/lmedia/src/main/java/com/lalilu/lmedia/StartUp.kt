@@ -15,9 +15,4 @@ class StartUp : Initializer<Unit> {
         return emptyList()
     }
 
-    companion object {
-        init {
-            System.loadLibrary("taglib")
-        }
-    }
 }

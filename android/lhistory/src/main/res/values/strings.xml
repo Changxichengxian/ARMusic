@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="history_screen_title">History</string>
+    <string name="history_screen_subtitle">Songs you have played</string>
+    <string name="history_dynamic_title">History playback</string>
+    <string name="history_dynamic_subtitle">Playback history list</string>
+    <string name="history_metric_play_count">Played %1$d times</string>
+    <string name="history_metric_play_duration">Listened for %1$s</string>
+    <string name="history_duration_day">%1$d d</string>
+    <string name="history_duration_hour">%1$d h</string>
+    <string name="history_duration_minute">%1$d min</string>
+    <string name="history_duration_second">%1$d s</string>
 
     <string name="sort_preset_by_last_play_time">Last Play Time</string>
     <string name="sort_preset_by_played_times">Played Times</string>

@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
 @SuppressLint("ObsoleteSdkInt")
@@ -39,6 +40,7 @@ class Indexer(
     override val coroutineContext: CoroutineContext = Dispatchers.IO
     private lateinit var scanner: MediaStoreScanner
     private var loopJob: Job? = null
+    private val songOverrides = ConcurrentHashMap<String, LSong>()
 
     fun init(context: Context) {
         // 校验当前是否已经有循环任务正在进行中
@@ -74,14 +76,31 @@ class Indexer(
             .launchIn(this)
     }
 
+    fun updateAsync() {
+        if (::scanner.isInitialized) {
+            scanner.updateAsync()
+        }
+    }
+
+    suspend fun replaceSong(song: LSong) {
+        songOverrides[song.id] = song
+        val songs = library.get<LSong>(blockFilter = false)
+            .map { current -> if (current.id == song.id) song else current }
+            .ifEmpty { listOf(song) }
+
+        handleIndex(songs)
+    }
+
     private suspend fun handleIndex(songs: List<LSong>) = withContext(Dispatchers.IO) {
+        val actualSongs = songs.map { songOverrides[it.id] ?: it }
+
         val buildSongsJob = async {
-            songs.associateBy { it.id }
+            actualSongs.associateBy { it.id }
                 .also { library.set(it) }
         }
 
         val buildAlbumJob = async {
-            retrieveAlbums(songs)
+            retrieveAlbums(actualSongs)
                 .merge()    // 将具有相同名称的LAlbum进行合并
                 .link()
                 .associateBy { it.id }
@@ -89,7 +108,7 @@ class Indexer(
         }
 
         val buildArtistJob = async {
-            retrieveArtists(songs)
+            retrieveArtists(actualSongs)
                 .separate()     // separate() 将LArtist拆分成多个LArtist
                 .merge()        // merge() 将具有相同name的LArtist合并为同一个
                 .link()
@@ -99,14 +118,14 @@ class Indexer(
         }
 
         val buildGenreJob = async {
-            retrieveGenres(songs)
+            retrieveGenres(actualSongs)
                 .link()
                 .associateBy { it.id }
                 .also { library.set(it) }
         }
 
         val buildFolderJob = async {
-            retrieveFolders(songs)
+            retrieveFolders(actualSongs)
                 .link()
                 .associateBy { it.id }
                 .also { library.set(it) }

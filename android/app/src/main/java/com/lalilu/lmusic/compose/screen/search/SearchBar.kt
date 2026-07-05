@@ -35,10 +35,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lalilu.R
 import com.lalilu.RemixIcon
 import com.lalilu.component.base.screen.ScreenBarFactory
 import com.lalilu.lmusic.viewmodel.SearchVM
@@ -108,7 +110,7 @@ internal fun SearchBarContent(
                 contentDescription = null
             )
             Text(
-                text = "关闭",
+                text = stringResource(id = R.string.common_close),
                 fontSize = 14.sp,
                 lineHeight = 14.sp,
                 color = MaterialTheme.colors.onBackground,
@@ -147,7 +149,7 @@ internal fun SearchBarContent(
                     ) {
                         Text(
                             modifier = Modifier.padding(start = 2.dp),
-                            text = "输入关键词以匹配元素",
+                            text = stringResource(id = R.string.search_input_hint),
                             fontSize = 14.sp,
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.Bold,
@@ -190,7 +192,7 @@ internal fun SearchBarContent(
                             ) {
                                 Icon(
                                     imageVector = RemixIcon.System.closeLine,
-                                    contentDescription = "clear"
+                                    contentDescription = stringResource(id = R.string.search_clear)
                                 )
                             }
                         }

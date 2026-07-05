@@ -40,6 +40,7 @@ object MPlayer : CoroutineScope, Player.Listener {
     }
 
     private var browserInstance: MediaBrowser? = null
+    private var initialized = false
     private val browserFuture by lazy {
         MediaBrowser
             .Builder(Utils.getApp(), sessionToken)
@@ -76,7 +77,10 @@ object MPlayer : CoroutineScope, Player.Listener {
         return currentMediaItem?.mediaId == mediaId
     }
 
-    internal fun init() {
+    fun init() {
+        if (initialized) return
+        initialized = true
+
         launch(Dispatchers.Main) {
             val browser = browserFuture.await()
             browserInstance = browser
@@ -186,6 +190,22 @@ object MPlayer : CoroutineScope, Player.Listener {
                 }
             }
         }
+    }
+
+    fun replaceMediaItem(item: MediaItem) = launch(Dispatchers.Main) {
+        val browser = browserFuture.await()
+        val index = browser.currentTimeline.indexOf(item.mediaId)
+        if (index < 0) return@launch
+
+        val currentIndex = browser.currentMediaItemIndex
+        browser.replaceMediaItem(index, item)
+
+        if (index == currentIndex) {
+            currentMediaItem = item
+            currentMediaMetadata = item.mediaMetadata
+            currentDuration = item.mediaMetadata.durationMs ?: browser.duration.coerceAtLeast(0L)
+        }
+        updateItems(browser.currentTimeline, currentIndex)
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {

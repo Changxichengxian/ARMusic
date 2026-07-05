@@ -127,7 +127,7 @@ internal fun SongsScreenContent(
         ) {
             startRecord(recorder) {
                 itemWithRecord(key = "全部歌曲") {
-                    val count = remember(songs) { songs.values.flatten().size }
+                    val count = remember(songs) { songs.values.sumOf { it.size } }
 
                     Column(
                         modifier = Modifier

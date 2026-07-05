@@ -7,12 +7,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.lalilu.component.R
 
 object WorkLabel {
     const val KEY_SETTINGS_WORK_LABEL_MODE = "KEY_SETTINGS_WORK_LABEL_MODE"
     const val DEFAULT_MODE = 2
 
-    val options = listOf("专辑", "番剧", "作品")
+    val options = listOf("album", "series", "work")
 
     fun labelOf(mode: Int): String {
         return options.getOrElse(mode) { options[DEFAULT_MODE] }
@@ -26,9 +28,19 @@ object WorkLabel {
 }
 
 @Composable
+fun rememberWorkLabelOptions(): List<String> {
+    return listOf(
+        stringResource(id = R.string.work_label_album),
+        stringResource(id = R.string.work_label_series),
+        stringResource(id = R.string.work_label_work),
+    )
+}
+
+@Composable
 fun rememberWorkLabel(): String {
     val context = LocalContext.current.applicationContext
     val mode = remember(context) { mutableStateOf(WorkLabel.readMode(context)) }
+    val options = rememberWorkLabelOptions()
 
     DisposableEffect(context) {
         val sp = context.getSharedPreferences(context.packageName, Context.MODE_PRIVATE)
@@ -41,5 +53,5 @@ fun rememberWorkLabel(): String {
         onDispose { sp.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
-    return WorkLabel.labelOf(mode.value)
+    return options.getOrElse(mode.value) { options[WorkLabel.DEFAULT_MODE] }
 }

@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_title_home">Home</string>
+    <string name="screen_title_search">Search</string>
+    <string name="screen_title_settings">Settings</string>
+    <string name="screen_title_songs">Songs</string>
+    <string name="screen_title_albums">Albums</string>
+    <string name="screen_title_artists">Artists</string>
+    <string name="screen_title_playlist">Playlists</string>
+    <string name="screen_title_song_detail">Song details</string>
+    <string name="screen_title_artist_detail">Artist details</string>
+    <string name="screen_title_album_detail">Album details</string>
+
+    <string name="bottom_sheet_navigate_back">Back</string>
+    <string name="bottom_sheet_navigate_close">Close</string>
+    <string name="screen_action_sort">Sort</string>
+    <string name="screen_action_locate_playing_item">Locate current song</string>
+    <string name="audio_type">Audio format</string>
+    <string name="default_slogan">ARMusic</string>
+    <string name="text_button_play">Play</string>
+
+    <string name="destination_label_library">Library</string>
+    <string name="destination_label_albums">Albums</string>
+    <string name="destination_label_artist">Artists</string>
+    <string name="destination_label_playlists">Playlists</string>
+    <string name="destination_label_all_song">Songs</string>
+    <string name="destination_label_favourite">Favorites</string>
+    <string name="destination_label_search">Search</string>
+    <string name="destination_label_settings">Settings</string>
+    <string name="destination_label_album_detail">Album details</string>
+    <string name="destination_label_dictionary_detail">Add song details</string>
+    <string name="destination_label_artist_detail">Artist details</string>
+    <string name="destination_label_playlist_detail">Playlist details</string>
+    <string name="destination_label_song_detail">Song details</string>
+    <string name="destination_label_genres">Genres</string>
+    <string name="destination_label_dictionaries">Add songs</string>
+    <string name="destination_label_extensions">Extensions</string>
+
+    <string name="destination_subtitle_library">All available options</string>
+    <string name="destination_subtitle_artist">All artists</string>
+    <string name="destination_subtitle_albums">All albums</string>
+    <string name="destination_subtitle_playlists">All playlists</string>
+    <string name="destination_subtitle_all_song">All songs</string>
+    <string name="destination_subtitle_favourite">Favorite songs</string>
+    <string name="destination_subtitle_search">Search all local content</string>
+    <string name="destination_subtitle_settings">Settings options</string>
+    <string name="destination_subtitle_album_detail">Album details</string>
+    <string name="destination_subtitle_playlist_detail">Playlist details</string>
+    <string name="destination_subtitle_dictionary_detail">Add song details</string>
+    <string name="destination_subtitle_song_detail">Song details</string>
+    <string name="destination_subtitle_genres">All genres</string>
+    <string name="destination_subtitle_dictionaries">Import songs or add scan folders</string>
+
+    <string name="button_add_song_to_playlist">Add to playlist</string>
+    <string name="button_set_song_to_next">Play next</string>
+
+    <string name="preference_lyric_experimental">Experimental</string>
+    <string name="preference_media_source_tips">Reloads the library</string>
+    <string name="preference_extensions">Extensions</string>
+    <string name="preference_dynamic_tips">Shows feedback for some actions</string>
+    <string name="preference_dark_mode">Dark mode</string>
+    <string name="preference_app_language">App language</string>
+    <string name="preference_app_language_tips">The current screen refreshes after switching</string>
+    <string name="preference_lyric_settings">Lyrics display</string>
+    <string name="preference_lyric_settings_status_bar_lyric">Status bar lyrics</string>
+    <string name="preference_lyric_settings_text_gravity">Lyrics alignment</string>
+    <string name="preference_lyric_settings_text_size">Main text size</string>
+    <string name="preference_lyric_settings_secondary_text_size">Secondary text size</string>
+    <string name="preference_lyric_settings_translate_text_scale_value">Translation scale</string>
+    <string name="preference_lyric_settings_translate_divider_height">Lyrics and translation gap</string>
+    <string name="preference_lyric_settings_lyric_divider_height">Line gap</string>
+    <string name="preference_media_source_settings">Song scan filters</string>
+    <string name="preference_media_source_settings_unknown_filter">Filter unknown artists</string>
+    <string name="preference_media_source_settings_duration_filter">Filter by duration</string>
+    <string name="preference_media_source_settings_enable_dynamic_tips">Action feedback popup</string>
+    <string name="preference_player_settings">Playback settings</string>
+    <string name="preference_player_settings_skip_silent">Skip silence when changing songs</string>
+    <string name="preference_player_settings_seekbar_handler">Song switching action</string>
+
+    <string name="settings_player_rotate_multiple_covers">Rotate multiple covers while playing</string>
+    <string name="settings_player_rotate_multiple_covers_subtitle">When a song has multiple covers, switch them evenly by duration</string>
+    <string name="settings_volume_control">Independent volume control</string>
+    <string name="settings_history_duration_filter">Playback history filter</string>
+    <string name="settings_history_duration_filter_value">Do not count history, plays, or duration if played for less than %1$d seconds</string>
+    <string name="settings_history_duration_filter_all">Record every playback</string>
+    <string name="settings_enable_system_eq">Enable system equalizer</string>
+    <string name="settings_enable_system_eq_subtitle">Experimental; behavior differs across devices</string>
+    <string name="settings_system_eq">System equalizer</string>
+    <string name="settings_keep_screen_on_when_lyric_expanded">Keep screen on when lyrics are expanded</string>
+    <string name="settings_keep_screen_on_when_lyric_expanded_subtitle">Watch out for screen burn-in</string>
+    <string name="settings_armusic_sync">ARMusic Sync</string>
+    <string name="settings_add_new_song">Add songs</string>
+    <string name="settings_lan_sync">LAN sync</string>
+    <string name="settings_migrating">Migrating</string>
+    <string name="settings_migrate_from_lmusic">Migrate from LMusic</string>
+    <string name="settings_import_backup">Import backup</string>
+    <string name="settings_export_work_mapping">Export work mapping</string>
+    <string name="settings_import_work_mapping">Import work mapping</string>
+    <string name="settings_add_excluded_folder">Add excluded folder</string>
+    <string name="settings_hide_excluded_folders">Hide excluded folders</string>
+    <string name="settings_show_excluded_folders">Show excluded folders (%1$d)</string>
+    <string name="settings_clear_excluded_folders">Clear excluded folders</string>
+    <string name="settings_excluded_folder_cleared">Excluded folders cleared</string>
+    <string name="settings_excluded_folder_removed">Excluded folder removed</string>
+    <string name="settings_excluded_folder_added">Excluded: %1$s</string>
+    <string name="settings_excluded_folder_description">Excluded; it will not appear in the library after rescanning</string>
+    <string name="settings_remove">Remove</string>
+    <string name="settings_about_update">About and updates</string>
+    <string name="settings_checking_update">Checking</string>
+    <string name="settings_check_update">Check updates</string>
+    <string name="settings_github_project">GitHub project</string>
+    <string name="settings_update_found">New version %1$s found. Tap GitHub project to download.</string>
+    <string name="settings_update_current">Already up to date: %1$s</string>
+    <string name="settings_update_failed">Update check failed</string>
+    <string name="settings_no_browser">No app found to open this page.</string>
+    <string name="settings_other">Other</string>
+    <string name="settings_force_hide_status_bar">Hide status bar globally</string>
+    <string name="settings_force_hide_status_bar_subtitle">Simplifies the interface display</string>
+    <string name="settings_work_label_mode">Work label name</string>
+    <string name="settings_work_label_mode_subtitle">Only changes the interface label, not tags inside music files</string>
+    <string name="settings_share_log">Share logs</string>
+    <string name="settings_share_log_failed">Failed to share logs</string>
+    <string name="settings_media_store_rescan">Rescan MediaStore</string>
+    <string name="settings_file_system_rescan">Rescan FileSystem</string>
+    <string name="settings_scan_started">Scan started</string>
+    <string name="settings_scan_finished">Scan finished</string>
+    <string name="settings_backup_data">Back up data</string>
+    <string name="settings_restore_data">Restore data</string>
+    <string name="settings_test_crash">Test crash capture</string>
+
+    <string name="common_close">Close</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_add">Add</string>
+    <string name="common_create">Create</string>
+    <string name="common_save">Save</string>
+    <string name="common_save_success">Saved</string>
+    <string name="common_save_failed">Save failed</string>
+    <string name="common_copied">Copied</string>
+    <string name="common_show_more">Show more</string>
+    <string name="common_search_more">Search more</string>
+
+    <string name="home_daily_recommend">Daily Picks</string>
+    <string name="home_daily_stop_scroll">Stop scrolling</string>
+    <string name="home_daily_start_scroll">Start scrolling</string>
+    <string name="home_daily_shuffle">Refresh</string>
+    <string name="home_recently_added">Recently added</string>
+    <string name="home_all_songs">All songs</string>
+
+    <string name="search_input_hint">Enter keywords to search</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_no_results">No results</string>
+    <string name="search_songs_result_title">Song results</string>
+    <string name="search_artists_result_title">Artist results</string>
+    <string name="search_lyrics_result_title">Lyrics results</string>
+    <string name="search_work_result_title">%1$s results</string>
+    <string name="search_result_title_count">%1$s (%2$d)</string>
+    <string name="search_scope_songs">Songs</string>
+    <string name="search_scope_work">Work</string>
+    <string name="search_scope_artists">Artists</string>
+    <string name="search_scope_lyrics">Lyrics</string>
+
+    <string name="wishlist_title">Wishlist</string>
+    <string name="wishlist_exported">Exported</string>
+    <string name="wishlist_export_failed">Export failed</string>
+    <string name="wishlist_item_count">%1$d items</string>
+    <string name="wishlist_empty_create_category">Tap + at the top right to create a category</string>
+    <string name="wishlist_delete_category_title">Delete %1$s</string>
+    <string name="wishlist_delete_category_message">This category and its %1$d items will be deleted.</string>
+    <string name="wishlist_stats">%1$d items · %2$d groups</string>
+    <string name="wishlist_expand_all">Expand all</string>
+    <string name="wishlist_collapse_all">Collapse all</string>
+    <string name="wishlist_export_txt">Export TXT</string>
+    <string name="wishlist_add_item_title">Add to %1$s</string>
+    <string name="wishlist_edit_item_title">Edit %1$s</string>
+    <string name="wishlist_new_category">New category</string>
+    <string name="wishlist_category_name">Category name</string>
+    <string name="wishlist_category_name_required">Enter a category name first</string>
+    <string name="wishlist_item_placeholder">Add a note to %1$s</string>
+    <string name="wishlist_category_to_listen">To listen</string>
+    <string name="wishlist_category_anime">Anime</string>
+    <string name="wishlist_category_manga">Manga</string>
+    <string name="wishlist_category_novel">Novels</string>
+    <string name="wishlist_default_item_1">A song to listen to</string>
+    <string name="wishlist_default_item_2">Another song to listen to</string>
+    <string name="wishlist_unnamed">Untitled</string>
+
+    <string name="song_action_tag_edit">Edit tags</string>
+    <string name="song_info_genre">Genre</string>
+    <string name="song_info_file_type">File type</string>
+    <string name="song_info_file_size">File size</string>
+    <string name="song_info_average_bitrate">Average bitrate</string>
+    <string name="song_info_date_added">Date added</string>
+    <string name="song_info_file_location">File location</string>
+    <string name="song_info_long_press_copy">Long press to copy this value</string>
+
+    <string name="tag_editor_title">Title</string>
+    <string name="tag_editor_artist">Artist</string>
+    <string name="tag_editor_same_song_group">Same-song group</string>
+    <string name="tag_editor_composer">Composer</string>
+    <string name="tag_editor_lyricist">Lyricist</string>
+    <string name="tag_editor_comment">Comment</string>
+    <string name="tag_editor_lyrics">Lyrics</string>
+    <string name="tag_editor_search_lyrics">Search lyrics</string>
+    <string name="tag_editor_search_info">Search info</string>
+    <string name="tag_editor_search_cover">Search cover</string>
+    <string name="tag_editor_cover">Cover</string>
+    <string name="tag_editor_add_cover">Add cover</string>
+    <string name="tag_editor_pick_local">Choose local image</string>
+    <string name="tag_editor_search_network">Search online</string>
+    <string name="tag_editor_remove_image">Remove image</string>
+    <string name="tag_editor_save_image">Save image</string>
+    <string name="tag_editor_make_primary_cover">Make primary cover</string>
+    <string name="tag_editor_reset_cover_preview">Reset cover preview</string>
+    <string name="tag_editor_swap_same_time_lines">Swap same-time original/translation</string>
+    <string name="tag_editor_no_swappable_lines">No same-time lyric pair found to swap</string>
+    <string name="tag_editor_swapped_lines">Swapped the same-time original and translation lines</string>
+    <string name="tag_editor_no_cover_url">This result has no usable image.</string>
+    <string name="tag_editor_cover_read_failed">Failed to read the cover image.</string>
+    <string name="tag_editor_no_image_read">No image could be read.</string>
+    <string name="tag_editor_local_cover_previewed">Local cover previewed. Save to apply it.</string>
+    <string name="tag_editor_cover_saved">Cover image saved.</string>
+    <string name="tag_editor_cover_save_failed">Failed to save cover image.</string>
+    <string name="tag_editor_reading_cover">Reading cover</string>
+    <string name="tag_editor_fetching_lyrics">Fetching lyrics</string>
+    <string name="tag_editor_preview_ready">Preview ready</string>
+    <string name="tag_editor_cover_previewed">Cover previewed</string>
+    <string name="tag_editor_no_candidate_lyrics">This candidate has no usable lyrics.</string>
+    <string name="tag_editor_lyrics_previewed">Lyrics previewed</string>
+    <string name="tag_editor_searching_info">Searching song info</string>
+    <string name="tag_editor_searching_more_info">Searching more song info</string>
+    <string name="tag_editor_no_tag_results">No matching song info found</string>
+    <string name="tag_editor_online_search_failed">Online search failed</string>
+    <string name="tag_editor_searching_lyrics">Searching lyrics</string>
+    <string name="tag_editor_searching_more_lyrics">Searching more lyrics</string>
+    <string name="tag_editor_no_lyrics_results">No lyrics found</string>
+    <string name="tag_editor_lyrics_search_failed">Lyrics search failed</string>
+    <string name="tag_editor_searching_images">Searching images</string>
+    <string name="tag_editor_searching_more_images">Searching more images</string>
+    <string name="tag_editor_no_image_results">No usable images found</string>
+    <string name="tag_editor_image_search_failed">Image search failed</string>
+    <string name="tag_editor_no_cover_to_save">This song has no cover to save.</string>
+    <string name="tag_editor_saving_tags">Saving tags</string>
+    <string name="tag_editor_save_unsupported">Save failed. This format may not support writing tags yet.</string>
+    <string name="tag_editor_cover_remove_failed_after_save">Tags were saved, but cover removal failed.</string>
+    <string name="tag_editor_cover_write_failed_after_save">Tags were saved, but cover writing failed.</string>
+    <string name="tag_editor_request_write_permission">ARMusic needs permission to modify this audio file.</string>
+    <string name="tag_editor_write_permission_denied">Write permission was not granted. Tags were not saved.</string>
+    <string name="tag_editor_cover_will_be_removed">The cover will be removed after saving.</string>
+    <string name="tag_editor_current_cover_will_be_removed">This cover will be removed after saving.</string>
+    <string name="tag_editor_primary_cover_previewed">Primary cover previewed. Save to apply it.</string>
+    <string name="tag_editor_cover_preview_reset">Cover preview reset.</string>
+    <string name="tag_editor_song_not_found">Song not found.</string>
+    <string name="tag_editor_cover_not_square">Choose a square cover image.</string>
+    <string name="tag_editor_cover_too_small">The image is small and may look blurry.</string>
+    <string name="tag_editor_cover_too_large">The image is large and will be compressed to 1200 when saved.</string>
+
+    <string-array name="lyric_gravity_text">
+        <item>Left</item>
+        <item>Center</item>
+        <item>Right</item>
+    </string-array>
+    <string-array name="dark_mode_options">
+        <item>Follow system</item>
+        <item>On</item>
+        <item>Off</item>
+    </string-array>
+    <string-array name="app_language_options">
+        <item>中文</item>
+        <item>日本語</item>
+        <item>English</item>
+    </string-array>
+</resources>

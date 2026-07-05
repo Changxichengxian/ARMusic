@@ -39,10 +39,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import com.blankj.utilcode.util.ToastUtils
+import com.lalilu.R
 import com.lalilu.RemixIcon
 import com.lalilu.component.base.screen.ScreenInfo
 import com.lalilu.component.base.screen.ScreenInfoFactory
@@ -62,7 +64,7 @@ object WishlistScreen : Screen, ScreenInfoFactory {
     @Composable
     override fun provideScreenInfo(): ScreenInfo = remember {
         ScreenInfo(
-            title = { "愿望单" },
+            title = { stringResource(id = R.string.wishlist_title) },
             icon = RemixIcon.Design.editBoxFill,
         )
     }
@@ -82,7 +84,7 @@ private fun WishlistContent(
     val categoriesJson = settingsSp.wishlistCategoriesJson.value
     val categories = remember(categoriesJson) {
         decodeMemoCategories(categoriesJson).ifEmpty {
-            buildInitialMemoCategories(settingsSp)
+            buildInitialMemoCategories(settingsSp, context)
         }
     }
     val selectedIndexMax = (categories.size - 1).coerceAtLeast(0)
@@ -126,9 +128,9 @@ private fun WishlistContent(
                 it.write(pendingExportText)
             }
         }.onSuccess {
-            ToastUtils.showShort("已导出")
+            ToastUtils.showShort(context.getString(R.string.wishlist_exported))
         }.onFailure {
-            ToastUtils.showShort("导出失败")
+            ToastUtils.showShort(context.getString(R.string.wishlist_export_failed))
         }
     }
 
@@ -154,6 +156,7 @@ private fun WishlistContent(
                 edgePadding = 20.dp,
             ) {
                 categories.forEachIndexed { index, category ->
+                    val categoryTitle = localizedMemoCategoryTitle(category.title)
                     val categoryGroups = remember(category.items, category.groupSize) {
                         buildMemoGroups(category.items, category.groupSize)
                     }
@@ -172,12 +175,15 @@ private fun WishlistContent(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = category.title,
+                                    text = categoryTitle,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    text = "共 ${categoryStats.itemCount} 条",
+                                    text = stringResource(
+                                        id = R.string.wishlist_item_count,
+                                        categoryStats.itemCount
+                                    ),
                                     style = MaterialTheme.typography.caption,
                                     maxLines = 1,
                                 )
@@ -206,13 +212,14 @@ private fun WishlistContent(
             item {
                 Text(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp),
-                    text = "点右上方 + 新建一个栏目",
+                    text = stringResource(id = R.string.wishlist_empty_create_category),
                     color = MaterialTheme.colors.onBackground.copy(alpha = 0.45f),
                     style = MaterialTheme.typography.body2,
                 )
             }
         } else {
             item {
+                val currentTitle = localizedMemoCategoryTitle(current.title)
                 MemoActionBar(
                     stats = stats,
                     color = current.color,
@@ -228,7 +235,7 @@ private fun WishlistContent(
                     },
                     onExport = {
                         pendingExportText = buildMemoExportText(current.items)
-                        exportLauncher.launch("ARMusic-${current.title}.txt")
+                        exportLauncher.launch("ARMusic-${currentTitle}.txt")
                     },
                 )
             }
@@ -237,7 +244,7 @@ private fun WishlistContent(
                 item {
                     Text(
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp),
-                        text = current.placeholder,
+                        text = localizedMemoPlaceholder(current.title),
                         color = MaterialTheme.colors.onBackground.copy(alpha = 0.45f),
                         style = MaterialTheme.typography.body2,
                     )
@@ -326,8 +333,22 @@ private fun WishlistContent(
     deletingCategory?.let { category ->
         AlertDialog(
             onDismissRequest = { deletingCategory = null },
-            title = { Text("删除${category.title}") },
-            text = { Text("这个栏目和里面的 ${category.items.size} 条内容都会删除。") },
+            title = {
+                Text(
+                    stringResource(
+                        id = R.string.wishlist_delete_category_title,
+                        localizedMemoCategoryTitle(category.title)
+                    )
+                )
+            },
+            text = {
+                Text(
+                    stringResource(
+                        id = R.string.wishlist_delete_category_message,
+                        category.items.size
+                    )
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -337,12 +358,12 @@ private fun WishlistContent(
                         deletingCategory = null
                     }
                 ) {
-                    Text("删除")
+                    Text(stringResource(id = R.string.common_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { deletingCategory = null }) {
-                    Text("取消")
+                    Text(stringResource(id = R.string.common_cancel))
                 }
             },
         )
@@ -371,17 +392,21 @@ private fun MemoActionBar(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "共 ${stats.itemCount} 条 · ${stats.groupCount} 组",
+                text = stringResource(
+                    id = R.string.wishlist_stats,
+                    stats.itemCount,
+                    stats.groupCount
+                ),
                 style = MaterialTheme.typography.body2,
             )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MemoActionButton("全部开启", color, onExpandAll)
-                MemoActionButton("全部关闭", color, onCollapseAll)
-                MemoActionButton("新增", color, onAdd)
-                MemoActionButton("导出TXT", color, onExport)
+                MemoActionButton(stringResource(id = R.string.wishlist_expand_all), color, onExpandAll)
+                MemoActionButton(stringResource(id = R.string.wishlist_collapse_all), color, onCollapseAll)
+                MemoActionButton(stringResource(id = R.string.common_add), color, onAdd)
+                MemoActionButton(stringResource(id = R.string.wishlist_export_txt), color, onExport)
             }
         }
     }
@@ -440,7 +465,7 @@ private fun MemoGroupCard(
                     style = MaterialTheme.typography.subtitle1,
                 )
                 Text(
-                    text = "共 ${group.items.size} 条",
+                    text = stringResource(id = R.string.wishlist_item_count, group.items.size),
                     color = color.copy(alpha = 0.78f),
                     style = MaterialTheme.typography.caption,
                 )
@@ -482,7 +507,18 @@ private fun MemoEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (editingItem.isNew) "新增${category.title}" else "编辑${category.title}") },
+        title = {
+            Text(
+                stringResource(
+                    id = if (editingItem.isNew) {
+                        R.string.wishlist_add_item_title
+                    } else {
+                        R.string.wishlist_edit_item_title
+                    },
+                    localizedMemoCategoryTitle(category.title)
+                )
+            )
+        },
         text = {
             OutlinedTextField(
                 modifier = Modifier
@@ -490,24 +526,24 @@ private fun MemoEditDialog(
                     .heightIn(min = 140.dp),
                 value = text,
                 onValueChange = { text = it },
-                placeholder = { Text(category.placeholder) },
+                placeholder = { Text(localizedMemoPlaceholder(category.title)) },
                 minLines = 4,
             )
         },
         confirmButton = {
             TextButton(onClick = { onSave(text) }) {
-                Text("保存")
+                Text(stringResource(id = R.string.common_save))
             }
         },
         dismissButton = {
             Row {
                 if (!editingItem.isNew) {
                     TextButton(onClick = onDelete) {
-                        Text("删除")
+                        Text(stringResource(id = R.string.common_delete))
                     }
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("取消")
+                    Text(stringResource(id = R.string.common_cancel))
                 }
             }
         },
@@ -521,17 +557,18 @@ private fun MemoCategoryDialog(
 ) {
     var title by rememberSaveable { mutableStateOf("") }
     var selectedColor by rememberSaveable { mutableStateOf(memoCategoryColors.first()) }
+    val categoryNameRequired = stringResource(id = R.string.wishlist_category_name_required)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新建栏目") },
+        title = { Text(stringResource(id = R.string.wishlist_new_category)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = title,
                     onValueChange = { title = it },
-                    placeholder = { Text("栏目名") },
+                    placeholder = { Text(stringResource(id = R.string.wishlist_category_name)) },
                     singleLine = true,
                 )
                 Row(
@@ -568,18 +605,18 @@ private fun MemoCategoryDialog(
                 onClick = {
                     val normalized = title.trim()
                     if (normalized.isBlank()) {
-                        ToastUtils.showShort("先写栏目名")
+                        ToastUtils.showShort(categoryNameRequired)
                     } else {
                         onConfirm(normalized, selectedColor)
                     }
                 }
             ) {
-                Text("新建")
+                Text(stringResource(id = R.string.common_create))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(stringResource(id = R.string.common_cancel))
             }
         },
     )
@@ -595,8 +632,6 @@ private data class MemoCategory(
     val color: Color
         get() = Color(colorArgb)
 
-    val placeholder: String
-        get() = "点新增写一条${title}备忘"
 }
 
 private data class MemoIndexedItem(
@@ -648,28 +683,52 @@ private val memoCategoryHeaders = setOf(
     "小说",
 )
 
-private fun buildInitialMemoCategories(settingsSp: SettingsSp): List<MemoCategory> {
+@Composable
+private fun localizedMemoCategoryTitle(title: String): String {
+    return when (title) {
+        "愿望单" -> stringResource(id = R.string.wishlist_title)
+        "准备听", "准备听的音乐" -> stringResource(id = R.string.wishlist_category_to_listen)
+        "动漫" -> stringResource(id = R.string.wishlist_category_anime)
+        "漫画" -> stringResource(id = R.string.wishlist_category_manga)
+        "小说" -> stringResource(id = R.string.wishlist_category_novel)
+        "未命名" -> stringResource(id = R.string.wishlist_unnamed)
+        else -> title
+    }
+}
+
+@Composable
+private fun localizedMemoPlaceholder(title: String): String {
+    return stringResource(
+        id = R.string.wishlist_item_placeholder,
+        localizedMemoCategoryTitle(title)
+    )
+}
+
+private fun buildInitialMemoCategories(
+    settingsSp: SettingsSp,
+    context: android.content.Context,
+): List<MemoCategory> {
     val seeds = listOf(
         LegacyMemoSeed(
-            title = "准备听",
+            title = context.getString(R.string.wishlist_category_to_listen),
             colorArgb = memoCategoryColors[0],
             items = settingsSp.wishlistItems.value,
             legacyText = settingsSp.wishlistText.value,
         ),
         LegacyMemoSeed(
-            title = "动漫",
+            title = context.getString(R.string.wishlist_category_anime),
             colorArgb = memoCategoryColors[1],
             items = settingsSp.wishlistAnimeItems.value,
             legacyText = settingsSp.wishlistAnimeText.value,
         ),
         LegacyMemoSeed(
-            title = "漫画",
+            title = context.getString(R.string.wishlist_category_manga),
             colorArgb = memoCategoryColors[2],
             items = settingsSp.wishlistMangaItems.value,
             legacyText = settingsSp.wishlistMangaText.value,
         ),
         LegacyMemoSeed(
-            title = "小说",
+            title = context.getString(R.string.wishlist_category_novel),
             colorArgb = memoCategoryColors[3],
             items = settingsSp.wishlistNovelItems.value,
             legacyText = settingsSp.wishlistNovelText.value,
@@ -691,10 +750,13 @@ private fun buildInitialMemoCategories(settingsSp: SettingsSp): List<MemoCategor
     return migrated.ifEmpty {
         listOf(
             MemoCategory(
-                id = newMemoCategoryId("准备听"),
-                title = "准备听",
+                id = newMemoCategoryId(context.getString(R.string.wishlist_category_to_listen)),
+                title = context.getString(R.string.wishlist_category_to_listen),
                 colorArgb = memoCategoryColors[0],
-                items = listOf("想听的歌", "想听的歌2"),
+                items = listOf(
+                    context.getString(R.string.wishlist_default_item_1),
+                    context.getString(R.string.wishlist_default_item_2)
+                ),
             )
         )
     }

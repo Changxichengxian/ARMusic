@@ -31,7 +31,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.lalilu.R
 import com.lalilu.component.LazyGridContent
 import com.lalilu.component.base.LocalWindowSize
 import com.lalilu.component.navigation.AppRouter
@@ -64,7 +66,7 @@ object DailyRecommend : LazyGridContent {
             ) {
                 RecommendTitle(
                     modifier = Modifier.padding(vertical = 8.dp),
-                    title = "每日推荐",
+                    title = stringResource(id = R.string.home_daily_recommend),
                     onClick = {
                         val ids = libraryVM.dailyRecommends.value.map { it.id }
                         AppRouter.intent(NavIntent.Push(SongsScreen(mediaIds = ids)))
@@ -74,13 +76,17 @@ object DailyRecommend : LazyGridContent {
                         Chip(onClick = { autoScroll = !autoScroll }) {
                             Text(
                                 style = MaterialTheme.typography.caption,
-                                text = if (autoScroll) "关闭滚动" else "开启滚动"
+                                text = if (autoScroll) {
+                                    stringResource(id = R.string.home_daily_stop_scroll)
+                                } else {
+                                    stringResource(id = R.string.home_daily_start_scroll)
+                                }
                             )
                         }
                         Chip(onClick = { libraryVM.forceUpdate() }) {
                             Text(
                                 style = MaterialTheme.typography.caption,
-                                text = "换一换"
+                                text = stringResource(id = R.string.home_daily_shuffle)
                             )
                         }
                     }

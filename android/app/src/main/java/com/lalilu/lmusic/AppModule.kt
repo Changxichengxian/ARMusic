@@ -40,9 +40,11 @@ import com.lalilu.lmusic.tag.ARMusicHistoryStatIdResolver
 import com.lalilu.lmusic.tag.SongGroupStore
 import com.lalilu.lmusic.utils.EQHelper
 import com.lalilu.lmusic.utils.coil.CrossfadeTransitionFactory
+import com.lalilu.lmusic.utils.coil.fetcher.IndexedMediaItemCoverFetcher
 import com.lalilu.lmusic.utils.coil.fetcher.LAlbumFetcher
 import com.lalilu.lmusic.utils.coil.fetcher.LSongFetcher
 import com.lalilu.lmusic.utils.coil.fetcher.MediaItemFetcher
+import com.lalilu.lmusic.utils.coil.keyer.IndexedMediaItemCoverKeyer
 import com.lalilu.lmusic.utils.coil.keyer.LAlbumCoverKeyer
 import com.lalilu.lmusic.utils.coil.keyer.LSongCoverKeyer
 import com.lalilu.lmusic.utils.coil.keyer.MediaItemKeyer
@@ -80,7 +82,7 @@ fun provideJson(): Json {
     }
 }
 
-@Single(createdAtStart = true)
+@Single
 fun provideImageLoaderFactory(
     context: Application,
     client: OkHttpClient,
@@ -92,8 +94,10 @@ fun provideImageLoaderFactory(
                 add(LSongCoverKeyer())
                 add(LAlbumCoverKeyer())
                 add(MediaItemKeyer())
+                add(IndexedMediaItemCoverKeyer())
                 add(LSongFetcher.SongFactory())
                 add(LAlbumFetcher.AlbumFactory())
+                add(IndexedMediaItemCoverFetcher.Factory())
                 add(MediaItemFetcher.MediaItemFetcherFactory())
             }
             .transitionFactory(CrossfadeTransitionFactory())
@@ -111,8 +115,8 @@ val AppModule = module {
     single { LMusicMigrationManager(androidApplication(), get()) }
     single { ARMusicWorkMappingManager(androidApplication(), get()) }
     single { ARMusicAgentManager(androidApplication(), get(), get(), get()) }
-    single(createdAtStart = true) { ARMusicMemoSeedImporter(androidApplication(), get()) }
-    single(createdAtStart = true) { ARMusicPlayCountSeedImporter(androidApplication(), get(), get()) }
+    single { ARMusicMemoSeedImporter(androidApplication(), get()) }
+    single { ARMusicPlayCountSeedImporter(androidApplication(), get(), get()) }
     single { EQHelper(androidApplication()) }
     single<StatusLyricController> { ARMusicStatusLyricController(get(), get()) }
     single {

@@ -9,7 +9,9 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.lalilu.R
 import com.lalilu.component.LazyGridContent
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.lmusic.compose.component.card.RecommendCard
@@ -38,13 +40,13 @@ object LatestPanel : LazyGridContent {
                 span = { GridItemSpan(maxLineSpan) }
             ) {
                 RecommendTitle(
-                    title = "最近添加",
+                    title = stringResource(id = R.string.home_recently_added),
                     onClick = { }
                 ) {
                     Chip(onClick = { }) {
                         Text(
                             style = MaterialTheme.typography.caption,
-                            text = "所有歌曲"
+                            text = stringResource(id = R.string.home_all_songs)
                         )
                     }
                 }

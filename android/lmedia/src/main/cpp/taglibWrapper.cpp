@@ -1,5 +1,6 @@
 
 #include "taglibWrapper.h"
+#include <vector>
 
 using namespace std;
 
@@ -180,6 +181,68 @@ Java_com_lalilu_lmedia_wrapper_Taglib_writeCoverWithFD(JNIEnv *env, jobject thiz
 }
 
 extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_lalilu_lmedia_wrapper_Taglib_writeCoversWithFD(JNIEnv *env, jobject thiz,
+                                                        jint file_descriptor,
+                                                        jobjectArray covers,
+                                                        jobjectArray mime_types) {
+    if (covers == nullptr) return JNI_FALSE;
+
+    auto count = env->GetArrayLength(covers);
+    auto mimeCount = mime_types != nullptr ? env->GetArrayLength(mime_types) : 0;
+    if (count <= 0) return JNI_FALSE;
+
+    TagLib::List<TagLib::VariantMap> pictures;
+    for (jsize i = 0; i < count; i++) {
+        auto cover = reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(covers, i));
+        if (cover == nullptr) continue;
+
+        auto length = env->GetArrayLength(cover);
+        if (length <= 0) {
+            env->DeleteLocalRef(cover);
+            continue;
+        }
+
+        auto data = env->GetByteArrayElements(cover, nullptr);
+        if (data == nullptr) {
+            env->DeleteLocalRef(cover);
+            continue;
+        }
+
+        TagLib::ByteVector coverData(reinterpret_cast<const char *>(data),
+                                     static_cast<unsigned int>(length));
+        env->ReleaseByteArrayElements(cover, data, JNI_ABORT);
+        env->DeleteLocalRef(cover);
+
+        TagLib::String mimeType("image/jpeg");
+        if (i < mimeCount) {
+            auto mime = reinterpret_cast<jstring>(env->GetObjectArrayElement(mime_types, i));
+            if (mime != nullptr) {
+                mimeType = toTagString(env, mime);
+                env->DeleteLocalRef(mime);
+            }
+        }
+
+        TagLib::VariantMap picture;
+        picture.insert("data", coverData);
+        picture.insert("pictureType", TagLib::String(i == 0 ? "Front Cover" : "Other"));
+        picture.insert("mimeType", mimeType);
+        picture.insert("description", TagLib::String("ARMusic Cover " + std::to_string(i + 1)));
+        pictures.append(picture);
+    }
+
+    if (pictures.isEmpty()) return JNI_FALSE;
+
+    TagLib::FileStream fileStream(file_descriptor, false);
+    TagLib::FileRef fileRef(&fileStream, true, TagLib::AudioProperties::ReadStyle::Fast);
+    if (fileRef.isNull() || fileRef.file() == nullptr) return JNI_FALSE;
+
+    if (!fileRef.setComplexProperties("PICTURE", pictures)) return JNI_FALSE;
+
+    return fileRef.file()->save() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_lalilu_lmedia_wrapper_Taglib_retrieveMetadataWithFD(JNIEnv *env, jobject thiz,
                                                              jint file_descriptor) {
@@ -266,4 +329,42 @@ Java_com_lalilu_lmedia_wrapper_Taglib_getPictureWithFD(JNIEnv *env, jobject thiz
     env->SetByteArrayRegion(bytes, 0, length, reinterpret_cast<const jbyte *>(picture.data()));
 
     return bytes;
+}
+
+extern "C"
+JNIEXPORT jobjectArray JNICALL
+Java_com_lalilu_lmedia_wrapper_Taglib_getPicturesWithFD(JNIEnv *env, jobject thiz,
+                                                        jint file_descriptor) {
+    TagLib::FileStream fileStream(file_descriptor, true);
+    TagLib::FileRef fileRef(&fileStream, true, TagLib::AudioProperties::ReadStyle::Fast);
+    if (fileRef.isNull()) return nullptr;
+
+    auto pictures = fileRef.complexProperties("PICTURE");
+    if (pictures.isEmpty()) return nullptr;
+
+    std::vector<TagLib::ByteVector> bytesList;
+    for (auto picture: pictures) {
+        auto data = picture.value("data").toByteVector();
+        if (!data.isEmpty()) {
+            bytesList.push_back(data);
+        }
+    }
+    if (bytesList.empty()) return nullptr;
+
+    jclass byteArrayClass = env->FindClass("[B");
+    auto result = env->NewObjectArray(static_cast<jsize>(bytesList.size()), byteArrayClass, nullptr);
+    if (result == nullptr) return nullptr;
+
+    for (jsize i = 0; i < static_cast<jsize>(bytesList.size()); i++) {
+        auto picture = bytesList[static_cast<size_t>(i)];
+        auto length = static_cast<jint>(picture.size());
+        jbyteArray bytes = env->NewByteArray(length);
+        if (bytes == nullptr) continue;
+
+        env->SetByteArrayRegion(bytes, 0, length, reinterpret_cast<const jbyte *>(picture.data()));
+        env->SetObjectArrayElement(result, i, bytes);
+        env->DeleteLocalRef(bytes);
+    }
+
+    return result;
 }

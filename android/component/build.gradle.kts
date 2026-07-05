@@ -45,7 +45,8 @@ dependencies {
     api(platform(libs.compose.bom.alpha))
     api(libs.activity.compose)
     api(libs.bundles.compose)
-    api(libs.bundles.compose.debug)
+    api(libs.compose.tooling.preview)
+    debugApi(libs.compose.tooling)
 
     // accompanist
     // https://google.github.io/accompanist

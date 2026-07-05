@@ -4,6 +4,8 @@ import android.content.Context
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.IntentSender
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
@@ -25,6 +27,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
@@ -38,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,6 +55,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,17 +77,21 @@ import com.lalilu.component.navigation.NavIntent
 import com.lalilu.component.work.rememberWorkLabel
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
+import com.lalilu.lmedia.entity.toMediaItem
 import com.lalilu.lmedia.repository.SongWorkStore
+import com.lalilu.lmedia.scanner.FileSystemScanner
 import com.lalilu.lmedia.wrapper.Taglib
 import com.lalilu.lmusic.api.tag.OnlineSongTag
 import com.lalilu.lmusic.api.tag.OnlineTagSearchService
 import com.lalilu.lmusic.tag.SongGroupStore
+import com.lalilu.lplayer.MPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.koin.compose.koinInject
+import java.io.ByteArrayOutputStream
 import com.lalilu.RemixIcon
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.system.checkLine
@@ -87,11 +99,10 @@ import com.lalilu.remixicon.system.searchLine
 
 private const val ONLINE_RESULT_MODE_TAG = "tag"
 private const val ONLINE_RESULT_MODE_LYRIC = "lyric"
+private const val ONLINE_RESULT_MODE_IMAGE = "image"
 private const val ONLINE_SEARCH_PAGE_SIZE = 10
-private const val MSG_REQUEST_WRITE_PERMISSION = "\u9700\u8981\u5148\u6388\u6743 AR Music \u4fee\u6539\u8fd9\u4e2a\u97f3\u9891\u6587\u4ef6\u3002"
-private const val MSG_WRITE_PERMISSION_DENIED = "\u6ca1\u6709\u83b7\u5f97\u5199\u5165\u6388\u6743\uff0c\u6807\u7b7e\u6ca1\u6709\u4fdd\u5b58\u3002"
-private const val MSG_SAVE_FAILED = "\u4fdd\u5b58\u5931\u8d25"
-
+private const val COVER_MAX_SIDE = 1200
+private const val COVER_MIN_SIDE_WARNING = 600
 data class TagEditorScreen(
     private val mediaId: String
 ) : Screen, ScreenInfoFactory {
@@ -115,6 +126,7 @@ private fun TagEditorContent(
     onlineTagSearchService: OnlineTagSearchService = koinInject(),
     songGroupStore: SongGroupStore = koinInject(),
     songWorkStore: SongWorkStore = koinInject(),
+    fileSystemScanner: FileSystemScanner = koinInject(),
     httpClient: OkHttpClient = koinInject(),
 ) {
     val context = LocalContext.current
@@ -135,9 +147,9 @@ private fun TagEditorContent(
     var sameSongGroup by rememberSaveable { mutableStateOf("") }
     var lyric by rememberSaveable { mutableStateOf("") }
     var selectedOnlineId by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedCoverUrl by rememberSaveable { mutableStateOf("") }
-    var selectedLocalCover by remember { mutableStateOf<DownloadedCover?>(null) }
-    var selectedLocalCoverUri by remember { mutableStateOf<Uri?>(null) }
+    val editableCovers = remember { mutableStateListOf<DownloadedCover>() }
+    val coverPagerState = rememberPagerState(pageCount = { editableCovers.size + 1 })
+    var coversChanged by rememberSaveable { mutableStateOf(false) }
     var removeCoverRequested by rememberSaveable { mutableStateOf(false) }
     var pendingCoverExport by remember { mutableStateOf<DownloadedCover?>(null) }
     var onlineResults by remember { mutableStateOf<List<OnlineSongTag>>(emptyList()) }
@@ -165,25 +177,62 @@ private fun TagEditorContent(
         ToastUtils.showShort(text)
     }
 
+    fun putCoverOnCurrentPage(cover: DownloadedCover) {
+        val page = coverPagerState.currentPage.coerceAtMost(editableCovers.size)
+        if (page in editableCovers.indices) {
+            editableCovers[page] = cover
+        } else {
+            editableCovers.add(cover)
+        }
+        coversChanged = true
+        removeCoverRequested = false
+    }
+
+    suspend fun previewCoverFromUrl(url: String): Boolean {
+        if (url.isBlank()) {
+            notify(context.getString(R.string.tag_editor_no_cover_url))
+            return false
+        }
+
+        val result = withContext(Dispatchers.IO) {
+            downloadCover(httpClient, url)?.prepareForEmbeddedCover(context)
+        }
+        if (result == null) {
+            notify(context.getString(R.string.tag_editor_cover_read_failed))
+            return false
+        }
+
+        val cover = result.cover.getOrElse {
+            notify(it.message ?: context.getString(R.string.common_save_failed))
+            return false
+        }
+        result.messages.forEach(::notify)
+        putCoverOnCurrentPage(cover)
+        return true
+    }
+
     val localCoverLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
 
         scope.launch {
-            val cover = withContext(Dispatchers.IO) {
-                readCoverFromUri(context, uri)
+            val result = withContext(Dispatchers.IO) {
+                readCoverFromUri(context, uri)?.prepareForEmbeddedCover(context)
             }
-            if (cover == null) {
-                notify("没有读到这张图片。")
+            if (result == null) {
+                notify(context.getString(R.string.tag_editor_no_image_read))
                 return@launch
             }
 
-            selectedLocalCover = cover
-            selectedLocalCoverUri = uri
-            selectedCoverUrl = ""
-            removeCoverRequested = false
-            notify("已选择本地封面，保存后生效。")
+            val cover = result.cover.getOrElse {
+                notify(it.message ?: context.getString(R.string.common_save_failed))
+                return@launch
+            }
+            result.messages.forEach(::notify)
+
+            putCoverOnCurrentPage(cover)
+            notify(context.getString(R.string.tag_editor_local_cover_previewed))
         }
     }
 
@@ -197,7 +246,12 @@ private fun TagEditorContent(
             val saved = withContext(Dispatchers.IO) {
                 writeCoverToUri(context, uri, cover)
             }
-            notify(if (saved) "封面图片已保存。" else "封面图片保存失败。")
+            notify(
+                context.getString(
+                    if (saved) R.string.tag_editor_cover_saved
+                    else R.string.tag_editor_cover_save_failed
+                )
+            )
             pendingCoverExport = null
         }
     }
@@ -207,7 +261,7 @@ private fun TagEditorContent(
         if (result.resultCode == Activity.RESULT_OK) {
             retrySaveAfterWritePermission = true
         } else {
-            notify(MSG_WRITE_PERMISSION_DENIED)
+            notify(context.getString(R.string.tag_editor_write_permission_denied))
         }
     }
 
@@ -230,22 +284,26 @@ private fun TagEditorContent(
         date = current.metadata.date
         sameSongGroup = songGroupStore.getGroup(current)
         selectedOnlineId = null
-        selectedCoverUrl = ""
-        selectedLocalCover = null
-        selectedLocalCoverUri = null
+        editableCovers.clear()
+        coversChanged = false
         removeCoverRequested = false
         onlineResults = emptyList()
         onlineResultMode = ONLINE_RESULT_MODE_TAG
         onlineSearchExtended = false
         hasOnlineSearched = false
         visibleOnlineResultsLimit = ONLINE_SEARCH_PAGE_SIZE
-        lyric = withContext(Dispatchers.IO) {
-            runCatching {
+        val initial = withContext(Dispatchers.IO) {
+            val covers = readSongCovers(context, current)
+            val loadedLyric = runCatching {
                 context.contentResolver.openFileDescriptor(current.uri, "r")?.use {
                     Taglib.getLyricWithFD(it.detachFd())
                 }.orEmpty()
             }.getOrDefault("")
+            covers to loadedLyric
         }
+        editableCovers.addAll(initial.first)
+        lyric = initial.second
+        coverPagerState.scrollToPage(0)
     }
 
     fun applyOnlineResult(result: OnlineSongTag) {
@@ -258,25 +316,48 @@ private fun TagEditorContent(
         composer = result.composer
         lyricist = result.lyricist
         comment = result.comment
-        selectedCoverUrl = result.cover
-        selectedLocalCover = null
-        selectedLocalCoverUri = null
-        removeCoverRequested = false
 
         scope.launch {
             isApplyingOnlineResult = true
-            notify("正在获取歌词")
-            val onlineLyric = withContext(Dispatchers.IO) {
-                runCatching {
-                    onlineTagSearchService.lyricFor(result)
-                }.getOrDefault("")
-            }
+            try {
+                if (result.cover.isNotBlank()) {
+                    notify(context.getString(R.string.tag_editor_reading_cover))
+                    previewCoverFromUrl(result.cover)
+                }
 
-            if (onlineLyric.isNotBlank()) {
-                lyric = onlineLyric
+                notify(context.getString(R.string.tag_editor_fetching_lyrics))
+                val onlineLyric = withContext(Dispatchers.IO) {
+                    runCatching {
+                        onlineTagSearchService.lyricFor(result)
+                    }.getOrDefault("")
+                }
+
+                if (onlineLyric.isNotBlank()) {
+                    lyric = onlineLyric
+                }
+                notify(context.getString(R.string.tag_editor_preview_ready))
+            } finally {
+                isApplyingOnlineResult = false
             }
-            notify("已预览")
-            isApplyingOnlineResult = false
+        }
+    }
+
+    fun applyImageResult(result: OnlineSongTag) {
+        if (isApplyingOnlineResult) return
+
+        selectedOnlineId = result.id
+
+        scope.launch {
+            isApplyingOnlineResult = true
+            try {
+                notify(context.getString(R.string.tag_editor_reading_cover))
+                if (previewCoverFromUrl(result.cover)) {
+                    onlineResults = emptyList()
+                    notify(context.getString(R.string.tag_editor_cover_previewed))
+                }
+            } finally {
+                isApplyingOnlineResult = false
+            }
         }
     }
 
@@ -288,7 +369,7 @@ private fun TagEditorContent(
 
         scope.launch {
             isApplyingOnlineResult = true
-            notify("正在获取歌词")
+            notify(context.getString(R.string.tag_editor_fetching_lyrics))
             val onlineLyric = withContext(Dispatchers.IO) {
                 runCatching {
                     onlineTagSearchService.lyricFor(result)
@@ -296,10 +377,10 @@ private fun TagEditorContent(
             }
 
             if (onlineLyric.isBlank()) {
-                notify("这个候选没有可用歌词。")
+                notify(context.getString(R.string.tag_editor_no_candidate_lyrics))
             } else {
                 lyric = onlineLyric
-                notify("已预览歌词")
+                notify(context.getString(R.string.tag_editor_lyrics_previewed))
             }
             isApplyingOnlineResult = false
         }
@@ -313,7 +394,12 @@ private fun TagEditorContent(
             isSearching = true
             onlineResultMode = ONLINE_RESULT_MODE_TAG
             if (!extended) hasOnlineSearched = false
-            notify(if (extended) "继续搜索歌曲信息" else "正在搜索歌曲信息")
+            notify(
+                context.getString(
+                    if (extended) R.string.tag_editor_searching_more_info
+                    else R.string.tag_editor_searching_info
+                )
+            )
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     onlineTagSearchService.search(
@@ -338,11 +424,11 @@ private fun TagEditorContent(
                         ONLINE_SEARCH_PAGE_SIZE
                     }
                     if (it.isEmpty()) {
-                        notify("没有搜到匹配的歌曲信息")
+                        notify(context.getString(R.string.tag_editor_no_tag_results))
                     }
                 }
                 .onFailure { error ->
-                    notify(error.message ?: "联网搜索失败")
+                    notify(error.message ?: context.getString(R.string.tag_editor_online_search_failed))
                 }
 
             isSearching = false
@@ -357,7 +443,12 @@ private fun TagEditorContent(
             isSearching = true
             onlineResultMode = ONLINE_RESULT_MODE_LYRIC
             if (!extended) hasOnlineSearched = false
-            notify(if (extended) "继续搜索歌词" else "正在搜索歌词")
+            notify(
+                context.getString(
+                    if (extended) R.string.tag_editor_searching_more_lyrics
+                    else R.string.tag_editor_searching_lyrics
+                )
+            )
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     onlineTagSearchService.search(
@@ -382,11 +473,60 @@ private fun TagEditorContent(
                         ONLINE_SEARCH_PAGE_SIZE
                     }
                     if (it.isEmpty()) {
-                        notify("没有搜到歌词")
+                        notify(context.getString(R.string.tag_editor_no_lyrics_results))
                     }
                 }
                 .onFailure { error ->
-                    notify(error.message ?: "歌词搜索失败")
+                    notify(error.message ?: context.getString(R.string.tag_editor_lyrics_search_failed))
+                }
+
+            isSearching = false
+        }
+    }
+
+    fun searchImage(extended: Boolean = false) {
+        val keyword = currentSearchKeyword(title = title, artist = artist, fallback = song?.defaultTagSearchKeyword())
+        if (keyword.isBlank() || isSearching) return
+
+        scope.launch {
+            isSearching = true
+            onlineResultMode = ONLINE_RESULT_MODE_IMAGE
+            if (!extended) hasOnlineSearched = false
+            notify(
+                context.getString(
+                    if (extended) R.string.tag_editor_searching_more_images
+                    else R.string.tag_editor_searching_images
+                )
+            )
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    onlineTagSearchService.search(
+                        keyword = keyword,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        limit = ONLINE_SEARCH_PAGE_SIZE,
+                        extended = extended,
+                    ).filter { it.cover.isNotBlank() }
+                }
+            }
+
+            result
+                .onSuccess {
+                    onlineResults = it
+                    onlineSearchExtended = extended
+                    hasOnlineSearched = true
+                    visibleOnlineResultsLimit = if (extended) {
+                        (visibleOnlineResultsLimit + ONLINE_SEARCH_PAGE_SIZE).coerceAtMost(it.size)
+                    } else {
+                        ONLINE_SEARCH_PAGE_SIZE
+                    }
+                    if (it.isEmpty()) {
+                        notify(context.getString(R.string.tag_editor_no_image_results))
+                    }
+                }
+                .onFailure { error ->
+                    notify(error.message ?: context.getString(R.string.tag_editor_image_search_failed))
                 }
 
             isSearching = false
@@ -399,19 +539,14 @@ private fun TagEditorContent(
 
         scope.launch {
             isSearching = true
-            notify("正在读取封面")
-            val localCover = selectedLocalCover
-            val networkCoverUrl = selectedCoverUrl.trim()
+            notify(context.getString(R.string.tag_editor_reading_cover))
+            val currentCover = editableCovers.getOrNull(coverPagerState.currentPage)
             val cover = withContext(Dispatchers.IO) {
-                localCover
-                    ?: networkCoverUrl
-                        .takeIf(String::isNotBlank)
-                        ?.let { downloadCover(httpClient, it) }
-                    ?: readSongCover(context, current)
+                currentCover ?: readSongCover(context, current)
             }
 
             if (cover == null) {
-                notify("这首歌现在没有可保存的封面。")
+                notify(context.getString(R.string.tag_editor_no_cover_to_save))
             } else {
                 pendingCoverExport = cover
                 exportCoverLauncher.launch(
@@ -428,12 +563,33 @@ private fun TagEditorContent(
 
         scope.launch {
             isSaving = true
-            notify("正在保存标签")
-            val coverUrl = selectedCoverUrl.trim()
-            val localCover = selectedLocalCover
+            notify(context.getString(R.string.tag_editor_saving_tags))
+            val coversToWrite = editableCovers.toList()
+            val shouldWriteCovers = coversChanged
             val shouldRemoveCover = removeCoverRequested
             val result = withContext(Dispatchers.IO) {
                 runCatching {
+                    val updatedSong = current.copy(
+                        metadata = current.metadata.copy(
+                            title = title.trim(),
+                            album = album.trim(),
+                            artist = artist.trim(),
+                            albumArtist = albumArtist.trim(),
+                            composer = composer.trim(),
+                            lyricist = lyricist.trim(),
+                            comment = comment.trim(),
+                            genre = genre.trim(),
+                            track = track.trim(),
+                            disc = disc.trim(),
+                            date = date.trim(),
+                            sameSongGroup = sameSongGroup.trim(),
+                            dateModified = System.currentTimeMillis() / 1000L,
+                        )
+                    ).also {
+                        it.artworkUri = current.artworkUri
+                        it.blocked = current.blocked
+                    }
+
                     val saved = context.contentResolver
                         .openFileDescriptor(current.uri, "rw")
                         ?.use {
@@ -455,61 +611,65 @@ private fun TagEditorContent(
                             )
                         } ?: false
 
-                    if (!saved) error("保存失败，当前格式可能暂不支持写入。")
+                    if (!saved) error(context.getString(R.string.tag_editor_save_unsupported))
 
                     songGroupStore.setGroup(current, sameSongGroup)
                     songWorkStore.setWork(current, work.trim())
 
-                    val coverToWrite = localCover
-                        ?: coverUrl.takeIf(String::isNotBlank)
-                            ?.let { downloadCover(httpClient, it) }
-
-                    if (shouldRemoveCover && coverToWrite == null) {
+                    if (shouldWriteCovers && shouldRemoveCover && coversToWrite.isEmpty()) {
                         val removed = context.contentResolver
                             .openFileDescriptor(current.uri, "rw")
                             ?.use { Taglib.removeCoverWithFD(it.detachFd()) } == true
 
-                        if (!removed) error("标签已保存，但封面移除失败。")
+                        if (!removed) error(context.getString(R.string.tag_editor_cover_remove_failed_after_save))
                     }
 
-                    if (coverToWrite != null) {
+                    if (shouldWriteCovers && coversToWrite.isNotEmpty()) {
                         val coverSaved = context.contentResolver
                             .openFileDescriptor(current.uri, "rw")
                             ?.use {
-                                Taglib.writeCoverWithFD(
-                                    fileDescriptor = it.detachFd(),
-                                    cover = coverToWrite.bytes,
-                                    mimeType = coverToWrite.mimeType
-                                )
+                                if (coversToWrite.size == 1) {
+                                    Taglib.writeCoverWithFD(
+                                        fileDescriptor = it.detachFd(),
+                                        cover = coversToWrite.first().bytes,
+                                        mimeType = coversToWrite.first().mimeType
+                                    )
+                                } else {
+                                    Taglib.writeCoversWithFD(
+                                        fileDescriptor = it.detachFd(),
+                                        covers = coversToWrite.map { cover -> cover.bytes }.toTypedArray(),
+                                        mimeTypes = coversToWrite.map { cover -> cover.mimeType }.toTypedArray()
+                                    )
+                                }
                             } == true
 
-                        if (!coverSaved) error("标签已保存，但封面写入失败。")
+                        if (!coverSaved) error(context.getString(R.string.tag_editor_cover_write_failed_after_save))
                     }
 
-                    current.fileInfo.pathStr?.takeIf(String::isNotBlank)?.let { path ->
-                        MediaScannerConnection.scanFile(context, arrayOf(path), null, null)
-                    }
+                    refreshSavedSong(context, updatedSong, fileSystemScanner)
+                    updatedSong
                 }
             }
 
             result
-                .onSuccess {
-                    notify("保存成功，系统媒体库会重新扫描。")
+                .onSuccess { updatedSong ->
+                    MPlayer.replaceMediaItem(updatedSong.toMediaItem())
+                    notify(context.getString(R.string.common_save_success))
                     AppRouter.intent(NavIntent.Pop)
                 }
                 .onFailure { error ->
                     val intentSender = error.mediaWritePermissionIntentSender(context, current.uri)
                     if (intentSender != null) {
-                        notify(MSG_REQUEST_WRITE_PERMISSION)
+                        notify(context.getString(R.string.tag_editor_request_write_permission))
                         runCatching {
                             writePermissionLauncher.launch(
                                 IntentSenderRequest.Builder(intentSender).build()
                             )
                         }.onFailure {
-                            notify(it.message ?: MSG_SAVE_FAILED)
+                            notify(it.message ?: context.getString(R.string.common_save_failed))
                         }
                     } else {
-                        notify(error.message ?: MSG_SAVE_FAILED)
+                        notify(error.message ?: context.getString(R.string.common_save_failed))
                     }
                 }
 
@@ -531,33 +691,65 @@ private fun TagEditorContent(
             item {
                 Text(
                     modifier = Modifier.padding(20.dp),
-                    text = "没有找到这首歌。",
+                    text = stringResource(id = R.string.tag_editor_song_not_found),
                     color = dayNightTextColor(0.65f),
                 )
             }
         } else {
             item {
                 CoverEditorCard(
-                    song = song,
-                    selectedLocalCoverUri = selectedLocalCoverUri,
-                    selectedCoverUrl = selectedCoverUrl,
-                    removeCoverRequested = removeCoverRequested,
+                    covers = editableCovers,
+                    pagerState = coverPagerState,
+                    coversChanged = coversChanged,
                     isBusy = isSaving || isSearching || isApplyingOnlineResult,
                     onPickLocal = { localCoverLauncher.launch(arrayOf("image/*")) },
-                    onSearchNetwork = { searchOnline(false) },
+                    onSearchNetwork = { searchImage(false) },
                     onRemove = {
-                        selectedCoverUrl = ""
-                        selectedLocalCover = null
-                        selectedLocalCoverUri = null
-                        removeCoverRequested = true
-                        notify("保存后会移除封面。")
+                        val page = coverPagerState.currentPage
+                        if (page in editableCovers.indices) {
+                            editableCovers.removeAt(page)
+                            coversChanged = true
+                            removeCoverRequested = editableCovers.isEmpty()
+                            notify(
+                                context.getString(
+                                    if (editableCovers.isEmpty()) {
+                                        R.string.tag_editor_cover_will_be_removed
+                                    } else {
+                                        R.string.tag_editor_current_cover_will_be_removed
+                                    }
+                                )
+                            )
+                        }
                     },
                     onSaveImage = ::exportCurrentCover,
-                    onClearSelected = {
-                        selectedCoverUrl = ""
-                        selectedLocalCover = null
-                        selectedLocalCoverUri = null
-                        removeCoverRequested = false
+                    onMakePrimary = {
+                        val page = coverPagerState.currentPage
+                        if (page > 0 && page in editableCovers.indices) {
+                            val cover = editableCovers.removeAt(page)
+                            editableCovers.add(0, cover)
+                            coversChanged = true
+                            removeCoverRequested = false
+                            scope.launch {
+                                coverPagerState.animateScrollToPage(0)
+                            }
+                            notify(context.getString(R.string.tag_editor_primary_cover_previewed))
+                        }
+                    },
+                    onResetCovers = {
+                        val current = song
+                        scope.launch {
+                            isSearching = true
+                            val covers = withContext(Dispatchers.IO) {
+                                readSongCovers(context, current)
+                            }
+                            editableCovers.clear()
+                            editableCovers.addAll(covers)
+                            coversChanged = false
+                            removeCoverRequested = false
+                            coverPagerState.scrollToPage(0)
+                            notify(context.getString(R.string.tag_editor_cover_preview_reset))
+                            isSearching = false
+                        }
                     },
                 )
             }
@@ -567,6 +759,7 @@ private fun TagEditorContent(
                     isBusy = isSearching || isApplyingOnlineResult || isSaving,
                     onSearch = { searchOnline(false) },
                     onSearchLyric = { searchLyric(false) },
+                    onSearchImage = { searchImage(false) },
                     onSave = ::save,
                 )
             }
@@ -586,10 +779,10 @@ private fun TagEditorContent(
                         imageData = it.cover,
                         selected = { selectedOnlineId == it.id },
                         onClick = {
-                            if (onlineResultMode == ONLINE_RESULT_MODE_LYRIC) {
-                                applyLyricResult(it)
-                            } else {
-                                applyOnlineResult(it)
+                            when (onlineResultMode) {
+                                ONLINE_RESULT_MODE_LYRIC -> applyLyricResult(it)
+                                ONLINE_RESULT_MODE_IMAGE -> applyImageResult(it)
+                                else -> applyOnlineResult(it)
                             }
                         }
                     )
@@ -613,6 +806,7 @@ private fun TagEditorContent(
                                 }
 
                                 onlineResultMode == ONLINE_RESULT_MODE_LYRIC -> searchLyric(true)
+                                onlineResultMode == ONLINE_RESULT_MODE_IMAGE -> searchImage(true)
                                 else -> searchOnline(true)
                             }
                         }
@@ -632,15 +826,19 @@ private fun TagEditorContent(
                         modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        TagField("标题", title, { title = it })
-                        TagField("歌手", artist, { artist = it })
-                        TagField("同曲分组", sameSongGroup, { sameSongGroup = it })
-                        WorkTagField(workLabel, work, { work = it }, knownWorks)
-                        TagField("作曲", composer, { composer = it })
-                        TagField("作词", lyricist, { lyricist = it })
-                        TagField("备注", comment, { comment = it })
+                        TagField(stringResource(id = R.string.tag_editor_title), title, { title = it })
+                        TagField(stringResource(id = R.string.tag_editor_artist), artist, { artist = it })
                         TagField(
-                            label = "歌词",
+                            stringResource(id = R.string.tag_editor_same_song_group),
+                            sameSongGroup,
+                            { sameSongGroup = it }
+                        )
+                        WorkTagField(workLabel, work, { work = it }, knownWorks)
+                        TagField(stringResource(id = R.string.tag_editor_composer), composer, { composer = it })
+                        TagField(stringResource(id = R.string.tag_editor_lyricist), lyricist, { lyricist = it })
+                        TagField(stringResource(id = R.string.tag_editor_comment), comment, { comment = it })
+                        TagField(
+                            label = stringResource(id = R.string.tag_editor_lyrics),
                             value = lyric,
                             onValueChange = { lyric = it },
                             minLines = 8,
@@ -653,10 +851,10 @@ private fun TagEditorContent(
                             onSwapSameTimeLines = {
                                 val swapped = swapSameTimeLyricLines(lyric)
                                 if (swapped == lyric) {
-                                    notify("\u6ca1\u6709\u627e\u5230\u53ef\u4ea4\u6362\u7684\u540c\u65f6\u95f4\u53cc\u884c\u6b4c\u8bcd")
+                                    notify(context.getString(R.string.tag_editor_no_swappable_lines))
                                 } else {
                                     lyric = swapped
-                                    notify("\u5df2\u4ea4\u6362\u540c\u65f6\u95f4\u7684\u539f\u6587/\u7ffb\u8bd1\u884c")
+                                    notify(context.getString(R.string.tag_editor_swapped_lines))
                                 }
                             }
                         )
@@ -688,7 +886,7 @@ private fun LyricToolsRow(
         ) {
             Text(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                text = "\u4ea4\u6362\u540c\u65f6\u95f4\u539f\u6587/\u7ffb\u8bd1",
+                text = stringResource(id = R.string.tag_editor_swap_same_time_lines),
                 color = dayNightTextColor(if (enabled) 0.85f else 0.35f),
                 style = MaterialTheme.typography.body2,
             )
@@ -716,7 +914,11 @@ private fun OnlineSearchMoreButton(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp),
-            text = if (canShowMore) "显示更多" else "继续搜",
+            text = if (canShowMore) {
+                stringResource(id = R.string.common_show_more)
+            } else {
+                stringResource(id = R.string.common_search_more)
+            },
             color = Color(0xFF3EA22C),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.body2,
@@ -729,6 +931,7 @@ private fun TagEditorActionRow(
     isBusy: Boolean,
     onSearch: () -> Unit,
     onSearchLyric: () -> Unit,
+    onSearchImage: () -> Unit,
     onSave: () -> Unit,
 ) {
     Row(
@@ -751,7 +954,11 @@ private fun TagEditorActionRow(
                     enabled = !isBusy,
                     onClick = onSearchLyric,
                 ) {
-                    Text("词", color = dayNightTextColor(0.85f))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_text),
+                        contentDescription = stringResource(id = R.string.tag_editor_search_lyrics),
+                        tint = Color(0xFF3EA22C),
+                    )
                 }
                 IconButton(
                     enabled = !isBusy,
@@ -759,7 +966,17 @@ private fun TagEditorActionRow(
                 ) {
                     Icon(
                         imageVector = RemixIcon.System.searchLine,
-                        contentDescription = "搜索信息",
+                        contentDescription = stringResource(id = R.string.tag_editor_search_info),
+                        tint = Color(0xFF3EA22C),
+                    )
+                }
+                IconButton(
+                    enabled = !isBusy,
+                    onClick = onSearchImage,
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_music_2_line),
+                        contentDescription = stringResource(id = R.string.tag_editor_search_cover),
                         tint = Color(0xFF3EA22C),
                     )
                 }
@@ -769,7 +986,7 @@ private fun TagEditorActionRow(
                 ) {
                     Icon(
                         imageVector = RemixIcon.System.checkLine,
-                        contentDescription = "保存",
+                        contentDescription = stringResource(id = R.string.common_save),
                         tint = Color(0xFF3EA22C),
                     )
                 }
@@ -780,80 +997,132 @@ private fun TagEditorActionRow(
 
 @Composable
 private fun CoverEditorCard(
-    song: LSong,
-    selectedLocalCoverUri: Uri?,
-    selectedCoverUrl: String,
-    removeCoverRequested: Boolean,
+    covers: List<DownloadedCover>,
+    pagerState: PagerState,
+    coversChanged: Boolean,
     isBusy: Boolean,
     onPickLocal: () -> Unit,
     onSearchNetwork: () -> Unit,
     onRemove: () -> Unit,
     onSaveImage: () -> Unit,
-    onClearSelected: () -> Unit,
+    onMakePrimary: () -> Unit,
+    onResetCovers: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val previewData: Any? = when {
-        removeCoverRequested -> null
-        selectedLocalCoverUri != null -> selectedLocalCoverUri
-        selectedCoverUrl.isNotBlank() -> selectedCoverUrl
-        else -> song
-    }
+    val currentPage = pagerState.currentPage
+    val currentCover = covers.getOrNull(currentPage)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f),
     ) {
-        AsyncImage(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .clickable(enabled = !isBusy) { menuExpanded = true },
-            model = ImageRequest.Builder(LocalContext.current)
-                .size(900)
-                .data(previewData)
-                .placeholder(R.drawable.ic_music_line_bg_64dp)
-                .error(R.drawable.ic_music_line_bg_64dp)
-                .crossfade(true)
-                .build(),
-            contentScale = ContentScale.Crop,
-            contentDescription = "Cover"
-        )
+        HorizontalPager(
+            modifier = Modifier.fillMaxSize(),
+            state = pagerState,
+        ) { page ->
+            val cover = covers.getOrNull(page)
+            if (cover != null) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AsyncImage(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable(enabled = !isBusy) { menuExpanded = true },
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .size(900)
+                            .data(cover.bytes)
+                            .placeholder(R.drawable.ic_music_line_bg_64dp)
+                            .error(R.drawable.ic_music_line_bg_64dp)
+                            .crossfade(true)
+                            .build(),
+                        contentScale = ContentScale.Crop,
+                        contentDescription = stringResource(id = R.string.tag_editor_cover)
+                    )
+
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(12.dp),
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color.Black.copy(alpha = 0.42f),
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            text = "${page + 1}/${covers.size}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.caption,
+                        )
+                    }
+                }
+            } else {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(enabled = !isBusy, onClick = onPickLocal),
+                    color = dayNightTextColor(0.04f),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = "+",
+                            color = dayNightTextColor(0.58f),
+                            style = MaterialTheme.typography.h3,
+                        )
+                        Text(
+                            text = stringResource(id = R.string.tag_editor_add_cover),
+                            color = dayNightTextColor(0.58f),
+                            style = MaterialTheme.typography.body2,
+                        )
+                    }
+                }
+            }
+        }
 
         DropdownMenu(
-            expanded = menuExpanded,
+            expanded = menuExpanded && currentCover != null,
             onDismissRequest = { menuExpanded = false },
         ) {
             DropdownMenuItem(onClick = {
                 menuExpanded = false
                 onPickLocal()
             }) {
-                Text("本地选择")
+                Text(stringResource(id = R.string.tag_editor_pick_local))
             }
             DropdownMenuItem(onClick = {
                 menuExpanded = false
                 onSearchNetwork()
             }) {
-                Text("搜索网络")
+                Text(stringResource(id = R.string.tag_editor_search_network))
             }
             DropdownMenuItem(onClick = {
                 menuExpanded = false
                 onRemove()
             }) {
-                Text("移除图片")
+                Text(stringResource(id = R.string.tag_editor_remove_image))
             }
             DropdownMenuItem(onClick = {
                 menuExpanded = false
                 onSaveImage()
             }) {
-                Text("保存图片")
+                Text(stringResource(id = R.string.tag_editor_save_image))
             }
-            if (selectedLocalCoverUri != null || selectedCoverUrl.isNotBlank() || removeCoverRequested) {
+            if (currentPage > 0) {
                 DropdownMenuItem(onClick = {
                     menuExpanded = false
-                    onClearSelected()
+                    onMakePrimary()
                 }) {
-                    Text("不用这次改动")
+                    Text(stringResource(id = R.string.tag_editor_make_primary_cover))
+                }
+            }
+            if (coversChanged) {
+                DropdownMenuItem(onClick = {
+                    menuExpanded = false
+                    onResetCovers()
+                }) {
+                    Text(stringResource(id = R.string.tag_editor_reset_cover_preview))
                 }
             }
         }
@@ -1004,6 +1273,11 @@ private data class DownloadedCover(
     val mimeType: String,
 )
 
+private data class CoverPrepareResult(
+    val cover: Result<DownloadedCover>,
+    val messages: List<String> = emptyList(),
+)
+
 private fun Throwable.mediaWritePermissionIntentSender(
     context: Context,
     uri: Uri,
@@ -1029,6 +1303,59 @@ private fun DownloadedCover.fileExtension(): String {
     }
 }
 
+private fun DownloadedCover.prepareForEmbeddedCover(context: Context): CoverPrepareResult {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+
+    val width = bounds.outWidth
+    val height = bounds.outHeight
+    if (width <= 0 || height <= 0) {
+        return CoverPrepareResult(
+            Result.failure(
+                IllegalArgumentException(context.getString(R.string.tag_editor_no_image_read))
+            )
+        )
+    }
+    if (width != height) {
+        return CoverPrepareResult(
+            Result.failure(
+                IllegalArgumentException(context.getString(R.string.tag_editor_cover_not_square))
+            )
+        )
+    }
+
+    val messages = buildList {
+        if (width < COVER_MIN_SIDE_WARNING) add(context.getString(R.string.tag_editor_cover_too_small))
+        if (width > COVER_MAX_SIDE) add(context.getString(R.string.tag_editor_cover_too_large))
+    }
+    val cover = if (width > COVER_MAX_SIDE) {
+        resizeSquareCover(maxSide = COVER_MAX_SIDE)
+    } else {
+        this
+    }
+
+    return CoverPrepareResult(Result.success(cover), messages)
+}
+
+private fun DownloadedCover.resizeSquareCover(maxSide: Int): DownloadedCover {
+    val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return this
+    return try {
+        val scaled = Bitmap.createScaledBitmap(source, maxSide, maxSide, true)
+        try {
+            val output = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.JPEG, 90, output)
+            DownloadedCover(
+                bytes = output.toByteArray(),
+                mimeType = "image/jpeg",
+            )
+        } finally {
+            if (scaled != source) scaled.recycle()
+        }
+    } finally {
+        source.recycle()
+    }
+}
+
 private fun readCoverFromUri(
     context: Context,
     uri: Uri,
@@ -1046,6 +1373,45 @@ private fun readCoverFromUri(
                 ?: guessImageMimeType(bytes)
         )
     }.getOrNull()
+}
+
+private suspend fun refreshSavedSong(
+    context: Context,
+    song: LSong,
+    fileSystemScanner: FileSystemScanner,
+) {
+    LMedia.replaceSong(song)
+
+    fileSystemScanner.updateAsync()
+    song.fileInfo.pathStr?.takeIf(String::isNotBlank)?.let { path ->
+        MediaScannerConnection.scanFile(context, arrayOf(path), null) { _, _ ->
+            LMedia.updateAsync()
+        }
+    } ?: LMedia.updateAsync()
+}
+
+private suspend fun readSongCovers(
+    context: Context,
+    song: LSong,
+): List<DownloadedCover> {
+    val embedded = runCatching {
+        context.contentResolver.openFileDescriptor(song.uri, "r")
+            ?.use { Taglib.getPicturesWithFD(it.detachFd()) }
+            ?.filter { it.isNotEmpty() }
+            ?.map {
+                DownloadedCover(
+                    bytes = it,
+                    mimeType = guessImageMimeType(it)
+                )
+            }
+            .orEmpty()
+    }.getOrDefault(emptyList())
+
+    if (embedded.isNotEmpty()) return embedded
+
+    return readSongCover(context, song)
+        ?.let(::listOf)
+        .orEmpty()
 }
 
 private suspend fun readSongCover(

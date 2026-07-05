@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,6 +26,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import cafe.adriel.voyager.core.screen.Screen
 import com.lalilu.RemixIcon
+import com.lalilu.lhistory.R
 import com.lalilu.component.base.screen.ScreenInfo
 import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.component.base.smartBarPadding
@@ -47,7 +49,7 @@ data object HistoryScreen : Screen, ScreenInfoFactory {
     override fun provideScreenInfo(): ScreenInfo {
         return remember {
             ScreenInfo(
-                title = { "历史记录" },
+                title = { stringResource(id = R.string.history_screen_title) },
                 icon = RemixIcon.System.historyLine
             )
         }
@@ -74,7 +76,7 @@ private fun HistoryScreenContent(
         modifier = Modifier.fillMaxSize(),
         state = listState
     ) {
-        item(key = "历史记录") {
+        item(key = "history_header") {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -83,14 +85,14 @@ private fun HistoryScreenContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "历史记录",
+                    text = stringResource(id = R.string.history_screen_title),
                     fontSize = 20.sp,
                     lineHeight = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colors.onBackground
                 )
                 Text(
-                    text = "播放过的歌曲记录",
+                    text = stringResource(id = R.string.history_screen_subtitle),
                     color = MaterialTheme.colors.onBackground.copy(0.6f),
                     fontSize = 12.sp,
                     lineHeight = 12.sp,

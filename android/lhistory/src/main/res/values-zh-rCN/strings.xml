@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="history_screen_title">历史记录</string>
+    <string name="history_screen_subtitle">播放过的歌曲记录</string>
+    <string name="history_dynamic_title">历史播放</string>
+    <string name="history_dynamic_subtitle">播放历史列表</string>
+    <string name="history_metric_play_count">播放 %1$d 次</string>
+    <string name="history_metric_play_duration">听了 %1$s</string>
+    <string name="history_duration_day">%1$d天</string>
+    <string name="history_duration_hour">%1$d小时</string>
+    <string name="history_duration_minute">%1$d分</string>
+    <string name="history_duration_second">%1$d秒</string>
 
     <string name="sort_preset_by_last_play_time">最近播放</string>
     <string name="sort_preset_by_played_times">播放次数</string>

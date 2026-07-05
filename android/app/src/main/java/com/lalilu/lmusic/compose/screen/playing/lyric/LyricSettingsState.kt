@@ -11,7 +11,7 @@ import org.koin.core.annotation.Named
 import org.koin.core.annotation.Single
 
 @Named("LyricSettings")
-@Single(createdAtStart = true)
+@Single
 fun provideLyricSettingsState(
     dataSaverInterface: DataSaverInterface,
     json: Json

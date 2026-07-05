@@ -141,7 +141,7 @@ open class MediaStoreScanner(
         }
 
         val genresMap = genresFetchJob.await()
-        songsFetchJob.await().toList().mapNotNull {
+        songsFetchJob.await().mapNotNull {
             it.toSong(genre = genresMap[it.id.toString()] ?: "")
                 ?.takeUnless { song ->
                     exclusionMatcher.isExcluded(song.fileInfo.pathStr) ||
@@ -155,21 +155,21 @@ open class MediaStoreScanner(
      */
     @SuppressLint("Range")
     private fun queryGenres(): List<Pair<Long, String>> {
-        val cursor = queryGenre(context)
+        return queryGenre(context).use { cursor ->
+            val genres = mutableListOf<Pair<Long, String>>()
+            while (cursor.moveToNext()) {
+                if (genreIdIndex == -1) {
+                    genreIdIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Genres._ID)
+                    genreNameIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Genres.NAME)
+                }
 
-        val genres = mutableListOf<Pair<Long, String>>()
-        while (cursor.moveToNext()) {
-            if (genreIdIndex == -1) {
-                genreIdIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Genres._ID)
-                genreNameIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Genres.NAME)
+                val name = (cursor.getStringOrNull(genreNameIndex) ?: continue).parseId3GenreName()
+                val id = cursor.getLong(genreIdIndex)
+
+                genres.add(id to name)
             }
-
-            val name = (cursor.getStringOrNull(genreNameIndex) ?: continue).parseId3GenreName()
-            val id = cursor.getLong(genreIdIndex)
-
-            genres.add(id to name)
+            genres
         }
-        return genres
     }
 
 
@@ -177,7 +177,7 @@ open class MediaStoreScanner(
      * 将Genres与LSong的关系提取成Map
      */
     private suspend fun buildGenresMap(genres: List<Pair<Long, String>>) =
-        withContext(Dispatchers.Default) {
+        if (genres.isEmpty()) emptyMap() else withContext(Dispatchers.IO) {
             genres.map { genre ->
                 async {
                     val list = context.applicationContext.contentResolver.query(
@@ -208,6 +208,8 @@ open class MediaStoreScanner(
             mimeTypeIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.MIME_TYPE)
             sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.SIZE)
             dateAddedIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.DATE_ADDED)
+            dateModifiedIndex =
+                cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.DATE_MODIFIED)
             durationIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.DURATION)
             yearIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.YEAR)
             albumIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.ALBUM)
@@ -245,7 +247,7 @@ open class MediaStoreScanner(
         // from the android system.
         audio.fileName = cursor.getStringOrNull(displayNameIndex)
         audio.dateAdded = cursor.getLongOrNull(dateAddedIndex)
-        audio.dateModified = cursor.getLongOrNull(dateAddedIndex)
+        audio.dateModified = cursor.getLongOrNull(dateModifiedIndex)
 //        audio.date = cursor.getIntOrNull(yearIndex)?.let(Date::from)
         return audio
     }

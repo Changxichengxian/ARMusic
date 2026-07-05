@@ -68,7 +68,6 @@ import com.lalilu.lplayer.extensions.PlayMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import org.koin.compose.koinInject
 import kotlin.math.pow
 
 @Composable
@@ -87,7 +86,12 @@ fun PlayingLayout() {
     val currentPosition = remember { mutableFloatStateOf(0f) }
     val animation = remember { Animatable(0f) }
     val manualHideExpandedControls = remember { mutableStateOf(false) }
-
+    val currentMediaItem = MPlayer.currentMediaItem
+    val backgroundImageData = rememberRotatingCoverData(
+        item = currentMediaItem,
+        currentPosition = currentPosition.floatValue.toLong(),
+        duration = MPlayer.currentDuration,
+    ) ?: com.lalilu.component.R.drawable.ic_music_2_line_100dp
     val draggable = rememberCustomAnchoredDraggableState { oldState, newState ->
         if (newState == DragAnchor.MiddleXMax && oldState != DragAnchor.MiddleXMax) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -252,18 +256,15 @@ fun PlayingLayout() {
                         },
                     blurProgress = { middleToMaxProgress.value },
                     onBackgroundColorFetched = { backgroundColor.value = it },
-                    imageData = {
-                        MPlayer.currentMediaItem
-                            ?: com.lalilu.component.R.drawable.ic_music_2_line_100dp
-                    }
+                    imageData = { backgroundImageData }
                 )
 
                 val lyricSource = remember { LyricSourceEmbedded(context = context) }
                 val lyrics = remember { mutableStateOf<List<LyricItem>>(emptyList()) }
 
-                LaunchedEffect(key1 = MPlayer.currentMediaItem) {
+                LaunchedEffect(key1 = currentMediaItem) {
                     withContext(Dispatchers.IO) {
-                        MPlayer.currentMediaItem
+                        currentMediaItem
                             ?.let { lyricSource.loadLyric(it) }
                             ?.let { LyricUtils.parseLrc(it.first, it.second) }
                             .let { if (isActive) lyrics.value = it ?: emptyList() }

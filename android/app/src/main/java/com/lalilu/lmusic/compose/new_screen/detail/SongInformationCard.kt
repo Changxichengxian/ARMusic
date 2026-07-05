@@ -19,6 +19,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.blankj.utilcode.util.ConvertUtils
 import com.blankj.utilcode.util.ToastUtils
+import com.lalilu.R
 import com.lalilu.lmedia.entity.LSong
 import java.text.DateFormat
 import java.text.SimpleDateFormat
@@ -46,20 +49,20 @@ fun SongInformationCard(
         ) {
             song.metadata.genre.takeIf(String::isNotBlank)?.let {
                 ColumnItem(
-                    title = "流派",
+                    title = stringResource(id = R.string.song_info_genre),
                     content = it,
                 )
             }
 
             song.fileInfo.mimeType.let { mimeType ->
                 ColumnItem(
-                    title = "文件类型",
+                    title = stringResource(id = R.string.song_info_file_type),
                     content = mimeType,
                 )
             }
 
             ColumnItem(
-                title = "文件大小",
+                title = stringResource(id = R.string.song_info_file_size),
                 content = remember(song) {
                     ConvertUtils.byte2FitMemorySize(song.fileInfo.size)
                 },
@@ -67,14 +70,14 @@ fun SongInformationCard(
 
             if (song.fileInfo.bitrate > 0) {
                 ColumnItem(
-                    title = "平均码率",
+                    title = stringResource(id = R.string.song_info_average_bitrate),
                     content = remember(song) { "%.1f kbps".format(song.fileInfo.bitrate / 1000f) },
                 )
             }
 
             song.metadata.dateAdded.let { date ->
                 ColumnItem(
-                    title = "添加日期",
+                    title = stringResource(id = R.string.song_info_date_added),
                     content = remember(date) {
                         val time = date * 1000L
                         val dateS = SimpleDateFormat.getDateInstance(DateFormat.LONG).format(time)
@@ -87,7 +90,7 @@ fun SongInformationCard(
 
             song.fileInfo.pathStr?.takeIf { it.isNotBlank() }?.let { path ->
                 ColumnItem(
-                    title = "文件位置",
+                    title = stringResource(id = R.string.song_info_file_location),
                     content = path,
                     verticalAlignment = Alignment.Top,
                 )
@@ -107,6 +110,7 @@ fun ColumnItem(
     showBorder: Boolean = true
 ) {
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     val contentColor = MaterialTheme.colors.onBackground
 
     Row(
@@ -125,9 +129,11 @@ fun ColumnItem(
             .combinedClickable(
                 onLongClick = {
                     clipboard.setText(buildAnnotatedString { append(content) })
-                    ToastUtils.showShort("复制成功")
+                    ToastUtils.showShort(context.getString(R.string.common_copied))
                 },
-                onClick = { ToastUtils.showShort("长按复制元素内容") }
+                onClick = {
+                    ToastUtils.showShort(context.getString(R.string.song_info_long_press_copy))
+                }
             )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = verticalAlignment,

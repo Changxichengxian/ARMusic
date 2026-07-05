@@ -5,6 +5,8 @@
     <string name="preference_extensions">扩展功能</string>
     <string name="preference_dynamic_tips">为部分操作提供一个反馈</string>
     <string name="preference_dark_mode">深色模式</string>
+    <string name="preference_app_language">应用语言</string>
+    <string name="preference_app_language_tips">切换后会刷新当前界面</string>
 
     <string name="preference_lyric_settings">歌词显示设置</string>
     <string name="preference_lyric_settings_status_bar_lyric">状态栏歌词</string>
@@ -21,7 +23,6 @@
     <string name="preference_media_source_settings_enable_dynamic_tips">操作反馈弹窗</string>
 
     <string name="preference_player_settings">播放设置</string>
-    <string name="preference_player_settings_ignore_audio_focus">允许与其他应用同时播放</string>
     <string name="preference_player_settings_skip_silent">切歌时跳过空白</string>
     <string name="preference_player_settings_seekbar_handler">切歌操作</string>
 </resources>

@@ -151,17 +151,21 @@ private fun SearchScreenContent(
             SearchTips(
                 modifier = Modifier
                     .fillMaxSize(),
-                title = "暂无搜索结果"
+                title = stringResource(id = R.string.search_no_results)
             )
             return@AnimatedContent
         }
 
-        val songsResult = remember {
+        val songsResultTitle = stringResource(id = R.string.search_songs_result_title)
+        val lyricResultTitle = stringResource(id = R.string.search_lyrics_result_title)
+
+        val songsResult = remember(songsResultTitle) {
             SearchSongsResult(
                 songsResult = {
                     (searchVM.searchState.value as? SearchScreenState.Searching)
                         ?.songs ?: emptyList()
-                }
+                },
+                title = songsResultTitle,
             )
         }.register()
 
@@ -181,13 +185,13 @@ private fun SearchScreenContent(
             }
         }.register()
 
-        val lyricSongsResult = remember {
+        val lyricSongsResult = remember(lyricResultTitle) {
             SearchSongsResult(
                 songsResult = {
                     (searchVM.searchState.value as? SearchScreenState.Searching)
                         ?.lyricSongs ?: emptyList()
                 },
-                title = "歌词搜索结果"
+                title = lyricResultTitle
             )
         }.register()
 
@@ -626,7 +630,7 @@ private fun SearchScopeRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SearchScopeButton(
-            text = "歌曲",
+            text = stringResource(id = R.string.search_scope_songs),
             selected = searchVM.includeSongs,
             onClick = { searchVM.includeSongs = !searchVM.includeSongs },
         )
@@ -636,12 +640,12 @@ private fun SearchScopeRow(
             onClick = { searchVM.includeWorks = !searchVM.includeWorks },
         )
         SearchScopeButton(
-            text = "艺术家",
+            text = stringResource(id = R.string.search_scope_artists),
             selected = searchVM.includeArtists,
             onClick = { searchVM.includeArtists = !searchVM.includeArtists },
         )
         SearchScopeButton(
-            text = "歌词",
+            text = stringResource(id = R.string.search_scope_lyrics),
             selected = searchVM.includeLyrics,
             onClick = { searchVM.includeLyrics = !searchVM.includeLyrics },
         )
@@ -674,8 +678,9 @@ private fun RowScope.SearchScopeButton(
 @Composable
 fun SearchTips(
     modifier: Modifier = Modifier,
-    title: String = "暂无搜索结果"
+    title: String? = null
 ) {
+    val actualTitle = title ?: stringResource(id = R.string.search_no_results)
     val paddingBottom = LocalSmartBarPadding.current.value.calculateBottomPadding()
     val imePadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
 
@@ -698,7 +703,7 @@ fun SearchTips(
                     tint = MaterialTheme.colors.onBackground.copy(0.4f)
                 )
                 Text(
-                    text = title,
+                    text = actualTitle,
                     fontSize = 14.sp,
                     lineHeight = 14.sp,
                     color = MaterialTheme.colors.onBackground.copy(0.6f)

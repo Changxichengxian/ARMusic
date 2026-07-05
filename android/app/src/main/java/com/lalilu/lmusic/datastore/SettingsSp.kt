@@ -22,10 +22,6 @@ class SettingsSp(private val context: Application) : BaseSp() {
         Config.KEY_SETTINGS_LYRIC_GRAVITY,
         Config.DEFAULT_SETTINGS_LYRIC_GRAVITY
     )
-    val ignoreAudioFocus = obtain<Boolean>(
-        Config.KEY_SETTINGS_IGNORE_AUDIO_FOCUS,
-        Config.DEFAULT_SETTINGS_IGNORE_AUDIO_FOCUS
-    )
     val volumeControl = obtain<Int>(
         Config.KEY_SETTINGS_VOLUME_CONTROL,
         Config.DEFAULT_SETTINGS_VOLUME_CONTROL
@@ -54,6 +50,10 @@ class SettingsSp(private val context: Application) : BaseSp() {
         Config.KEY_SETTINGS_DARK_MODE_OPTION,
         Config.DEFAULT_SETTINGS_DARK_MODE_OPTION
     )
+    val appLanguageOption = obtain<Int>(
+        Config.KEY_SETTINGS_APP_LANGUAGE_OPTION,
+        Config.DEFAULT_SETTINGS_APP_LANGUAGE_OPTION
+    )
     val autoHideSeekbar = obtain<Boolean>(
         Config.KEY_SETTINGS_AUTO_HIDE_SEEKBAR,
         Config.DEFAULT_SETTINGS_AUTO_HIDE_SEEKBAR
@@ -61,6 +61,10 @@ class SettingsSp(private val context: Application) : BaseSp() {
     val forceHideStatusBar = obtain<Boolean>(
         Config.KEY_SETTINGS_FORCE_HIDE_STATUS_BAR,
         Config.DEFAULT_SETTINGS_FORCE_HIDE_STATUS_BAR
+    )
+    val rotateMultipleCovers = obtain<Boolean>(
+        Config.KEY_SETTINGS_ROTATE_MULTIPLE_COVERS,
+        Config.DEFAULT_SETTINGS_ROTATE_MULTIPLE_COVERS
     )
     val keepScreenOnWhenLyricExpanded = obtain<Boolean>(
         Config.KEY_SETTINGS_KEEP_SCREEN_ON_WHEN_LYRIC_EXPANDED,

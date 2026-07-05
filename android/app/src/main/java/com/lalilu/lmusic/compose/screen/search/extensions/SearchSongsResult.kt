@@ -21,9 +21,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lalilu.R
 import com.lalilu.RemixIcon
 import com.lalilu.component.LazyGridContent
 import com.lalilu.component.card.SongCard
@@ -39,7 +41,7 @@ import com.lalilu.remixicon.media.music2Line
 
 class SearchSongsResult(
     private val songsResult: () -> List<LSong>,
-    private val title: String = "歌曲搜索结果",
+    private val title: String? = null,
 ) : LazyGridContent {
 
     @Composable
@@ -53,6 +55,7 @@ class SearchSongsResult(
                     key = "${this@SearchSongsResult::class.java.name}_Header",
                     contentType = "sticky"
                 ) {
+                    val resultTitle = title ?: stringResource(id = R.string.search_songs_result_title)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -72,7 +75,11 @@ class SearchSongsResult(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            text = "$title (${songsResult().size})",
+                            text = stringResource(
+                                id = R.string.search_result_title_count,
+                                resultTitle,
+                                songsResult().size
+                            ),
                             fontSize = 16.sp,
                             lineHeight = 16.sp,
                             color = MaterialTheme.colors.onBackground,

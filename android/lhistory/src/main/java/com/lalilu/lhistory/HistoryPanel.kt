@@ -10,6 +10,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lalilu.component.LazyGridContent
 import com.lalilu.component.base.LocalWindowSize
@@ -35,6 +36,8 @@ class HistoryPanel : LazyGridContent {
         val historyVM = koinInject<HistoryVM>()
         val widthSizeClass = LocalWindowSize.current.widthSizeClass
         val items by historyVM.historyState
+        val historyPlayTitle = stringResource(id = R.string.history_dynamic_title)
+        val historyPlaySubtitle = stringResource(id = R.string.history_dynamic_subtitle)
         val itemsWithReplace = remember {
             derivedStateOf {
                 if (widthSizeClass == WindowWidthSizeClass.Compact) {
@@ -82,9 +85,9 @@ class HistoryPanel : LazyGridContent {
 
                             DynamicTipsHost.show(
                                 DynamicTipsItem.Static(
-                                    title = "历史播放",
+                                    title = historyPlayTitle,
                                     imageData = item,
-                                    subTitle = "播放历史列表"
+                                    subTitle = historyPlaySubtitle
                                 )
                             )
                         }

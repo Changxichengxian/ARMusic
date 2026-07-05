@@ -5,18 +5,21 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.File
 
 @Serializable
-sealed interface SerializableFont {
-    fun toFont(
+sealed class SerializableFont {
+    abstract fun toFont(
         weight: FontWeight = FontWeight.Normal,
         style: FontStyle = FontStyle.Normal,
         variationSettings: FontVariation.Settings = FontVariation.Settings()
     ): Font?
 
-    data class LoadedFont(val fontPath: String) : SerializableFont {
+    @Serializable
+    @SerialName("LoadedFont")
+    data class LoadedFont(val fontPath: String) : SerializableFont() {
         override fun toFont(
             weight: FontWeight,
             style: FontStyle,
@@ -34,7 +37,9 @@ sealed interface SerializableFont {
         }
     }
 
-    data class DeviceFont(val fontName: String) : SerializableFont {
+    @Serializable
+    @SerialName("DeviceFont")
+    data class DeviceFont(val fontName: String) : SerializableFont() {
         override fun toFont(
             weight: FontWeight,
             style: FontStyle,

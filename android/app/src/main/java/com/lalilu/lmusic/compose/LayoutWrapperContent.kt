@@ -23,6 +23,7 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -106,20 +107,27 @@ private fun LayoutForPad(
         modifier = modifier,
         sheetPeekHeight = smartBarHeight + navigatorBar.calculateBottomPadding(),
         sheetContent = { enhanceSheetState ->
+            val expandedProgress = remember {
+                derivedStateOf {
+                    enhanceSheetState.progress(
+                        BottomSheetValue.Collapsed,
+                        BottomSheetValue.Expanded
+                    )
+                }
+            }
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            val progress = enhanceSheetState.progress(
-                                BottomSheetValue.Collapsed,
-                                BottomSheetValue.Expanded
-                            )
+                if (expandedProgress.value > 0.01f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                val progress = expandedProgress.value
 
-                            alpha = (progress * 4f).coerceIn(0f, 1f)
-                        }
-                ) {
-                    PlayingLayoutExpended()
+                                alpha = (progress * 4f).coerceIn(0f, 1f)
+                            }
+                    ) {
+                        PlayingLayoutExpended()
+                    }
                 }
 
                 Row(
@@ -128,10 +136,7 @@ private fun LayoutForPad(
                         .height(smartBarHeight + navigatorBar.calculateBottomPadding())
                         .align(Alignment.TopCenter)
                         .graphicsLayer {
-                            val progress = enhanceSheetState.progress(
-                                BottomSheetValue.Collapsed,
-                                BottomSheetValue.Expanded
-                            )
+                            val progress = expandedProgress.value
 
                             translationY = constraints.maxHeight * progress
                             alpha = (1f - progress)

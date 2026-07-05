@@ -12,7 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.lalilu.R
 import com.lalilu.component.IconTextButton
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
@@ -37,7 +39,7 @@ fun SongActionsCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconTextButton(
-                text = "标签编辑",
+                text = stringResource(id = R.string.song_action_tag_edit),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),

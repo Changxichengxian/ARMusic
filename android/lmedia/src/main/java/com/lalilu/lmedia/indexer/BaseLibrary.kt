@@ -111,13 +111,13 @@ abstract class BaseLibrary {
         blockFilter: Boolean = true,
     ): SharedFlow<T?> = getResultFlowByClass(T::class.java)
         .mapLatest { it[id]?.blockFilter(blockFilter) }
-        .shareIn(coroutineScope, SharingStarted.Eagerly, 1)
+        .shareIn(coroutineScope, SharingStarted.WhileSubscribed(5000L), 1)
 
     inline fun <reified T : Item> getFlow(
         blockFilter: Boolean = true,
     ): SharedFlow<List<T>> = getResultFlowByClass(T::class.java)
         .mapLatest { it.values.blockFilter(blockFilter) }
-        .shareIn(coroutineScope, SharingStarted.Eagerly, 1)
+        .shareIn(coroutineScope, SharingStarted.WhileSubscribed(5000L), 1)
 
     inline fun <reified T : Item> getCount(
         blockFilter: Boolean = true,

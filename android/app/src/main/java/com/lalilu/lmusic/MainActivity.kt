@@ -1,5 +1,6 @@
 package com.lalilu.lmusic
 
+import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.os.Bundle
@@ -9,41 +10,35 @@ import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
-import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
 import com.lalilu.common.SystemUiUtil
-import com.lalilu.component.extension.collectWithLifeCycleOwner
 import com.lalilu.lmusic.Config.REQUIRE_PERMISSIONS
 import com.lalilu.lmusic.compose.App
 import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.helper.LastTouchTimeHelper
 import com.lalilu.lmusic.utils.dynamicUpdateStatusBarColor
 import com.lalilu.lmusic.utils.setToMaxFreshRate
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
     private val settingsSp: SettingsSp by inject()
+    private var deferredStartupScheduled = false
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(ARMusicLanguage.wrapContext(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val isPermissionsGranted = ActivityCompat.checkSelfPermission(this, REQUIRE_PERMISSIONS)
-        if (isPermissionsGranted != PackageManager.PERMISSION_GRANTED) {
+        val shouldRequestPermission = !hasAudioPermission()
+        if (shouldRequestPermission) {
             ActivityCompat.requestPermissions(this, arrayOf(REQUIRE_PERMISSIONS), 1001)
         }
 
-        // 深色模式控制
-        settingsSp.darkModeOption.flow(true)
-            .collectWithLifeCycleOwner(this) {
-                AppCompatDelegate.setDefaultNightMode(
-                    when (it) {
-                        1 -> MODE_NIGHT_YES
-                        2 -> MODE_NIGHT_NO
-                        else -> MODE_NIGHT_FOLLOW_SYSTEM
-                    }
-                )
-            }
+        AppCompatDelegate.setDefaultNightMode(MODE_NIGHT_FOLLOW_SYSTEM)
 
         // 注册返回键事件回调
         onBackPressedDispatcher.addCallback { this@MainActivity.moveTaskToBack(false) }
@@ -56,10 +51,43 @@ class MainActivity : ComponentActivity() {
         dynamicUpdateStatusBarColor()
 
         volumeControlStream = AudioManager.STREAM_MUSIC
+
+        if (!shouldRequestPermission) {
+            scheduleDeferredStartup()
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001) {
+            scheduleDeferredStartup()
+        }
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
         LastTouchTimeHelper.onDispatchTouchEvent(ev)
         return super.dispatchTouchEvent(ev)
+    }
+
+    private fun hasAudioPermission(): Boolean {
+        return ActivityCompat.checkSelfPermission(
+            this,
+            REQUIRE_PERMISSIONS
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun scheduleDeferredStartup() {
+        if (deferredStartupScheduled) return
+        deferredStartupScheduled = true
+
+        window.decorView.post {
+            lifecycleScope.launch {
+                ARMusicDeferredStartup.start(application)
+            }
+        }
     }
 }

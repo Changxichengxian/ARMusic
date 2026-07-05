@@ -30,7 +30,8 @@ import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
 import com.lalilu.component.rememberGridItemPadding
 import com.lalilu.lmusic.compose.new_screen.WishlistScreen
-import com.zhangke.krouter.KRouter
+import com.lalilu.lmusic.compose.new_screen.SettingsScreen
+import com.lalilu.lmusic.compose.screen.songs.SongsScreen
 
 
 object EntryPanel : LazyGridContent {
@@ -39,12 +40,12 @@ object EntryPanel : LazyGridContent {
     override fun register(): LazyGridScope.() -> Unit {
         val screenEntry = remember {
             listOfNotNull<Screen>(
-                KRouter.route("/pages/songs"),
-                KRouter.route("/pages/artists"),
-                KRouter.route("/pages/albums"),
-                KRouter.route("/pages/history"),
+                SongsScreen(),
+                AppRouter.route("/pages/artists").get(),
+                AppRouter.route("/pages/albums").get(),
+                AppRouter.route("/pages/history").get(),
                 WishlistScreen,
-                KRouter.route("/pages/settings")
+                SettingsScreen
             )
         }
         val defaultString = "Undefined"

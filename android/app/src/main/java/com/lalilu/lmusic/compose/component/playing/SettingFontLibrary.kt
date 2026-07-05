@@ -3,12 +3,18 @@ package com.lalilu.lmusic.compose.component.playing
 import android.app.Application
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.contentColorFor
 import androidx.compose.runtime.Composable
@@ -21,6 +27,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blankj.utilcode.util.ToastUtils
@@ -117,14 +127,63 @@ fun SettingFontLibrary(
                 )
             }
             fonts.forEach { font ->
-                IconTextButton(
-                    text = font.displayName(),
-                    color = if (font.absolutePath == current) Color(0xFF3EA22C) else Color(0xFF6D5B00),
-                    onClick = { onPathSelected(font.absolutePath) }
+                FontPreviewButton(
+                    font = font,
+                    selected = font.absolutePath == current,
+                    textColor = textColor,
+                    onClick = { onPathSelected(font.absolutePath) },
                 )
             }
         }
     }
 }
 
+@Composable
+private fun FontPreviewButton(
+    font: File,
+    selected: Boolean,
+    textColor: Color,
+    onClick: () -> Unit,
+) {
+    val previewFamily = remember(font.absolutePath, font.lastModified()) {
+        runCatching { FontFamily(Font(file = font)) }.getOrNull()
+    }
+    val borderColor = if (selected) Color(0xFF3EA22C) else Color(0x336D5B00)
+    val backgroundColor = if (selected) Color(0x1F3EA22C) else Color(0x0F6D5B00)
+
+    Surface(
+        modifier = Modifier
+            .widthIn(min = 132.dp, max = 220.dp)
+            .heightIn(min = 58.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = backgroundColor,
+        border = BorderStroke(1.dp, borderColor),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = FONT_PREVIEW_TEXT,
+                color = textColor,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Normal,
+                fontFamily = previewFamily,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = font.displayName(),
+                color = textColor.copy(alpha = 0.55f),
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 private fun File.displayName(): String = name.substringBeforeLast('.', name)
+
+private const val FONT_PREVIEW_TEXT = "ARMUSIC"

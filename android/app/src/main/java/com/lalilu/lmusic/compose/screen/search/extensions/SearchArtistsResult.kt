@@ -21,9 +21,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lalilu.R
 import com.lalilu.RemixIcon
 import com.lalilu.component.LazyGridContent
 import com.lalilu.component.navigation.AppRouter
@@ -69,7 +71,11 @@ class SearchArtistsResult(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            text = "艺术家搜索结果 (${artistsResult().size})",
+                            text = stringResource(
+                                id = R.string.search_result_title_count,
+                                stringResource(id = R.string.search_artists_result_title),
+                                artistsResult().size
+                            ),
                             fontSize = 16.sp,
                             lineHeight = 16.sp,
                             color = MaterialTheme.colors.onBackground,

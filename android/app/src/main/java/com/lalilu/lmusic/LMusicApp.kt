@@ -1,6 +1,7 @@
 package com.lalilu.lmusic
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import coil3.SingletonImageLoader
@@ -51,6 +52,10 @@ class LMusicApp : Application(), ViewModelStoreOwner, KoinStartup {
 
     init {
         KRouter.init(KRouterInjectMap::getMap)
+    }
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(ARMusicLanguage.wrapContext(base))
     }
 
     override fun onCreate() {

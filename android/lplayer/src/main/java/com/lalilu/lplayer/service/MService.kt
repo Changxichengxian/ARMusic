@@ -75,7 +75,7 @@ class MService : MediaLibraryService(), CoroutineScope {
         exoPlayer = ExoPlayer.Builder(this)
             .setRenderersFactory(FadeTransitionRenderersFactory(this, this))
             .setHandleAudioBecomingNoisy(MPlayerKV.handleBecomeNoisy.value != false)
-            .setAudioAttributes(defaultAudioAttributes, MPlayerKV.handleAudioFocus.value != false)
+            .setAudioAttributes(defaultAudioAttributes, false)
             .setMaxSeekToPreviousPositionMs(Long.MAX_VALUE) // 避免播放上一首需要点两次
             .build()
             .apply {
@@ -111,12 +111,6 @@ class MService : MediaLibraryService(), CoroutineScope {
     ): MediaLibrarySession? = mediaSession
 
     private fun startListenForValuesUpdate() = launch {
-        MPlayerKV.handleAudioFocus.flow().onEach {
-            withContext(Dispatchers.Main) {
-                exoPlayer?.setAudioAttributes(defaultAudioAttributes, it != false)
-            }
-        }.launchIn(this)
-
         MPlayerKV.handleBecomeNoisy.flow().onEach {
             withContext(Dispatchers.Main) {
                 (exoPlayer as? ExoPlayer)

@@ -45,6 +45,14 @@ object LMedia : BaseLibrary(), Library {
         return lMediaSp ?: LMediaSp(application).also { lMediaSp = it }
     }
 
+    fun updateAsync() {
+        indexer?.updateAsync()
+    }
+
+    suspend fun replaceSong(song: LSong) {
+        indexer?.replaceSong(song)
+    }
+
     override fun getItem(mediaId: String): MediaItem? {
         return when {
             mediaId.startsWith(ARTIST_PREFIX) -> get<LArtist>(mediaId)?.toMediaItem()

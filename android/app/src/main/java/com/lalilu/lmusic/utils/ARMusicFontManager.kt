@@ -13,9 +13,53 @@ class ARMusicFontManager(
 
     fun listFonts(): List<File> {
         return fontDir.listFiles()
-            ?.filter { it.isFile && it.extension.lowercase() in FONT_EXTENSIONS }
+            ?.filter {
+                it.isFile &&
+                        it.name !in LEGACY_BUNDLED_FONT_NAMES &&
+                        it.extension.lowercase() in FONT_EXTENSIONS
+            }
             ?.sortedBy { it.name.lowercase() }
             .orEmpty()
+    }
+
+    fun seedBundledFonts() {
+        val assetRoot = "bundled_fonts"
+        val marker = File(fontDir, ".bundled-fonts-v3")
+        cleanupLegacyBundledFonts()
+
+        val names = application.assets.list(assetRoot)
+            .orEmpty()
+            .filter { it.substringAfterLast('.', "").lowercase() in FONT_EXTENSIONS }
+            .sorted()
+        if (names.isEmpty()) return
+
+        if (marker.exists() && names.all { name ->
+                File(fontDir, name).let { it.exists() && it.length() > 0L }
+            }
+        ) return
+
+        names.forEach { name ->
+            val target = File(fontDir, name)
+            if (target.exists() && target.length() > 0L) return@forEach
+
+            application.assets.open("$assetRoot/$name").use { input ->
+                target.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+
+        marker.writeText(names.joinToString(separator = "\n"))
+    }
+
+    private fun cleanupLegacyBundledFonts() {
+        val marker = File(fontDir, ".bundled-fonts-cleanup-v3")
+        if (marker.exists()) return
+
+        LEGACY_BUNDLED_FONT_NAMES.forEach { name ->
+            File(fontDir, name).takeIf { it.exists() }?.delete()
+        }
+        marker.writeText("")
     }
 
     fun importFont(uri: Uri): File {
@@ -78,5 +122,12 @@ class ARMusicFontManager(
 
     private companion object {
         val FONT_EXTENSIONS = setOf("ttf", "otf")
+        val LEGACY_BUNDLED_FONT_NAMES = setOf(
+            "LiuJianMaoCao-Regular.ttf",
+            "LongCang-Regular.ttf",
+            "MaShanZheng-Regular.ttf",
+            "ZCOOLQingKeHuangYou-Regular.ttf",
+            "ZCOOLXiaoWei-Regular.ttf",
+        )
     }
 }
