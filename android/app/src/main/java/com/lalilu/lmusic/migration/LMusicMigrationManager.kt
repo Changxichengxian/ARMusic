@@ -13,6 +13,7 @@ import com.google.gson.reflect.TypeToken
 import com.lalilu.lhistory.entity.LHistory
 import com.lalilu.lhistory.repository.HistoryDao
 import com.lalilu.lplaylist.entity.LPlaylist
+import com.lalilu.lplaylist.entity.sanitizePlaylists
 import com.lalilu.lplaylist.repository.PlaylistKV
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -93,7 +94,7 @@ class LMusicMigrationManager(
             skipped += "歌单和播放器状态"
         } else {
             val playlistCount = mergePlaylists(sourceKv["PLAYLIST"])
-            if (playlistCount > 0) imported["歌单/收藏"] = playlistCount
+            if (playlistCount > 0) imported["歌单"] = playlistCount
 
             val kvCount = copyPrefs(
                 values = sourceKv,
@@ -301,7 +302,7 @@ class LMusicMigrationManager(
 
             if (targetName == "spUtils") {
                 val playlistCount = values.get("PLAYLIST")?.let { mergePlaylists(decodePreferenceValue(it)) } ?: 0
-                if (playlistCount > 0) imported["歌单/收藏"] = playlistCount
+                if (playlistCount > 0) imported["歌单"] = playlistCount
 
                 val kvCount = copyJsonPrefs(
                     values = values,
@@ -327,10 +328,12 @@ class LMusicMigrationManager(
         val json = value as? String ?: return 0
         val sourcePlaylists = runCatching {
             gson.fromJson<List<LPlaylist>>(json, playlistListType)
-        }.getOrNull().orEmpty()
+        }.getOrNull().sanitizePlaylists()
         if (sourcePlaylists.isEmpty()) return 0
 
-        val currentPlaylists = PlaylistKV.playlistList.value.orEmpty()
+        val currentPlaylists = runCatching { PlaylistKV.playlistList.value }
+            .getOrNull()
+            .sanitizePlaylists()
         val currentById = currentPlaylists.associateBy { it.id }
         val sourceIds = sourcePlaylists.map { it.id }.toHashSet()
         val merged = sourcePlaylists.map { source ->

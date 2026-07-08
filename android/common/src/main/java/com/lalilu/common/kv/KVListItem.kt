@@ -161,7 +161,9 @@ class ObjectListKVImpl<T : Serializable>(
 
     override fun get(): List<T>? {
         val json = SPUtils.getInstance().getString(key)
-        return GsonUtils.fromJson<List<T>>(json, typeToken.type)
+        return runCatching {
+            GsonUtils.fromJson<List<T>>(json, typeToken.type)
+        }.getOrNull()
     }
 
     override fun set(value: List<T>?) {

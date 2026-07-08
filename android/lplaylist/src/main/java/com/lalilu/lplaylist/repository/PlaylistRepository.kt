@@ -4,10 +4,6 @@ import com.lalilu.lplaylist.entity.LPlaylist
 import kotlinx.coroutines.flow.Flow
 
 interface PlaylistRepository {
-    companion object {
-        const val FAVOURITE_PLAYLIST_ID = "FAVOURITE"
-    }
-
     fun getPlaylistsFlow(): Flow<List<LPlaylist>>
     fun getPlaylists(): List<LPlaylist>
     fun setPlaylists(playlists: List<LPlaylist>)
@@ -25,15 +21,4 @@ interface PlaylistRepository {
     fun removeMediaIdsFromPlaylist(mediaIds: List<String>, playlistId: String)
     fun removeMediaIdsFromPlaylists(mediaIds: List<String>, playlistIds: List<String>)
     fun relinkMediaId(oldMediaId: String, newMediaId: String): Int
-
-    fun updateMediaIdsToFavourite(mediaIds: List<String>)
-    fun addMediaIdsToFavourite(mediaIds: List<String>)
-    fun removeMediaIdsFromFavourite(mediaIds: List<String>)
-
-    /**
-     * 检查我喜欢歌单是否存在，若不存在则创建
-     */
-    fun checkFavouriteExist(): Boolean
-    fun getFavouriteMediaIds(): Flow<List<String>>
-    fun isItemInFavourite(mediaId: String): Flow<Boolean>
 }

@@ -35,7 +35,6 @@ import com.lalilu.component.extension.rememberLazyListAnimateScroller
 import com.lalilu.component.extension.startRecord
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
-import com.lalilu.component.state
 import com.lalilu.lartist.component.ArtistCard
 import com.lalilu.lartist.viewModel.ArtistDetailEvent
 import com.lalilu.lmedia.entity.LArtist
@@ -67,7 +66,6 @@ internal fun ArtistDetailScreenContent(
     val statusBar = WindowInsets.statusBars
     val density = LocalDensity.current
     val stickyHeaderContentType = remember { "group" }
-    val favouriteIds = state("favourite_ids", emptyList<String>())
     val scroller = rememberLazyListAnimateScroller(
         listState = listState,
         keys = keys
@@ -180,7 +178,6 @@ internal fun ArtistDetailScreenContent(
                     SongCard(
                         song = { it },
                         isSelected = { isSelected(it) },
-                        isFavour = { favouriteIds.value.contains(it.id) },
                         sortMetricText = { historySortMetricText(it, selectedSortAction) },
                         onClick = {
                             if (isSelecting()) {

@@ -26,7 +26,6 @@ import com.lalilu.common.base.Sticker
 import com.lalilu.component.card.SongCard
 import com.lalilu.component.card.StickerRow
 import com.lalilu.component.navigation.AppRouter
-import com.lalilu.component.state
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.repository.SongWorkStore
@@ -101,7 +100,6 @@ fun PlaylistLayout(
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val favouriteIds = state("favourite_ids", emptyList<String>())
     val workVersion by songWorkStore.changes.collectAsState()
 
     var actualItems by remember { mutableStateOf(emptyList<Item<MediaItem>>()) }
@@ -154,7 +152,6 @@ fun PlaylistLayout(
                 song = { item.data },
                 workVersion = { workVersion },
                 songWorkStore = songWorkStore,
-                isFavour = { favouriteIds.value.contains(item.data.mediaId) },
                 onClick = { PlayerAction.PlayById(item.data.mediaId).action() },
                 onLongClick = {
                     AppRouter.route("/pages/songs/detail")
@@ -176,7 +173,6 @@ private fun SongCardReverse(
     song: () -> MediaItem,
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},
-    isFavour: () -> Boolean,
     hasLyric: () -> Boolean = { false },
     isPlaying: () -> Boolean = { false },
     isSelected: () -> Boolean = { false },
@@ -184,7 +180,6 @@ private fun SongCardReverse(
     fixedHeight: () -> Boolean = { false },
     stickerContent: @Composable RowScope.() -> Unit = {
         StickerRow(
-            isFavour = isFavour,
             hasLyric = hasLyric,
             extSticker = Sticker.ExtSticker(song().localConfiguration?.mimeType ?: "")
         )

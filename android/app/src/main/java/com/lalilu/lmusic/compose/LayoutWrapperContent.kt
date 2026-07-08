@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.BottomSheetValue
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
@@ -42,6 +41,7 @@ import com.lalilu.component.base.LocalSmartBarPadding
 import com.lalilu.component.base.LocalWindowSize
 import com.lalilu.component.extension.DialogWrapper
 import com.lalilu.component.extension.DynamicTipsHost
+import com.lalilu.component.extension.rememberIsPad
 import com.lalilu.component.navigation.CustomTransition
 import com.lalilu.component.navigation.HostNavigator
 import com.lalilu.component.navigation.NavigationSmartBar
@@ -53,6 +53,7 @@ import com.lalilu.lmusic.compose.screen.playing.PlayingSmartCard
 @Composable
 fun BoxScope.LayoutWrapperContent() {
     val windowClass = LocalWindowSize.current
+    val isPad = windowClass.rememberIsPad()
     val padding = remember { mutableStateOf(PaddingValues(bottom = 56.dp)) }
 
     val navHostContent = remember {
@@ -76,7 +77,7 @@ fun BoxScope.LayoutWrapperContent() {
         }
     }
 
-    if (windowClass.widthSizeClass != WindowWidthSizeClass.Compact) {
+    if (isPad.value) {
         LayoutForPad(
             navHostContent = navHostContent,
             navigationSmartBar = navigationSmartBar

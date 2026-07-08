@@ -1,9 +1,7 @@
 package com.lalilu.lplaylist.repository
 
-import android.app.Application
-import com.blankj.utilcode.util.ToastUtils
-import com.lalilu.lplaylist.R
 import com.lalilu.lplaylist.entity.LPlaylist
+import com.lalilu.lplaylist.entity.sanitizePlaylists
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapLatest
@@ -11,24 +9,22 @@ import org.koin.core.annotation.Single
 
 @Single(binds = [PlaylistRepository::class])
 @OptIn(ExperimentalCoroutinesApi::class)
-internal class PlaylistRepositoryImpl(
-    private val context: Application,
-) : PlaylistRepository {
+internal class PlaylistRepositoryImpl : PlaylistRepository {
 
     override fun getPlaylistsFlow(): Flow<List<LPlaylist>> {
         return PlaylistKV.playlistList.flow()
             .mapLatest { playlists ->
-                playlists?.distinctBy { it.id } ?: emptyList()
+                sanitizeAndPersist(playlists)
             }
     }
 
     override fun getPlaylists(): List<LPlaylist> {
-        return PlaylistKV.playlistList.value ?: emptyList()
+        return sanitizeAndPersist(runCatching { PlaylistKV.playlistList.value }.getOrNull())
     }
 
     override fun setPlaylists(playlists: List<LPlaylist>) {
         PlaylistKV.playlistList.apply {
-            value = playlists.distinctBy { it.id }
+            value = playlists.sanitizePlaylists()
             if (!autoSave) save()
         }
     }
@@ -55,25 +51,14 @@ internal class PlaylistRepositoryImpl(
     }
 
     override fun removeById(id: String) {
-        if (id == PlaylistRepository.FAVOURITE_PLAYLIST_ID) {
-            ToastUtils.showShort(R.string.playlist_tips_cannot_remove_favourite)
-            return
-        }
-
         // 筛选不用删除的元素
         val result = getPlaylists().filter { it.id != id }
         setPlaylists(result)
     }
 
     override fun removeByIds(ids: List<String>) {
-        if (ids.contains(PlaylistRepository.FAVOURITE_PLAYLIST_ID)) {
-            ToastUtils.showShort(R.string.playlist_tips_cannot_remove_favourite)
-        }
-
         // 筛选不用删除的元素
-        val result = getPlaylists().filter {
-            !ids.contains(it.id) || it.id == PlaylistRepository.FAVOURITE_PLAYLIST_ID
-        }
+        val result = getPlaylists().filter { it.id !in ids }
         setPlaylists(result)
     }
 
@@ -162,62 +147,22 @@ internal class PlaylistRepositoryImpl(
         return changedCount
     }
 
-    override fun updateMediaIdsToFavourite(mediaIds: List<String>) {
-        updateMediaIdsToPlaylist(mediaIds, PlaylistRepository.FAVOURITE_PLAYLIST_ID)
-    }
-
-    override fun addMediaIdsToFavourite(mediaIds: List<String>) {
-        if (checkFavouriteExist()) {
-            addMediaIdsToPlaylist(mediaIds, PlaylistRepository.FAVOURITE_PLAYLIST_ID)
-        }
-    }
-
-    override fun removeMediaIdsFromFavourite(mediaIds: List<String>) {
-        if (checkFavouriteExist()) {
-            removeMediaIdsFromPlaylist(mediaIds, PlaylistRepository.FAVOURITE_PLAYLIST_ID)
-        }
-    }
-
-    override fun checkFavouriteExist(): Boolean {
-        val playlists = getPlaylists()
-        val exist = playlists.any { it.id == PlaylistRepository.FAVOURITE_PLAYLIST_ID }
-
-        if (!exist) {
-            save(
-                LPlaylist(
-                    id = PlaylistRepository.FAVOURITE_PLAYLIST_ID,
-                    title = context.getString(R.string.playlist_tips_favourite),
-                    subTitle = context.getString(R.string.playlist_tips_favourite_subTitle),
-                    coverUri = "",
-                    mediaIds = emptyList()
-                )
-            )
-        }
-
-        return exist
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    override fun getFavouriteMediaIds(): Flow<List<String>> {
-        return getPlaylistsFlow()
-            .mapLatest { playlists ->
-                playlists
-                    .firstOrNull { it.id == PlaylistRepository.FAVOURITE_PLAYLIST_ID }
-                    ?.mediaIds ?: emptyList()
-            }
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    override fun isItemInFavourite(mediaId: String): Flow<Boolean> {
-        return getFavouriteMediaIds()
-            .mapLatest { it.contains(mediaId) }
-    }
-
     private fun updatePlaylist(playlistId: String, action: (LPlaylist) -> LPlaylist) {
         val playlists = getPlaylists().toMutableList()
         val index = playlists.indexOfFirst { it.id == playlistId }.takeIf { it >= 0 } ?: return
 
         playlists[index] = action(playlists[index])
         setPlaylists(playlists)
+    }
+
+    private fun sanitizeAndPersist(playlists: List<LPlaylist>?): List<LPlaylist> {
+        val cleaned = playlists.sanitizePlaylists()
+        if (cleaned != playlists.orEmpty()) {
+            PlaylistKV.playlistList.apply {
+                value = cleaned
+                if (!autoSave) save()
+            }
+        }
+        return cleaned
     }
 }

@@ -39,7 +39,6 @@ import com.lalilu.component.extension.ItemRecorder
 import com.lalilu.component.extension.rememberLazyListAnimateScroller
 import com.lalilu.component.extension.startRecord
 import com.lalilu.component.navigation.AppRouter
-import com.lalilu.component.state
 import com.lalilu.lhistory.historySortMetricText
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.GroupIdentity
@@ -75,7 +74,6 @@ internal fun PlaylistDetailScreenContent(
     val statusBar = WindowInsets.statusBars
     val listState: LazyListState = rememberLazyListState()
     val stickyHeaderContentType = remember { "group" }
-    val favouriteIds = state("favourite_ids", emptyList<String>())
     val scroller = rememberLazyListAnimateScroller(
         listState = listState,
         keys = keys
@@ -206,7 +204,6 @@ internal fun PlaylistDetailScreenContent(
                             ),
                             song = { item },
                             isSelected = { isSelected(item) },
-                            isFavour = { favouriteIds.value.contains(item.id) },
                             sortMetricText = { historySortMetricText(item, selectedSortAction) },
                             onClick = {
                                 if (isSelecting()) {
@@ -257,7 +254,6 @@ internal fun PlaylistDetailScreenContent(
                             modifier = Modifier.animateItem(),
                             song = { item },
                             isSelected = { isSelected(item) },
-                            isFavour = { favouriteIds.value.contains(item.id) },
                             sortMetricText = { historySortMetricText(item, selectedSortAction) },
                             onClick = {
                                 if (isSelecting()) {

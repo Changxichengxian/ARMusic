@@ -15,6 +15,7 @@ import com.funny.data_saver.core.LocalDataSaver
 import com.lalilu.component.base.LocalWindowSize
 import com.lalilu.component.lumo.LumoTheme
 import com.lalilu.lmusic.LMusicTheme
+import com.lalilu.lmusic.compose.screen.playing.PhoneLandscapePlayingLayout
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
@@ -28,6 +29,7 @@ object App {
                 ProvideNavigatorLifecycleKMPSupport {
                     LayoutWrapperContent()
                 }
+                PhoneLandscapePlayingLayout()
             }
         }
     }

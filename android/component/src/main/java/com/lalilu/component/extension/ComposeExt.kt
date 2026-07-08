@@ -14,9 +14,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.contentColorFor
-import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -86,14 +84,14 @@ fun rememberScreenHeightInPx(): Int {
 }
 
 /**
- * 根据屏幕的长宽类型来判断设备是否平板
- * 依据是：平板没有一条边会是Compact的
+ * 根据设备短边判断是否平板，避免手机横屏时被宽屏窗口类型误判。
  */
 @Composable
 fun WindowSizeClass.rememberIsPad(): State<Boolean> {
-    return remember(widthSizeClass, heightSizeClass) {
+    val configuration = LocalConfiguration.current
+    return remember(configuration.smallestScreenWidthDp) {
         derivedStateOf {
-            widthSizeClass != WindowWidthSizeClass.Compact && heightSizeClass != WindowHeightSizeClass.Compact
+            configuration.smallestScreenWidthDp >= 600
         }
     }
 }

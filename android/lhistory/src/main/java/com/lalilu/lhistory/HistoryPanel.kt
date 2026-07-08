@@ -18,7 +18,6 @@ import com.lalilu.component.card.SongCard
 import com.lalilu.component.extension.DynamicTipsHost
 import com.lalilu.component.extension.DynamicTipsItem
 import com.lalilu.component.navigation.AppRouter
-import com.lalilu.component.state
 import com.lalilu.lhistory.viewmodel.HistoryVM
 import com.lalilu.lplayer.MPlayer
 import com.lalilu.lplayer.action.MediaControl
@@ -54,8 +53,6 @@ class HistoryPanel : LazyGridContent {
                 }
             }
         }
-        val favouriteIds = state("favourite_ids", emptyList<String>())
-
         return fun LazyGridScope.() {
             // 若列表为空，则不显示
             if (items.isEmpty()) return
@@ -74,7 +71,6 @@ class HistoryPanel : LazyGridContent {
                         .animateItem()
                         .padding(bottom = 5.dp),
                     song = { item },
-                    isFavour = { favouriteIds.value.contains(item.id) },
                     isPlaying = { MPlayer.isItemPlaying(item.id) },
                     onClick = {
                         historyVM.getHistoryPlayedIds { list ->

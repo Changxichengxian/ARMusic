@@ -159,10 +159,6 @@ data class PlaylistDetailScreen(
                     }
                 ),
                 requestFor<ScreenAction>(
-                    qualifier = named("add_to_favourite_action"),
-                    parameters = { parametersOf(vm.selector::selected) }
-                ),
-                requestFor<ScreenAction>(
                     qualifier = named("add_to_playlist_action"),
                     parameters = { parametersOf(vm.selector::selected) }
                 )

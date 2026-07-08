@@ -62,7 +62,6 @@ fun SongCard(
     onLongClick: (() -> Unit)? = null,
     onDoubleClick: (() -> Unit)? = null,
     onEnterSelect: () -> Unit = {},
-    isFavour: () -> Boolean,
     hasLyric: () -> Boolean = { false },
     isPlaying: () -> Boolean = { false },
     isSelected: () -> Boolean = { false },
@@ -72,7 +71,6 @@ fun SongCard(
     sortMetricText: @Composable () -> String? = { null },
     stickerContent: @Composable RowScope.() -> Unit = {
         StickerRow(
-            isFavour = isFavour,
             hasLyric = hasLyric,
             extSticker = Sticker.ExtSticker(song().fileInfo.mimeType)
         )

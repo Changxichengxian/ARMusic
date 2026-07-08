@@ -24,7 +24,6 @@
     <string name="destination_label_artist">アーティスト</string>
     <string name="destination_label_playlists">プレイリスト</string>
     <string name="destination_label_all_song">曲</string>
-    <string name="destination_label_favourite">お気に入り</string>
     <string name="destination_label_search">検索</string>
     <string name="destination_label_settings">設定</string>
     <string name="destination_label_album_detail">アルバム詳細</string>
@@ -41,7 +40,6 @@
     <string name="destination_subtitle_albums">すべてのアルバム</string>
     <string name="destination_subtitle_playlists">すべてのプレイリスト</string>
     <string name="destination_subtitle_all_song">すべての曲</string>
-    <string name="destination_subtitle_favourite">お気に入りの曲</string>
     <string name="destination_subtitle_search">ローカルの内容を検索</string>
     <string name="destination_subtitle_settings">設定項目</string>
     <string name="destination_subtitle_album_detail">アルバム詳細</string>

@@ -38,7 +38,6 @@ import com.lalilu.component.extension.ItemRecorder
 import com.lalilu.component.extension.rememberLazyListAnimateScroller
 import com.lalilu.component.extension.startRecord
 import com.lalilu.component.navigation.AppRouter
-import com.lalilu.component.state
 import com.lalilu.lmedia.entity.FileInfo
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.entity.Metadata
@@ -68,7 +67,6 @@ internal fun SongsScreenContent(
     val density = LocalDensity.current
     val listState: LazyListState = rememberLazyListState()
     val statusBar = WindowInsets.statusBars
-    val favouriteIds = state("favourite_ids", emptyList<String>())
     val scroller = rememberLazyListAnimateScroller(
         listState = listState,
         keys = keys
@@ -174,7 +172,6 @@ internal fun SongsScreenContent(
                     ) {
                         SongCard(
                             song = { it },
-                            isFavour = { favouriteIds.value.contains(it.id) },
                             isSelected = { isSelected(it) },
                             sortMetricText = { historySortMetricText(it, selectedSortAction) },
                             onClick = {

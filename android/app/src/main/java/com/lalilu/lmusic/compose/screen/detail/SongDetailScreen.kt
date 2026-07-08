@@ -8,7 +8,6 @@ import androidx.compose.ui.res.stringResource
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
 import com.lalilu.R
-import com.lalilu.common.ext.requestFor
 import com.lalilu.component.base.screen.ScreenAction
 import com.lalilu.component.base.screen.ScreenActionFactory
 import com.lalilu.component.base.screen.ScreenInfo
@@ -20,8 +19,6 @@ import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lplayer.action.PlayerAction
 import com.zhangke.krouter.annotation.Destination
 import com.zhangke.krouter.annotation.Param
-import org.koin.core.parameter.parametersOf
-import org.koin.core.qualifier.named
 
 @Destination("/pages/songs/detail")
 data class SongDetailScreen(
@@ -39,10 +36,6 @@ data class SongDetailScreen(
     @Composable
     override fun provideScreenActions(): List<ScreenAction> = remember(this) {
         listOfNotNull(
-            requestFor<ScreenAction>(
-                qualifier = named("like_action"),
-                parameters = { parametersOf(mediaId) }
-            ),
             provideSongPlayAction(mediaId),
             ScreenAction.Static(
                 title = { stringResource(id = R.string.button_set_song_to_next) },

@@ -20,19 +20,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lalilu.RemixIcon
 import com.lalilu.lplaylist.entity.LPlaylist
-import com.lalilu.lplaylist.repository.PlaylistRepository
 import com.lalilu.remixicon.Editor
-import com.lalilu.remixicon.HealthAndMedical
 import com.lalilu.remixicon.editor.draggable
-import com.lalilu.remixicon.healthandmedical.heart3Fill
 
 @Composable
 fun PlaylistCard(
@@ -93,17 +88,6 @@ fun PlaylistCard(
                     maxLines = 1,
                 )
             }
-        }
-
-        if (playlist.id == PlaylistRepository.FAVOURITE_PLAYLIST_ID) {
-            Icon(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .scale(0.9f),
-                imageVector = RemixIcon.HealthAndMedical.heart3Fill,
-                tint = Color(0xFFFE4141),
-                contentDescription = "heart_icon"
-            )
         }
 
         Text(

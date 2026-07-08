@@ -24,7 +24,6 @@
     <string name="destination_label_artist">Artists</string>
     <string name="destination_label_playlists">Playlists</string>
     <string name="destination_label_all_song">Songs</string>
-    <string name="destination_label_favourite">Favorites</string>
     <string name="destination_label_search">Search</string>
     <string name="destination_label_settings">Settings</string>
     <string name="destination_label_album_detail">Album details</string>
@@ -41,7 +40,6 @@
     <string name="destination_subtitle_albums">All albums</string>
     <string name="destination_subtitle_playlists">All playlists</string>
     <string name="destination_subtitle_all_song">All songs</string>
-    <string name="destination_subtitle_favourite">Favorite songs</string>
     <string name="destination_subtitle_search">Search all local content</string>
     <string name="destination_subtitle_settings">Settings options</string>
     <string name="destination_subtitle_album_detail">Album details</string>
