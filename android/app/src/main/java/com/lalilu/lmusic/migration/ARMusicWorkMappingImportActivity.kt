@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import com.blankj.utilcode.util.ToastUtils
+import com.lalilu.BuildConfig
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmusic.MainActivity
 import kotlinx.coroutines.CoroutineScope
@@ -56,7 +57,7 @@ class ARMusicWorkMappingImportActivity : Activity() {
     }
 
     companion object {
-        const val ACTION_IMPORT_WORK_MAPPING = "com.lalilu.lmusic.armusic.IMPORT_WORK_MAPPING"
+        val ACTION_IMPORT_WORK_MAPPING = "${BuildConfig.APPLICATION_ID}.IMPORT_WORK_MAPPING"
         const val EXTRA_PATH = "path"
         private const val LOG_TAG = "ARMusicWorkImport"
         private const val MSG_NO_MAPPING_FILE = "\u6ca1\u6709\u6536\u5230\u4f5c\u54c1\u6620\u5c04\u6587\u4ef6"

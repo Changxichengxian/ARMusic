@@ -27,9 +27,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class ExportActivity extends Activity {
-    private static final String TARGET_PACKAGE = "com.lalilu.lmusic.armusic";
+    private static final String TARGET_PACKAGE = "com.armusic";
     private static final String TARGET_ACTIVITY = "com.lalilu.lmusic.migration.ARMusicMigrationImportActivity";
-    private static final String TARGET_ACTION = "com.lalilu.lmusic.armusic.IMPORT_BACKUP";
+    private static final String TARGET_ACTION = "com.armusic.IMPORT_BACKUP";
 
     private TextView statusView;
 

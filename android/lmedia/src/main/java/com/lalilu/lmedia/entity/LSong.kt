@@ -22,6 +22,7 @@ data class Metadata(
     val track: String,
     val disc: String,
     val date: String,
+    val work: String = "",
     val sameSongGroup: String = "",
     val duration: Long,
     val dateAdded: Long,

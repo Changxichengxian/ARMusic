@@ -24,10 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -54,9 +51,8 @@ object DailyRecommend : LazyGridContent {
     @OptIn(ExperimentalMaterialApi::class)
     @Composable
     override fun register(): LazyGridScope.() -> Unit {
-        val libraryVM: LibraryViewModel = koinInject()
+        val libraryViewModel: LibraryViewModel = koinInject()
         val windowWidthClass = LocalWindowSize.current.widthSizeClass
-        var autoScroll by rememberSaveable { mutableStateOf(true) }
 
         return fun LazyGridScope.() {
             item(
@@ -68,22 +64,12 @@ object DailyRecommend : LazyGridContent {
                     modifier = Modifier.padding(vertical = 8.dp),
                     title = stringResource(id = R.string.home_daily_recommend),
                     onClick = {
-                        val ids = libraryVM.dailyRecommends.value.map { it.id }
+                        val ids = libraryViewModel.dailyRecommends.value.map { it.id }
                         AppRouter.intent(NavIntent.Push(SongsScreen(mediaIds = ids)))
                     }
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip(onClick = { autoScroll = !autoScroll }) {
-                            Text(
-                                style = MaterialTheme.typography.caption,
-                                text = if (autoScroll) {
-                                    stringResource(id = R.string.home_daily_stop_scroll)
-                                } else {
-                                    stringResource(id = R.string.home_daily_start_scroll)
-                                }
-                            )
-                        }
-                        Chip(onClick = { libraryVM.forceUpdate() }) {
+                        Chip(onClick = { libraryViewModel.forceUpdate() }) {
                             Text(
                                 style = MaterialTheme.typography.caption,
                                 text = stringResource(id = R.string.home_daily_shuffle)
@@ -94,39 +80,37 @@ object DailyRecommend : LazyGridContent {
             }
 
             when (windowWidthClass) {
-                WindowWidthSizeClass.Compact -> dailyRecommendForSideCompat(autoScroll)
-                WindowWidthSizeClass.Medium -> dailyRecommendForSideMedium(autoScroll)
-                WindowWidthSizeClass.Expanded -> dailyRecommendForSideCompat(autoScroll)
+                WindowWidthSizeClass.Compact -> dailyRecommendForSideCompat()
+                WindowWidthSizeClass.Medium -> dailyRecommendForSideMedium()
+                WindowWidthSizeClass.Expanded -> dailyRecommendForSideCompat()
             }
         }
     }
 }
 
-fun LazyGridScope.dailyRecommendForSideCompat(autoScroll: Boolean) {
+fun LazyGridScope.dailyRecommendForSideCompat() {
     item(
         key = "daily_recommend",
         contentType = "daily_recommend",
         span = { GridItemSpan(maxLineSpan) }
     ) {
-        val libraryVM: LibraryViewModel = koinInject()
+        val libraryViewModel: LibraryViewModel = koinInject()
 
         DailyRecommendAutoRow(
-            libraryVM = libraryVM,
-            autoScroll = autoScroll,
+            libraryViewModel = libraryViewModel,
         )
     }
 }
 
-fun LazyGridScope.dailyRecommendForSideMedium(autoScroll: Boolean) {
-    dailyRecommendForSideCompat(autoScroll)
+fun LazyGridScope.dailyRecommendForSideMedium() {
+    dailyRecommendForSideCompat()
 }
 
 @Composable
 private fun DailyRecommendAutoRow(
-    libraryVM: LibraryViewModel,
-    autoScroll: Boolean,
+    libraryViewModel: LibraryViewModel,
 ) {
-    val source = libraryVM.dailyRecommends.value.distinctBy { it.id }
+    val source = libraryViewModel.dailyRecommends.value.distinctBy { it.id }
     if (source.isEmpty()) return
 
     val listState = rememberLazyListState()
@@ -151,13 +135,13 @@ private fun DailyRecommendAutoRow(
         listState.scrollToItem(historyCount)
     }
 
-    LaunchedEffect(source, autoScroll) {
+    LaunchedEffect(source) {
         var lastFrameNanos = 0L
         while (true) {
             val frameNanos = withFrameNanos { it }
             if (lastFrameNanos != 0L) {
                 val deltaSeconds = (frameNanos - lastFrameNanos) / 1_000_000_000f
-                if (autoScroll && !listState.isScrollInProgress) {
+                if (!listState.isScrollInProgress) {
                     try {
                         listState.scroll {
                             scrollBy(speedPx * deltaSeconds)
@@ -268,14 +252,14 @@ private fun prependDailyRecommendItems(
 }
 
 fun LazyGridScope.dailyRecommendForSideExpanded(
-    libraryVM: LibraryViewModel
+    libraryViewModel: LibraryViewModel
 ) {
     item(
         key = "daily_recommend_left",
         contentType = "daily_recommend_left",
         span = { GridItemSpan(8) }
     ) {
-        val item = libraryVM.dailyRecommends.value.getOrNull(0)
+        val item = libraryViewModel.dailyRecommends.value.getOrNull(0)
             ?: return@item
 
         Row(
@@ -289,7 +273,7 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                 modifier = Modifier.fillMaxSize(),
                 onClick = {
                     MediaControl.playWithList(
-                        mediaIds = libraryVM.dailyRecommends.value.map { song -> song.id },
+                        mediaIds = libraryViewModel.dailyRecommends.value.map { song -> song.id },
                         mediaId = item.id
                     )
                 },
@@ -307,9 +291,9 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
         contentType = "daily_recommend_right",
         span = { GridItemSpan(4) }
     ) {
-        val item = libraryVM.dailyRecommends.value.getOrNull(1)
+        val item = libraryViewModel.dailyRecommends.value.getOrNull(1)
             ?: return@item
-        val item2 = libraryVM.dailyRecommends.value.getOrNull(2)
+        val item2 = libraryViewModel.dailyRecommends.value.getOrNull(2)
             ?: return@item
 
         Column(
@@ -326,7 +310,7 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                     .fillMaxWidth(),
                 onClick = {
                     MediaControl.playWithList(
-                        mediaIds = libraryVM.dailyRecommends.value.map { song -> song.id },
+                        mediaIds = libraryViewModel.dailyRecommends.value.map { song -> song.id },
                         mediaId = item.id
                     )
                 },
@@ -344,7 +328,7 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                     .fillMaxWidth(),
                 onClick = {
                     MediaControl.playWithList(
-                        mediaIds = libraryVM.dailyRecommends.value.map { song -> song.id },
+                        mediaIds = libraryViewModel.dailyRecommends.value.map { song -> song.id },
                         mediaId = item2.id
                     )
                 },

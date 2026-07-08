@@ -17,7 +17,6 @@ plugins {
 val keystoreProps = rootProject.file("keystore.properties")
     .takeIf { it.exists() }
     ?.let { Properties().apply { load(FileInputStream(it)) } }
-
 fun releaseTime(pattern: String = "MMdd_HHmm"): String = SimpleDateFormat(pattern).run {
     timeZone = TimeZone.getTimeZone("Asia/Shanghai")
     format(Date())
@@ -45,11 +44,11 @@ android {
     compileSdk = libs.versions.compile.version.get().toIntOrNull()
 
     defaultConfig {
-        applicationId = "com.lalilu.lmusic"
+        applicationId = "com.armusic"
         minSdk = libs.versions.min.sdk.version.get().toIntOrNull()
         targetSdk = libs.versions.compile.version.get().toIntOrNull()
-        versionCode = 135
-        versionName = "1.3.5"
+        versionCode = 137
+        versionName = "1.3.7"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -145,7 +144,6 @@ android {
             isShrinkResources = true
 
             versionNameSuffix = ""
-            applicationIdSuffix = ".armusic"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

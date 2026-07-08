@@ -3,6 +3,7 @@ package com.lalilu.lmusic.agent
 import android.app.Activity
 import android.os.Bundle
 import android.util.Log
+import com.lalilu.BuildConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,7 +33,7 @@ class ARMusicAgentActivity : Activity() {
     }
 
     companion object {
-        const val ACTION_AGENT_COMMAND = "com.lalilu.lmusic.armusic.AGENT_COMMAND"
+        val ACTION_AGENT_COMMAND = "${BuildConfig.APPLICATION_ID}.AGENT_COMMAND"
         const val EXTRA_COMMAND = "command"
         const val EXTRA_PATH = "path"
         const val EXTRA_RESULT_PATH = "resultPath"

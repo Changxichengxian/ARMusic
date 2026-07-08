@@ -23,11 +23,11 @@ import com.lalilu.component.base.songs.SongsSearcherPanel
 import com.lalilu.component.base.songs.SongsSelectorPanel
 import com.lalilu.component.base.songs.SongsSortPanelDialog
 import com.lalilu.component.extension.DialogWrapper
-import com.lalilu.component.extension.screenVM
+import com.lalilu.component.extension.screenViewModel
 import com.lalilu.component.work.rememberWorkLabel
 import com.lalilu.lalbum.R
-import com.lalilu.lalbum.viewModel.AlbumDetailAction
-import com.lalilu.lalbum.viewModel.AlbumDetailVM
+import com.lalilu.lalbum.viewmodel.AlbumDetailAction
+import com.lalilu.lalbum.viewmodel.AlbumDetailViewModel
 import com.lalilu.remixicon.Design
 import com.lalilu.remixicon.Editor
 import com.lalilu.remixicon.System
@@ -59,10 +59,10 @@ data class AlbumDetailScreen(
 
     @Composable
     override fun provideScreenActions(): List<ScreenAction> {
-        val vm = screenVM<AlbumDetailVM>(
+        val albumDetailViewModel = screenViewModel<AlbumDetailViewModel>(
             parameters = { parametersOf(albumId) }
         )
-        val state by vm.state
+        val state by albumDetailViewModel.state
 
         return remember {
             listOf(
@@ -70,28 +70,28 @@ data class AlbumDetailScreen(
                     title = { "排序" },
                     icon = { RemixIcon.Editor.sortDesc },
                     color = { Color(0xFF1793FF) },
-                    onAction = { vm.intent(AlbumDetailAction.ToggleSortPanel) }
+                    onAction = { albumDetailViewModel.intent(AlbumDetailAction.ToggleSortPanel) }
                 ),
                 ScreenAction.Static(
                     title = { "选择" },
                     icon = { RemixIcon.Design.editBoxLine },
                     color = { Color(0xFF009673) },
-                    onAction = { vm.selector.isSelecting.value = true }
+                    onAction = { albumDetailViewModel.selector.isSelecting.value = true }
                 ),
                 ScreenAction.Static(
                     title = { "搜索" },
                     subTitle = {
-                        val keyword = state.searchKeyWord
+                        val keyword = state.searchKeyword
                         if (keyword.isNotBlank()) "搜索中： $keyword" else null
                     },
                     icon = { RemixIcon.System.menuSearchLine },
                     color = { Color(0xFF8BC34A) },
                     dotColor = {
-                        val keyword = state.searchKeyWord
+                        val keyword = state.searchKeyword
                         if (keyword.isNotBlank()) Color.Red else null
                     },
                     onAction = {
-                        vm.intent(AlbumDetailAction.ToggleSearcherPanel)
+                        albumDetailViewModel.intent(AlbumDetailAction.ToggleSearcherPanel)
                         DialogWrapper.dismiss()
                     }
                 ),
@@ -99,7 +99,7 @@ data class AlbumDetailScreen(
                     title = { "定位至当前播放歌曲" },
                     icon = { RemixIcon.Design.focus3Line },
                     color = { Color(0xFF8700FF) },
-                    onAction = { vm.intent(AlbumDetailAction.LocaleToPlayingItem) }
+                    onAction = { albumDetailViewModel.intent(AlbumDetailAction.LocateToPlayingItem) }
                 ),
             )
         }
@@ -107,12 +107,12 @@ data class AlbumDetailScreen(
 
     @Composable
     override fun Content() {
-        val vm = screenVM<AlbumDetailVM>(
+        val albumDetailViewModel = screenViewModel<AlbumDetailViewModel>(
             parameters = { parametersOf(albumId) }
         )
-        val songs by vm.songs
-        val state by vm.state
-        val album by vm.album
+        val songs by albumDetailViewModel.songs
+        val state by albumDetailViewModel.state
+        val album by albumDetailViewModel.album
         val context = LocalContext.current
         val workLabel = rememberWorkLabel()
         val coverPickerLauncher = rememberLauncherForActivityResult(
@@ -125,50 +125,50 @@ data class AlbumDetailScreen(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
             }
-            vm.intent(AlbumDetailAction.SetCoverUri(uri.toString()))
+            albumDetailViewModel.intent(AlbumDetailAction.SetCoverUri(uri.toString()))
         }
 
         SongsSortPanelDialog(
             isVisible = { state.showSortPanel },
-            onDismiss = { vm.intent(AlbumDetailAction.HideSortPanel) },
-            supportSortActions = vm.supportSortActions,
+            onDismiss = { albumDetailViewModel.intent(AlbumDetailAction.HideSortPanel) },
+            supportSortActions = albumDetailViewModel.supportSortActions,
             isSortActionSelected = { state.selectedSortAction == it },
-            onSelectSortAction = { vm.intent(AlbumDetailAction.SelectSortAction(it)) }
+            onSelectSortAction = { albumDetailViewModel.intent(AlbumDetailAction.SelectSortAction(it)) }
         )
 
         SongsHeaderJumperDialog(
             isVisible = { state.showJumperDialog },
-            onDismiss = { vm.intent(AlbumDetailAction.HideJumperDialog) },
+            onDismiss = { albumDetailViewModel.intent(AlbumDetailAction.HideJumperDialog) },
             items = { songs.keys },
-            onSelectItem = { vm.intent(AlbumDetailAction.LocaleToGroupItem(it)) }
+            onSelectItem = { albumDetailViewModel.intent(AlbumDetailAction.LocateToGroupItem(it)) }
         )
 
         SongsSearcherPanel(
             isVisible = { state.showSearcherPanel },
-            onDismiss = { vm.intent(AlbumDetailAction.HideSearcherPanel) },
-            keyword = { state.searchKeyWord },
-            onUpdateKeyword = { vm.intent(AlbumDetailAction.SearchFor(it)) }
+            onDismiss = { albumDetailViewModel.intent(AlbumDetailAction.HideSearcherPanel) },
+            keyword = { state.searchKeyword },
+            onUpdateKeyword = { albumDetailViewModel.intent(AlbumDetailAction.SearchFor(it)) }
         )
 
         SongsSelectorPanel(
-            isVisible = { vm.selector.isSelecting.value },
-            onDismiss = { vm.selector.isSelecting.value = false },
+            isVisible = { albumDetailViewModel.selector.isSelecting.value },
+            onDismiss = { albumDetailViewModel.selector.isSelecting.value = false },
             screenActions = listOfNotNull(
                 ScreenAction.Static(
                     title = { "全选" },
                     color = { Color(0xFF00ACF0) },
                     icon = { RemixIcon.System.checkboxMultipleLine },
-                    onAction = { vm.selector.selectAll(songs.values.flatten()) }
+                    onAction = { albumDetailViewModel.selector.selectAll(songs.values.flatten()) }
                 ),
                 ScreenAction.Static(
                     title = { "取消全选" },
                     icon = { RemixIcon.System.checkboxMultipleBlankLine },
                     color = { Color(0xFFFF5100) },
-                    onAction = { vm.selector.clear() }
+                    onAction = { albumDetailViewModel.selector.clear() }
                 ),
                 requestFor<ScreenAction>(
                     qualifier = named("add_to_playlist_action"),
-                    parameters = { parametersOf(vm.selector::selected) }
+                    parameters = { parametersOf(albumDetailViewModel.selector::selected) }
                 )
             )
         )
@@ -176,17 +176,17 @@ data class AlbumDetailScreen(
         AlbumDetailScreenContent(
             songs = songs,
             album = album,
-            recorder = vm.recorder,
-            eventFlow = vm.eventFlow(),
-            keys = { vm.recorder.list().filterNotNull() },
-            isSelecting = { vm.selector.isSelecting.value },
-            isSelected = { vm.selector.isSelected(it) },
+            recorder = albumDetailViewModel.recorder,
+            eventFlow = albumDetailViewModel.eventFlow(),
+            keys = { albumDetailViewModel.recorder.list().filterNotNull() },
+            isSelecting = { albumDetailViewModel.selector.isSelecting.value },
+            isSelected = { albumDetailViewModel.selector.isSelected(it) },
             selectedSortAction = state.selectedSortAction,
-            onSelect = { vm.selector.onSelect(it) },
-            onClickGroup = { vm.intent(AlbumDetailAction.ToggleJumperDialog) },
+            onSelect = { albumDetailViewModel.selector.onSelect(it) },
+            onClickGroup = { albumDetailViewModel.intent(AlbumDetailAction.ToggleJumperDialog) },
             onPickCoverFromStorage = { coverPickerLauncher.launch(arrayOf("image/*")) },
-            onUseSongCover = { vm.intent(AlbumDetailAction.SetCoverSong(it)) },
-            onClearCover = { vm.intent(AlbumDetailAction.ClearCover) },
+            onUseSongCover = { albumDetailViewModel.intent(AlbumDetailAction.SetCoverSong(it)) },
+            onClearCover = { albumDetailViewModel.intent(AlbumDetailAction.ClearCover) },
             workLabel = { workLabel },
         )
     }

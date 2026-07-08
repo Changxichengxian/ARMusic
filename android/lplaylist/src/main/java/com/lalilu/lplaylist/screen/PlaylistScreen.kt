@@ -27,11 +27,11 @@ import com.lalilu.component.base.screen.ScreenBarFactory
 import com.lalilu.component.base.screen.ScreenInfo
 import com.lalilu.component.base.songs.SongsSearcherPanel
 import com.lalilu.component.base.songs.SongsSelectorPanel
-import com.lalilu.component.extension.screenVM
+import com.lalilu.component.extension.screenViewModel
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.lplaylist.R
 import com.lalilu.lplaylist.viewmodel.PlaylistsAction
-import com.lalilu.lplaylist.viewmodel.PlaylistsVM
+import com.lalilu.lplaylist.viewmodel.PlaylistsViewModel
 import com.lalilu.remixicon.Media
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.media.playListFill
@@ -53,19 +53,19 @@ data object PlaylistScreen : TabScreen, ScreenBarFactory {
 
     @Composable
     override fun Content() {
-        val vm = screenVM<PlaylistsVM>()
-        val state by vm.state
+        val playlistsViewModel = screenViewModel<PlaylistsViewModel>()
+        val state by playlistsViewModel.state
 
         SongsSearcherPanel(
             isVisible = { state.showSearcherPanel },
-            onDismiss = { vm.intent(PlaylistsAction.HideSearcherPanel) },
-            keyword = { state.searchKeyWord },
-            onUpdateKeyword = { vm.intent(PlaylistsAction.SearchFor(it)) }
+            onDismiss = { playlistsViewModel.intent(PlaylistsAction.HideSearcherPanel) },
+            keyword = { state.searchKeyword },
+            onUpdateKeyword = { playlistsViewModel.intent(PlaylistsAction.SearchFor(it)) }
         )
 
         SongsSelectorPanel(
-            isVisible = { vm.selector.isSelecting.value },
-            onDismiss = { vm.selector.isSelecting.value = false },
+            isVisible = { playlistsViewModel.selector.isSelecting.value },
+            onDismiss = { playlistsViewModel.selector.isSelecting.value = false },
             screenActions = listOfNotNull(
                 ScreenAction.Dynamic {
                     val color = Color(0xFFFF3C3C)
@@ -78,7 +78,7 @@ data object PlaylistScreen : TabScreen, ScreenBarFactory {
                             backgroundColor = color.copy(alpha = 0.15f),
                             contentColor = color
                         ),
-                        onLongClick = { vm.intent(PlaylistsAction.TryRemovePlaylist(vm.selector.selected())) },
+                        onLongClick = { playlistsViewModel.intent(PlaylistsAction.TryRemovePlaylist(playlistsViewModel.selector.selected())) },
                         onClick = { ToastUtils.showShort("请长按此按钮以继续") },
                     ) {
                         Image(
@@ -98,16 +98,16 @@ data object PlaylistScreen : TabScreen, ScreenBarFactory {
         )
 
         PlaylistScreenContent(
-            isSearching = { state.searchKeyWord.isNotBlank() && !state.showSearcherPanel },
-            onStartSearch = { vm.intent(PlaylistsAction.ShowSearcherPanel) },
-            isSelected = { vm.selector.isSelected(it) },
-            isSelecting = { vm.selector.isSelecting.value },
-            playlists = { vm.playlists.value },
-            onUpdatePlaylist = { vm.intent(PlaylistsAction.UpdatePlaylist(it)) },
-            onLongClickPlaylist = { vm.selector.onSelect(it) },
+            isSearching = { state.searchKeyword.isNotBlank() && !state.showSearcherPanel },
+            onStartSearch = { playlistsViewModel.intent(PlaylistsAction.ShowSearcherPanel) },
+            isSelected = { playlistsViewModel.selector.isSelected(it) },
+            isSelecting = { playlistsViewModel.selector.isSelecting.value },
+            playlists = { playlistsViewModel.playlists.value },
+            onUpdatePlaylist = { playlistsViewModel.intent(PlaylistsAction.UpdatePlaylist(it)) },
+            onLongClickPlaylist = { playlistsViewModel.selector.onSelect(it) },
             onClickPlaylist = {
-                if (vm.selector.isSelecting.value) {
-                    vm.selector.onSelect(it)
+                if (playlistsViewModel.selector.isSelecting.value) {
+                    playlistsViewModel.selector.onSelect(it)
                 } else {
                     AppRouter.route("/pages/playlist/detail")
                         .with("playlistId", it.id)

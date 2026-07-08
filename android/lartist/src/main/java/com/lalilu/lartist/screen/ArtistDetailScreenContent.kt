@@ -36,7 +36,7 @@ import com.lalilu.component.extension.startRecord
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
 import com.lalilu.lartist.component.ArtistCard
-import com.lalilu.lartist.viewModel.ArtistDetailEvent
+import com.lalilu.lartist.viewmodel.ArtistDetailEvent
 import com.lalilu.lmedia.entity.LArtist
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.GroupIdentity

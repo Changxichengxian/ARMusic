@@ -27,8 +27,8 @@ object LatestPanel : LazyGridContent {
     @OptIn(ExperimentalMaterialApi::class)
     @Composable
     override fun register(): LazyGridScope.() -> Unit {
-        val libraryVM: LibraryViewModel = koinInject()
-        val items by libraryVM.recentlyAdded
+        val libraryViewModel: LibraryViewModel = koinInject()
+        val items by libraryViewModel.recentlyAdded
 
         return fun LazyGridScope.() {
             // 若列表为空，不显示

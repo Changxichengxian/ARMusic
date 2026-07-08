@@ -83,7 +83,7 @@
             android:exported="true"
             android:theme="@style/Theme.Music">
             <intent-filter>
-                <action android:name="com.lalilu.lmusic.armusic.IMPORT_BACKUP" />
+                <action android:name="com.armusic.IMPORT_BACKUP" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/json" />
             </intent-filter>
@@ -94,7 +94,7 @@
             android:exported="true"
             android:theme="@style/Theme.Music">
             <intent-filter>
-                <action android:name="com.lalilu.lmusic.armusic.IMPORT_WORK_MAPPING" />
+                <action android:name="com.armusic.IMPORT_WORK_MAPPING" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -104,7 +104,7 @@
             android:exported="true"
             android:theme="@style/Theme.ARMusic.Agent">
             <intent-filter>
-                <action android:name="com.lalilu.lmusic.armusic.AGENT_COMMAND" />
+                <action android:name="com.armusic.AGENT_COMMAND" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -114,5 +114,6 @@
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
             tools:node="merge"></provider>
+
     </application>
 </manifest>

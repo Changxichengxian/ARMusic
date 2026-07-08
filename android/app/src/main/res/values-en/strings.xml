@@ -90,7 +90,7 @@
     <string name="settings_add_new_song">Add songs</string>
     <string name="settings_lan_sync">LAN sync</string>
     <string name="settings_migrating">Migrating</string>
-    <string name="settings_migrate_from_lmusic">Migrate from LMusic</string>
+    <string name="settings_migrate_from_legacy_app">Migrate from old version</string>
     <string name="settings_import_backup">Import backup</string>
     <string name="settings_export_work_mapping">Export work mapping</string>
     <string name="settings_import_work_mapping">Import work mapping</string>
@@ -138,9 +138,7 @@
     <string name="common_show_more">Show more</string>
     <string name="common_search_more">Search more</string>
 
-    <string name="home_daily_recommend">Daily Picks</string>
-    <string name="home_daily_stop_scroll">Stop scrolling</string>
-    <string name="home_daily_start_scroll">Start scrolling</string>
+    <string name="home_daily_recommend">Picks</string>
     <string name="home_daily_shuffle">Refresh</string>
     <string name="home_recently_added">Recently added</string>
     <string name="home_all_songs">All songs</string>

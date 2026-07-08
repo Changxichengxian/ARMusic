@@ -19,11 +19,11 @@ import com.lalilu.component.base.songs.SongsSearcherPanel
 import com.lalilu.component.base.songs.SongsSelectorPanel
 import com.lalilu.component.base.songs.SongsSortPanelDialog
 import com.lalilu.component.extension.DialogWrapper
-import com.lalilu.component.extension.screenVM
+import com.lalilu.component.extension.screenViewModel
 import com.lalilu.lmedia.extension.SortStaticAction
 import com.lalilu.lplaylist.R
 import com.lalilu.lplaylist.viewmodel.PlaylistDetailAction
-import com.lalilu.lplaylist.viewmodel.PlaylistDetailVM
+import com.lalilu.lplaylist.viewmodel.PlaylistDetailViewModel
 import com.lalilu.remixicon.Design
 import com.lalilu.remixicon.Editor
 import com.lalilu.remixicon.System
@@ -53,11 +53,11 @@ data class PlaylistDetailScreen(
 
     @Composable
     override fun provideScreenActions(): List<ScreenAction> {
-        val vm = screenVM<PlaylistDetailVM>(
+        val playlistDetailViewModel = screenViewModel<PlaylistDetailViewModel>(
             parameters = { parametersOf(playlistId) }
         )
 
-        val state by vm.state
+        val state by playlistDetailViewModel.state
 
         return remember {
             listOf(
@@ -65,28 +65,28 @@ data class PlaylistDetailScreen(
                     title = { "排序" },
                     icon = { RemixIcon.Editor.sortDesc },
                     color = { Color(0xFF1793FF) },
-                    onAction = { vm.intent(PlaylistDetailAction.ToggleSortPanel) }
+                    onAction = { playlistDetailViewModel.intent(PlaylistDetailAction.ToggleSortPanel) }
                 ),
                 ScreenAction.Static(
                     title = { "选择" },
                     icon = { RemixIcon.Design.editBoxLine },
                     color = { Color(0xFF009673) },
-                    onAction = { vm.selector.isSelecting.value = true }
+                    onAction = { playlistDetailViewModel.selector.isSelecting.value = true }
                 ),
                 ScreenAction.Static(
                     title = { "搜索" },
                     subTitle = {
-                        val keyword = state.searchKeyWord
+                        val keyword = state.searchKeyword
                         if (keyword.isNotBlank()) "搜索中： $keyword" else null
                     },
                     icon = { RemixIcon.System.menuSearchLine },
                     color = { Color(0xFF8BC34A) },
                     dotColor = {
-                        val keyword = state.searchKeyWord
+                        val keyword = state.searchKeyword
                         if (keyword.isNotBlank()) Color.Red else null
                     },
                     onAction = {
-                        vm.intent(PlaylistDetailAction.ToggleSearcherPanel)
+                        playlistDetailViewModel.intent(PlaylistDetailAction.ToggleSearcherPanel)
                         DialogWrapper.dismiss()
                     }
                 ),
@@ -94,7 +94,7 @@ data class PlaylistDetailScreen(
                     title = { "定位至当前播放歌曲" },
                     icon = { RemixIcon.Design.focus3Line },
                     color = { Color(0xFF8700FF) },
-                    onAction = { vm.intent(PlaylistDetailAction.LocaleToPlayingItem) }
+                    onAction = { playlistDetailViewModel.intent(PlaylistDetailAction.LocateToPlayingItem) }
                 ),
             )
         }
@@ -102,51 +102,51 @@ data class PlaylistDetailScreen(
 
     @Composable
     override fun Content() {
-        val vm = screenVM<PlaylistDetailVM>(
+        val playlistDetailViewModel = screenViewModel<PlaylistDetailViewModel>(
             parameters = { parametersOf(playlistId) }
         )
 
-        val state by vm.state
-        val songs by vm.songs
-        val playlist by vm.playlist
+        val state by playlistDetailViewModel.state
+        val songs by playlistDetailViewModel.songs
+        val playlist by playlistDetailViewModel.playlist
 
         SongsSortPanelDialog(
             isVisible = { state.showSortPanel },
-            onDismiss = { vm.intent(PlaylistDetailAction.HideSortPanel) },
-            supportSortActions = vm.supportSortActions,
+            onDismiss = { playlistDetailViewModel.intent(PlaylistDetailAction.HideSortPanel) },
+            supportSortActions = playlistDetailViewModel.supportSortActions,
             isSortActionSelected = { state.selectedSortAction == it },
-            onSelectSortAction = { vm.intent(PlaylistDetailAction.SelectSortAction(it)) }
+            onSelectSortAction = { playlistDetailViewModel.intent(PlaylistDetailAction.SelectSortAction(it)) }
         )
 
         SongsHeaderJumperDialog(
             isVisible = { state.showJumperDialog },
-            onDismiss = { vm.intent(PlaylistDetailAction.HideJumperDialog) },
+            onDismiss = { playlistDetailViewModel.intent(PlaylistDetailAction.HideJumperDialog) },
             items = { songs.keys },
-            onSelectItem = { vm.intent(PlaylistDetailAction.LocaleToGroupItem(it)) }
+            onSelectItem = { playlistDetailViewModel.intent(PlaylistDetailAction.LocateToGroupItem(it)) }
         )
 
         SongsSearcherPanel(
             isVisible = { state.showSearcherPanel },
-            onDismiss = { vm.intent(PlaylistDetailAction.HideSearcherPanel) },
-            keyword = { state.searchKeyWord },
-            onUpdateKeyword = { vm.intent(PlaylistDetailAction.SearchFor(it)) }
+            onDismiss = { playlistDetailViewModel.intent(PlaylistDetailAction.HideSearcherPanel) },
+            keyword = { state.searchKeyword },
+            onUpdateKeyword = { playlistDetailViewModel.intent(PlaylistDetailAction.SearchFor(it)) }
         )
 
         SongsSelectorPanel(
-            isVisible = { vm.selector.isSelecting.value },
-            onDismiss = { vm.selector.isSelecting.value = false },
+            isVisible = { playlistDetailViewModel.selector.isSelecting.value },
+            onDismiss = { playlistDetailViewModel.selector.isSelecting.value = false },
             screenActions = listOfNotNull(
                 ScreenAction.Static(
                     title = { "全选" },
                     color = { Color(0xFF00ACF0) },
                     icon = { RemixIcon.System.checkboxMultipleLine },
-                    onAction = { vm.selector.selectAll(vm.songs.value.values.flatten()) }
+                    onAction = { playlistDetailViewModel.selector.selectAll(playlistDetailViewModel.songs.value.values.flatten()) }
                 ),
                 ScreenAction.Static(
                     title = { "取消全选" },
                     icon = { RemixIcon.System.checkboxMultipleBlankLine },
                     color = { Color(0xFFFF5100) },
-                    onAction = { vm.selector.clear() }
+                    onAction = { playlistDetailViewModel.selector.clear() }
                 ),
                 ScreenAction.Static(
                     title = { "删除" },
@@ -154,13 +154,13 @@ data class PlaylistDetailScreen(
                     longClick = { true },
                     color = { Color(0xFFF5381D) },
                     onAction = {
-                        val ids = vm.selector.selected().map { it.id }
-                        vm.intent(PlaylistDetailAction.RemoveItems(ids))
+                        val ids = playlistDetailViewModel.selector.selected().map { it.id }
+                        playlistDetailViewModel.intent(PlaylistDetailAction.RemoveItems(ids))
                     }
                 ),
                 requestFor<ScreenAction>(
                     qualifier = named("add_to_playlist_action"),
-                    parameters = { parametersOf(vm.selector::selected) }
+                    parameters = { parametersOf(playlistDetailViewModel.selector::selected) }
                 )
             )
         )
@@ -169,15 +169,15 @@ data class PlaylistDetailScreen(
             songs = songs,
             playlist = playlist,
             enableDraggable = state.selectedSortAction is SortStaticAction.Normal,
-            keys = { vm.recorder.list().filterNotNull() },
-            recorder = vm.recorder,
-            eventFlow = vm.eventFlow(),
-            isSelecting = { vm.selector.isSelecting.value },
-            isSelected = { vm.selector.isSelected(it) },
+            keys = { playlistDetailViewModel.recorder.list().filterNotNull() },
+            recorder = playlistDetailViewModel.recorder,
+            eventFlow = playlistDetailViewModel.eventFlow(),
+            isSelecting = { playlistDetailViewModel.selector.isSelecting.value },
+            isSelected = { playlistDetailViewModel.selector.isSelected(it) },
             selectedSortAction = state.selectedSortAction,
-            onSelect = { vm.selector.onSelect(it) },
-            onClickGroup = { vm.intent(PlaylistDetailAction.ToggleJumperDialog) },
-            onUpdatePlaylist = { vm.intent(PlaylistDetailAction.UpdatePlaylist(it)) }
+            onSelect = { playlistDetailViewModel.selector.onSelect(it) },
+            onClickGroup = { playlistDetailViewModel.intent(PlaylistDetailAction.ToggleJumperDialog) },
+            onUpdatePlaylist = { playlistDetailViewModel.intent(PlaylistDetailAction.UpdatePlaylist(it)) }
         )
     }
 }

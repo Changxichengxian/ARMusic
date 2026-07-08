@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.lalilu.R
 import com.lalilu.RemixIcon
 import com.lalilu.component.base.screen.ScreenBarFactory
-import com.lalilu.lmusic.viewmodel.SearchVM
+import com.lalilu.lmusic.viewmodel.SearchViewModel
 import com.lalilu.remixicon.Arrows
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.arrows.arrowLeftSLine
@@ -53,7 +53,7 @@ import org.koin.compose.koinInject
 
 @Composable
 internal fun ScreenBarFactory.SearchBar(
-    searchVM: SearchVM = koinInject(),
+    searchViewModel: SearchViewModel = koinInject(),
 ) {
     val visible = remember { mutableStateOf(true) }
 
@@ -63,8 +63,8 @@ internal fun ScreenBarFactory.SearchBar(
         onBackPressed = null,
         content = {
             SearchBarContent(
-                keyword = { searchVM.keywordStr },
-                onUpdateKeyword = { searchVM.keywordStr = it }
+                keyword = { searchViewModel.keywordStr },
+                onUpdateKeyword = { searchViewModel.keywordStr = it }
             )
         }
     )

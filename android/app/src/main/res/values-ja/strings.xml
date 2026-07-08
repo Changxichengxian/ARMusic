@@ -90,7 +90,7 @@
     <string name="settings_add_new_song">曲を追加</string>
     <string name="settings_lan_sync">LAN 同期</string>
     <string name="settings_migrating">移行中</string>
-    <string name="settings_migrate_from_lmusic">LMusic から移行</string>
+    <string name="settings_migrate_from_legacy_app">旧バージョンから移行</string>
     <string name="settings_import_backup">バックアップをインポート</string>
     <string name="settings_export_work_mapping">作品マッピングを書き出し</string>
     <string name="settings_import_work_mapping">作品マッピングを読み込み</string>
@@ -139,8 +139,6 @@
     <string name="common_search_more">さらに検索</string>
 
     <string name="home_daily_recommend">おすすめ</string>
-    <string name="home_daily_stop_scroll">スクロール停止</string>
-    <string name="home_daily_start_scroll">スクロール開始</string>
     <string name="home_daily_shuffle">入れ替え</string>
     <string name="home_recently_added">最近追加</string>
     <string name="home_all_songs">すべての曲</string>

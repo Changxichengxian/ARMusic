@@ -77,7 +77,7 @@ import com.lalilu.lmusic.compose.screen.search.extensions.SearchSongsResult
 import com.lalilu.lmusic.compose.screen.search.extensions.SearchWorksResult
 import com.lalilu.lmusic.utils.extension.edgeTransparent
 import com.lalilu.lmusic.viewmodel.SearchScreenState
-import com.lalilu.lmusic.viewmodel.SearchVM
+import com.lalilu.lmusic.viewmodel.SearchViewModel
 import com.lalilu.lplayer.action.MediaControl
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.system.search2Line
@@ -102,26 +102,30 @@ data object SearchScreen : Screen, TabScreen, ScreenInfoFactory, ScreenBarFactor
 
     @Composable
     override fun Content() {
-        val searchVM: SearchVM = koinInject()
+        val searchViewModel: SearchViewModel = koinInject()
 
-        SearchBar(searchVM = searchVM)
+        SearchBar(searchViewModel = searchViewModel)
 
         SearchScreenContent(
-            searchVM = searchVM
+            searchViewModel = searchViewModel
         )
     }
 }
 
 @Composable
 private fun SearchScreenContent(
-    searchVM: SearchVM = koinInject(),
+    searchViewModel: SearchViewModel = koinInject(),
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val statusBar = WindowInsets.statusBars.asPaddingValues()
-    val state = searchVM.searchState.value
-    val songs = LMedia.getFlow<LSong>()
-        .collectAsState(initial = emptyList())
-        .value
+    val state = searchViewModel.searchState.value
+    val idlePosterSongs = if (state is SearchScreenState.Idle) {
+        LMedia.getFlow<LSong>()
+            .collectAsState(initial = emptyList())
+            .value
+    } else {
+        emptyList()
+    }
     val workLabel = rememberWorkLabel()
 
     DisposableEffect(Unit) {
@@ -142,7 +146,7 @@ private fun SearchScreenContent(
             SearchIdleContent(
                 modifier = Modifier
                     .fillMaxSize(),
-                songs = songs,
+                songs = idlePosterSongs,
             )
             return@AnimatedContent
         }
@@ -162,7 +166,7 @@ private fun SearchScreenContent(
         val songsResult = remember(songsResultTitle) {
             SearchSongsResult(
                 songsResult = {
-                    (searchVM.searchState.value as? SearchScreenState.Searching)
+                    (searchViewModel.searchState.value as? SearchScreenState.Searching)
                         ?.songs ?: emptyList()
                 },
                 title = songsResultTitle,
@@ -173,14 +177,14 @@ private fun SearchScreenContent(
             SearchWorksResult(
                 workLabel = { workLabel },
             ) {
-                (searchVM.searchState.value as? SearchScreenState.Searching)
+                (searchViewModel.searchState.value as? SearchScreenState.Searching)
                     ?.works ?: emptyList()
             }
         }.register()
 
         val artistsResult = remember {
             SearchArtistsResult {
-                (searchVM.searchState.value as? SearchScreenState.Searching)
+                (searchViewModel.searchState.value as? SearchScreenState.Searching)
                     ?.artists ?: emptyList()
             }
         }.register()
@@ -188,7 +192,7 @@ private fun SearchScreenContent(
         val lyricSongsResult = remember(lyricResultTitle) {
             SearchSongsResult(
                 songsResult = {
-                    (searchVM.searchState.value as? SearchScreenState.Searching)
+                    (searchViewModel.searchState.value as? SearchScreenState.Searching)
                         ?.lyricSongs ?: emptyList()
                 },
                 title = lyricResultTitle
@@ -207,7 +211,7 @@ private fun SearchScreenContent(
             ) {
                 SearchScopeRow(
                     modifier = Modifier.animateItem(),
-                    searchVM = searchVM,
+                    searchViewModel = searchViewModel,
                     workLabel = workLabel,
                 )
             }
@@ -619,7 +623,7 @@ private fun SearchPosterTile(
 @Composable
 private fun SearchScopeRow(
     modifier: Modifier = Modifier,
-    searchVM: SearchVM,
+    searchViewModel: SearchViewModel,
     workLabel: String,
 ) {
     Row(
@@ -631,23 +635,23 @@ private fun SearchScopeRow(
     ) {
         SearchScopeButton(
             text = stringResource(id = R.string.search_scope_songs),
-            selected = searchVM.includeSongs,
-            onClick = { searchVM.includeSongs = !searchVM.includeSongs },
+            selected = searchViewModel.includeSongs,
+            onClick = { searchViewModel.includeSongs = !searchViewModel.includeSongs },
         )
         SearchScopeButton(
             text = workLabel,
-            selected = searchVM.includeWorks,
-            onClick = { searchVM.includeWorks = !searchVM.includeWorks },
+            selected = searchViewModel.includeWorks,
+            onClick = { searchViewModel.includeWorks = !searchViewModel.includeWorks },
         )
         SearchScopeButton(
             text = stringResource(id = R.string.search_scope_artists),
-            selected = searchVM.includeArtists,
-            onClick = { searchVM.includeArtists = !searchVM.includeArtists },
+            selected = searchViewModel.includeArtists,
+            onClick = { searchViewModel.includeArtists = !searchViewModel.includeArtists },
         )
         SearchScopeButton(
             text = stringResource(id = R.string.search_scope_lyrics),
-            selected = searchVM.includeLyrics,
-            onClick = { searchVM.includeLyrics = !searchVM.includeLyrics },
+            selected = searchViewModel.includeLyrics,
+            onClick = { searchViewModel.includeLyrics = !searchViewModel.includeLyrics },
         )
     }
 }

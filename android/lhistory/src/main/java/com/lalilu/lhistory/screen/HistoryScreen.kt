@@ -33,7 +33,7 @@ import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.lhistory.component.HistoryItemCard
 import com.lalilu.lhistory.entity.LHistory
-import com.lalilu.lhistory.viewmodel.HistoryVM
+import com.lalilu.lhistory.viewmodel.HistoryViewModel
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.remixicon.System
@@ -57,7 +57,7 @@ data object HistoryScreen : Screen, ScreenInfoFactory {
 
     @Composable
     override fun Content() {
-        val historyVM = koinInject<HistoryVM>()
+        val historyVM = koinInject<HistoryViewModel>()
         val items = historyVM.pager.collectAsLazyPagingItems()
 
         HistoryScreenContent(

@@ -114,7 +114,10 @@ class CustomAnchoredDraggableState(
         }
 
     fun updateAnchor(min: Int, middle: Int, max: Int) {
-        val maxPositionChange = maxPosition != max
+        val anchorChanged = minPosition != min ||
+                middlePosition != middle ||
+                maxPosition != max
+        val currentAnchor = stateValue
 
         minPosition = min
         middlePosition = middle
@@ -129,16 +132,18 @@ class CustomAnchoredDraggableState(
 
             // 若位置超出范围，则尝试修正
             position.floatValue.toInt() !in minPosition..maxPosition -> {
-                val targetPosition = position.floatValue.coerceIn(min.toFloat(), max.toFloat())
+                val targetPosition = getPositionByAnchor(currentAnchor)
+                    ?.toFloat()
+                    ?: position.floatValue.coerceIn(min.toFloat(), max.toFloat())
                 updatePosition(targetPosition)
             }
 
-            // 若最大值改变，则尝试修正
-            maxPositionChange -> {
-                val targetPosition = position.floatValue.coerceIn(min.toFloat(), max.toFloat())
-                    .let { calcSnapByTargetPosition(it.toInt()) }
-                    .toFloat()
-                updatePosition(targetPosition)
+            // 横竖屏切换会改变锚点像素位置，优先按当前页面状态恢复。
+            anchorChanged -> {
+                val targetPosition = getPositionByAnchor(currentAnchor)
+                    ?: position.floatValue.coerceIn(min.toFloat(), max.toFloat())
+                        .let { calcSnapByTargetPosition(it.toInt()) }
+                updatePosition(targetPosition.toFloat())
             }
         }
     }

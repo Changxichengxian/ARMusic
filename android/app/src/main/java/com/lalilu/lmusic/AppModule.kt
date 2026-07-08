@@ -24,11 +24,17 @@ import com.lalilu.lmusic.api.lrcshare.LrcShareApi
 import com.lalilu.lmusic.api.lrclib.LrclibApi
 import com.lalilu.lmusic.api.netease.NeteaseMusicApi
 import com.lalilu.lmusic.api.tag.OnlineTagSearchService
+import com.lalilu.lmusic.agent.ARMusicAgentBundleImporter
+import com.lalilu.lmusic.agent.ARMusicAgentFiles
+import com.lalilu.lmusic.agent.ARMusicAgentLibraryExporter
 import com.lalilu.lmusic.agent.ARMusicAgentManager
 import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.datastore.TempSp
+import com.lalilu.lmusic.migration.ARMusicBackupCodec
+import com.lalilu.lmusic.migration.ARMusicHistoryMigrator
 import com.lalilu.lmusic.migration.ARMusicMemoSeedImporter
 import com.lalilu.lmusic.migration.ARMusicPlayCountSeedImporter
+import com.lalilu.lmusic.migration.ARMusicPreferenceMigrator
 import com.lalilu.lmusic.migration.ARMusicWorkMappingManager
 import com.lalilu.lmusic.migration.LMusicMigrationManager
 import com.lalilu.lmusic.sync.ARMusicAndroidManifestBuilder
@@ -112,9 +118,15 @@ val AppModule = module {
     single { TempSp(androidApplication()) }
     single { SongGroupStore(androidApplication(), get()) }
     single<HistoryStatIdResolver> { ARMusicHistoryStatIdResolver(get()) }
-    single { LMusicMigrationManager(androidApplication(), get()) }
+    single { ARMusicPreferenceMigrator(androidApplication()) }
+    single { ARMusicHistoryMigrator(get()) }
+    single { ARMusicBackupCodec(androidApplication(), get(), get()) }
+    single { LMusicMigrationManager(androidApplication(), get(), get(), get()) }
     single { ARMusicWorkMappingManager(androidApplication(), get()) }
-    single { ARMusicAgentManager(androidApplication(), get(), get(), get()) }
+    single { ARMusicAgentFiles(androidApplication()) }
+    single { ARMusicAgentLibraryExporter(get(), get(), get()) }
+    single { ARMusicAgentBundleImporter(get(), get(), get(), get()) }
+    single { ARMusicAgentManager(get(), get(), get(), get()) }
     single { ARMusicMemoSeedImporter(androidApplication(), get()) }
     single { ARMusicPlayCountSeedImporter(androidApplication(), get(), get()) }
     single { EQHelper(androidApplication()) }

@@ -270,7 +270,7 @@ inline fun <reified T : ViewModel> singleViewModel(): T =
     koinViewModel(viewModelStoreOwner = koinInject())
 
 @Composable
-inline fun <reified T : ViewModel> Screen.screenVM(
+inline fun <reified T : ViewModel> Screen.screenViewModel(
     qualifier: Qualifier? = null,
     viewModelStoreOwner: ViewModelStoreOwner = checkNotNull(
         value = getScreenViewModelStoreOwner() ?: LocalViewModelStoreOwner.current,

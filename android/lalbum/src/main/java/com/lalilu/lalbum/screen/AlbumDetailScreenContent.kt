@@ -54,7 +54,7 @@ import com.lalilu.component.extension.ItemRecorder
 import com.lalilu.component.extension.rememberLazyListAnimateScroller
 import com.lalilu.component.extension.startRecord
 import com.lalilu.component.navigation.AppRouter
-import com.lalilu.lalbum.viewModel.AlbumDetailEvent
+import com.lalilu.lalbum.viewmodel.AlbumDetailEvent
 import com.lalilu.lmedia.entity.LAlbum
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.GroupIdentity

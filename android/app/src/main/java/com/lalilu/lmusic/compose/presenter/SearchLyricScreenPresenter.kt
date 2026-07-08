@@ -31,7 +31,7 @@ sealed class SearchLyricAction : UiAction {
 
 object SearchLyricPresenter : UiPresenter<SearchLyricState> {
     override val coroutineContext: CoroutineContext = Dispatchers.Main
-    private val vm: SearchLyricViewModel by KoinJavaComponent.inject(SearchLyricViewModel::class.java)
+    private val searchLyricViewModel: SearchLyricViewModel by KoinJavaComponent.inject(SearchLyricViewModel::class.java)
     private var keywords by mutableStateOf("")
     private var lastSearchMediaId by mutableStateOf("")
     private var selectedId by mutableIntStateOf(-1)
@@ -51,14 +51,14 @@ object SearchLyricPresenter : UiPresenter<SearchLyricState> {
         when (action) {
             is SearchLyricAction.SearchFor -> {
                 if (lastSearchMediaId == mediaId && keywords == action.keywords) return
-                vm.searchFor(song = action.keywords)
+                searchLyricViewModel.searchFor(song = action.keywords)
 
                 keywords = action.keywords
                 lastSearchMediaId = mediaId
             }
 
             is SearchLyricAction.SaveFor -> {
-                vm.saveLyricInto(lyricId = selectedId, mediaId = mediaId) {
+                searchLyricViewModel.saveLyricInto(lyricId = selectedId, mediaId = mediaId) {
                     launch { AppRouter.intent(NavIntent.Pop) }
                 }
             }

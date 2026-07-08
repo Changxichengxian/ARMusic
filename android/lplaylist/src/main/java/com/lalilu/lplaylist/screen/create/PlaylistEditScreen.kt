@@ -10,9 +10,9 @@ import com.lalilu.component.base.screen.ScreenAction
 import com.lalilu.component.base.screen.ScreenActionFactory
 import com.lalilu.component.base.screen.ScreenInfo
 import com.lalilu.component.base.screen.ScreenInfoFactory
-import com.lalilu.component.extension.screenVM
+import com.lalilu.component.extension.screenViewModel
 import com.lalilu.lplaylist.viewmodel.PlaylistEditAction
-import com.lalilu.lplaylist.viewmodel.PlaylistEditVM
+import com.lalilu.lplaylist.viewmodel.PlaylistEditViewModel
 import com.lalilu.remixicon.Design
 import com.lalilu.remixicon.System
 import com.lalilu.remixicon.design.editBoxFill
@@ -40,27 +40,27 @@ data class PlaylistEditScreen(
 
     @Composable
     override fun provideScreenActions(): List<ScreenAction> {
-        val vm = screenVM<PlaylistEditVM>(
+        val playlistEditViewModel = screenViewModel<PlaylistEditViewModel>(
             parameters = { parametersOf(playlistId) }
         )
 
         return remember {
             listOfNotNull(
-                if (vm.playlist.value != null) {
+                if (playlistEditViewModel.playlist.value != null) {
                     ScreenAction.Static(
                         title = { "删除歌单" },
                         icon = { RemixIcon.System.deleteBinLine },
                         longClick = { true },
                         color = { Color(0xFFF5381D) },
-                        onAction = { vm.intent(PlaylistEditAction.Delete) }
+                        onAction = { playlistEditViewModel.intent(PlaylistEditAction.Delete) }
                     )
                 } else null,
                 ScreenAction.Static(
-                    title = { if (vm.playlist.value == null) "创建歌单" else "更新歌单" },
+                    title = { if (playlistEditViewModel.playlist.value == null) "创建歌单" else "更新歌单" },
                     icon = { RemixIcon.Design.editBoxFill },
                     longClick = { true },
                     color = { Color(0xFF0074FF) },
-                    onAction = { vm.intent(PlaylistEditAction.Confirm) }
+                    onAction = { playlistEditViewModel.intent(PlaylistEditAction.Confirm) }
                 ),
             )
         }
@@ -68,18 +68,18 @@ data class PlaylistEditScreen(
 
     @Composable
     override fun Content() {
-        val vm = screenVM<PlaylistEditVM>(
+        val playlistEditViewModel = screenViewModel<PlaylistEditViewModel>(
             parameters = { parametersOf(playlistId) }
         )
 
         PlaylistEditScreenContent(
-            isEditing = { vm.playlist.value != null },
-            titleHint = { vm.playlist.value?.title ?: "" },
-            subTitleHint = { vm.playlist.value?.subTitle ?: "" },
-            titleValue = { vm.titleState.value },
-            onUpdateTitle = { vm.titleState.value = it },
-            subTitleValue = { vm.subTitleState.value },
-            onUpdateSubTitle = { vm.subTitleState.value = it }
+            isEditing = { playlistEditViewModel.playlist.value != null },
+            titleHint = { playlistEditViewModel.playlist.value?.title ?: "" },
+            subTitleHint = { playlistEditViewModel.playlist.value?.subTitle ?: "" },
+            titleValue = { playlistEditViewModel.titleState.value },
+            onUpdateTitle = { playlistEditViewModel.titleState.value = it },
+            subTitleValue = { playlistEditViewModel.subTitleState.value },
+            onUpdateSubTitle = { playlistEditViewModel.subTitleState.value = it }
         )
     }
 }

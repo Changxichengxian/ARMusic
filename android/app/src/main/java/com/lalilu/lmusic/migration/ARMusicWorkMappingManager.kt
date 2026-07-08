@@ -120,7 +120,7 @@ class ARMusicWorkMappingManager(
                     )
                     ?: return@fold count
 
-                songWorkStore.setWork(song, work)
+                songWorkStore.setWork(song, work, writeFile = true)
                 count + 1
             }
 

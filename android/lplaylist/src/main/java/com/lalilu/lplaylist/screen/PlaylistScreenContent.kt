@@ -33,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lalilu.RemixIcon
 import com.lalilu.component.base.NavigatorHeader
+import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.lplaylist.R
 import com.lalilu.lplaylist.component.PlaylistCard
@@ -152,6 +153,8 @@ internal fun PlaylistScreenContent(
                 )
             }
         }
+
+        smartBarPadding()
     }
 }
 

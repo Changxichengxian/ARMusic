@@ -18,7 +18,7 @@ import com.lalilu.component.card.SongCard
 import com.lalilu.component.extension.DynamicTipsHost
 import com.lalilu.component.extension.DynamicTipsItem
 import com.lalilu.component.navigation.AppRouter
-import com.lalilu.lhistory.viewmodel.HistoryVM
+import com.lalilu.lhistory.viewmodel.HistoryViewModel
 import com.lalilu.lplayer.MPlayer
 import com.lalilu.lplayer.action.MediaControl
 import org.koin.compose.koinInject
@@ -32,7 +32,7 @@ class HistoryPanel : LazyGridContent {
 
     @Composable
     override fun register(): LazyGridScope.() -> Unit {
-        val historyVM = koinInject<HistoryVM>()
+        val historyVM = koinInject<HistoryViewModel>()
         val widthSizeClass = LocalWindowSize.current.widthSizeClass
         val items by historyVM.historyState
         val historyPlayTitle = stringResource(id = R.string.history_dynamic_title)

@@ -15,11 +15,11 @@ import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.component.base.songs.SongsSearcherPanel
 import com.lalilu.component.base.songs.SongsSortPanelDialog
 import com.lalilu.component.extension.DialogWrapper
-import com.lalilu.component.extension.screenVM
+import com.lalilu.component.extension.screenViewModel
 import com.lalilu.component.work.rememberWorkLabel
 import com.lalilu.lalbum.R
-import com.lalilu.lalbum.viewModel.AlbumsAction
-import com.lalilu.lalbum.viewModel.AlbumsVM
+import com.lalilu.lalbum.viewmodel.AlbumsAction
+import com.lalilu.lalbum.viewmodel.AlbumsViewModel
 import com.lalilu.remixicon.Editor
 import com.lalilu.remixicon.Media
 import com.lalilu.remixicon.System
@@ -48,40 +48,40 @@ data class AlbumsScreen(
 
     @Composable
     override fun provideScreenActions(): List<ScreenAction> {
-        val albumsVM = screenVM<AlbumsVM>(
+        val albumsViewModel = screenViewModel<AlbumsViewModel>(
             parameters = { parametersOf(albumsId) }
         )
-        val state by albumsVM.state
+        val state by albumsViewModel.state
         val workLabel = rememberWorkLabel()
 
-        return remember(state.showText, state.searchKeyWord, workLabel) {
+        return remember(state.showText, state.searchKeyword, workLabel) {
             listOf(
                 ScreenAction.Static(
                     title = { if (state.showText) "隐藏${workLabel}名" else "显示${workLabel}名" },
                     color = { Color(0xFF6E4AC3) },
                     icon = { if (state.showText) RemixIcon.Editor.text else RemixIcon.Editor.formatClear },
-                    onAction = { albumsVM.intent(AlbumsAction.ToggleShowText) }
+                    onAction = { albumsViewModel.intent(AlbumsAction.ToggleShowText) }
                 ),
                 ScreenAction.Static(
                     title = { "排序" },
                     icon = { RemixIcon.Editor.sortDesc },
                     color = { Color(0xFF1793FF) },
-                    onAction = { albumsVM.intent(AlbumsAction.ToggleSortPanel) }
+                    onAction = { albumsViewModel.intent(AlbumsAction.ToggleSortPanel) }
                 ),
                 ScreenAction.Static(
                     title = { "搜索" },
                     subTitle = {
-                        val keyword = state.searchKeyWord
+                        val keyword = state.searchKeyword
                         if (keyword.isNotBlank()) "搜索中： $keyword" else null
                     },
                     icon = { RemixIcon.System.menuSearchLine },
                     color = { Color(0xFF8BC34A) },
                     dotColor = {
-                        val keyword = state.searchKeyWord
+                        val keyword = state.searchKeyword
                         if (keyword.isNotBlank()) Color.Red else null
                     },
                     onAction = {
-                        albumsVM.intent(AlbumsAction.ToggleSearcherPanel)
+                        albumsViewModel.intent(AlbumsAction.ToggleSearcherPanel)
                         DialogWrapper.dismiss()
                     }
                 ),
@@ -91,30 +91,30 @@ data class AlbumsScreen(
 
     @Composable
     override fun Content() {
-        val vm = screenVM<AlbumsVM>(
+        val albumsViewModel = screenViewModel<AlbumsViewModel>(
             parameters = { parametersOf(albumsId) }
         )
-        val state by vm.state
-        val albums by vm.albums
+        val state by albumsViewModel.state
+        val albums by albumsViewModel.albums
         val workLabel = rememberWorkLabel()
 
         SongsSortPanelDialog(
             isVisible = { state.showSortPanel },
-            onDismiss = { vm.intent(AlbumsAction.HideSortPanel) },
-            supportSortActions = vm.supportSortActions,
+            onDismiss = { albumsViewModel.intent(AlbumsAction.HideSortPanel) },
+            supportSortActions = albumsViewModel.supportSortActions,
             isSortActionSelected = { state.selectedSortAction == it },
-            onSelectSortAction = { vm.intent(AlbumsAction.SelectSortAction(it)) }
+            onSelectSortAction = { albumsViewModel.intent(AlbumsAction.SelectSortAction(it)) }
         )
 
         SongsSearcherPanel(
             isVisible = { state.showSearcherPanel },
-            onDismiss = { vm.intent(AlbumsAction.HideSearcherPanel) },
-            keyword = { state.searchKeyWord },
-            onUpdateKeyword = { vm.intent(AlbumsAction.SearchFor(it)) }
+            onDismiss = { albumsViewModel.intent(AlbumsAction.HideSearcherPanel) },
+            keyword = { state.searchKeyword },
+            onUpdateKeyword = { albumsViewModel.intent(AlbumsAction.SearchFor(it)) }
         )
 
         AlbumsScreenContent(
-            eventFlow = vm.eventFlow(),
+            eventFlow = albumsViewModel.eventFlow(),
             title = { "全部$workLabel" },
             workLabel = { workLabel },
             albums = { albums },

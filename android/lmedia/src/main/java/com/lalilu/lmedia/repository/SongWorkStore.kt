@@ -4,42 +4,39 @@ import android.app.Application
 import android.net.Uri
 import com.lalilu.lmedia.entity.LAlbum
 import com.lalilu.lmedia.entity.LSong
+import com.lalilu.lmedia.wrapper.Taglib
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
 
 class SongWorkStore(
-    application: Application,
+    private val application: Application,
 ) {
     private val sp = application.getSharedPreferences("armusic_song_works", Application.MODE_PRIVATE)
     private val _changes = MutableStateFlow(0)
     val changes: StateFlow<Int> = _changes
 
     fun getManualWork(song: LSong): String {
-        return sp.getString(idKey(song.id), null)
-            ?: song.fileInfo.pathStr
-                ?.takeIf { it.isNotBlank() && it != "<unknown_path>" }
-                ?.let { sp.getString(pathKey(it), null) }
-            ?: ""
+        return getStoredWork(song).orEmpty()
     }
 
     fun getWork(song: LSong): String {
-        return getManualWork(song)
+        return getStoredWork(song)?.trim()
+            ?: song.metadata.work.trim()
     }
 
-    fun setWork(song: LSong, work: String) {
+    fun setWork(song: LSong, work: String, writeFile: Boolean = false) {
         val normalized = work.trim()
         sp.edit().apply {
-            if (normalized.isBlank()) {
-                remove(idKey(song.id))
-                song.fileInfo.pathStr?.takeIf { it.isNotBlank() }?.let { remove(pathKey(it)) }
-            } else {
-                putString(idKey(song.id), normalized)
-                song.fileInfo.pathStr?.takeIf { it.isNotBlank() && it != "<unknown_path>" }?.let {
-                    putString(pathKey(it), normalized)
-                }
+            putString(idKey(song.id), normalized)
+            song.fileInfo.pathStr?.takeIf { it.isNotBlank() && it != "<unknown_path>" }?.let {
+                putString(pathKey(it), normalized)
             }
         }.apply()
+
+        if (writeFile) {
+            writeWorkTag(song, normalized)
+        }
         _changes.value = _changes.value + 1
     }
 
@@ -100,6 +97,27 @@ class SongWorkStore(
             .putString(workCoverKey(workName), value)
             .apply()
         _changes.value = _changes.value + 1
+    }
+
+    private fun getStoredWork(song: LSong): String? {
+        val mediaIdKey = idKey(song.id)
+        if (sp.contains(mediaIdKey)) return sp.getString(mediaIdKey, "").orEmpty()
+
+        val path = song.fileInfo.pathStr
+            ?.takeIf { it.isNotBlank() && it != "<unknown_path>" }
+            ?: return null
+        val filePathKey = pathKey(path)
+        if (sp.contains(filePathKey)) return sp.getString(filePathKey, "").orEmpty()
+
+        return null
+    }
+
+    private fun writeWorkTag(song: LSong, work: String): Boolean {
+        return runCatching {
+            application.contentResolver
+                .openFileDescriptor(song.uri, "rw")
+                ?.use { Taglib.writeWorkWithFD(it.detachFd(), work) } == true
+        }.getOrDefault(false)
     }
 
     private fun workId(name: String): String {

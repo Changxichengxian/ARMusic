@@ -29,8 +29,14 @@ object Taglib {
         track: String,
         disc: String,
         date: String,
+        work: String,
         sameSongGroup: String,
         lyric: String
+    ): Boolean
+
+    external fun writeWorkWithFD(
+        fileDescriptor: Int,
+        work: String
     ): Boolean
 
     external fun writeCoverWithFD(

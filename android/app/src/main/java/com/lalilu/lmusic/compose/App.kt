@@ -15,6 +15,7 @@ import com.funny.data_saver.core.LocalDataSaver
 import com.lalilu.component.base.LocalWindowSize
 import com.lalilu.component.lumo.LumoTheme
 import com.lalilu.lmusic.LMusicTheme
+import com.lalilu.lmusic.compose.shell.ARMusicScaffold
 import com.lalilu.lmusic.compose.screen.playing.PhoneLandscapePlayingLayout
 import org.koin.compose.koinInject
 
@@ -27,7 +28,7 @@ object App {
         Environment(activity = activity) {
             Box(modifier = Modifier.fillMaxSize()) {
                 ProvideNavigatorLifecycleKMPSupport {
-                    LayoutWrapperContent()
+                    ARMusicScaffold()
                 }
                 PhoneLandscapePlayingLayout()
             }

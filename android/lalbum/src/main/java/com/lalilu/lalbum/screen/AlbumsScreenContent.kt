@@ -30,7 +30,7 @@ import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
 import com.lalilu.lalbum.component.AlbumCard
-import com.lalilu.lalbum.viewModel.AlbumsEvent
+import com.lalilu.lalbum.viewmodel.AlbumsEvent
 import com.lalilu.lmedia.entity.LAlbum
 import com.lalilu.lmedia.extension.GroupIdentity
 import com.lalilu.lplayer.MPlayer

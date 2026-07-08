@@ -78,7 +78,7 @@
     <string name="settings_add_new_song">添加新歌</string>
     <string name="settings_lan_sync">局域网同步</string>
     <string name="settings_migrating">迁移中</string>
-    <string name="settings_migrate_from_lmusic">从 LMusic 迁移</string>
+    <string name="settings_migrate_from_legacy_app">从旧版迁移</string>
     <string name="settings_import_backup">导入备份</string>
     <string name="settings_export_work_mapping">导出作品映射</string>
     <string name="settings_import_work_mapping">导入作品映射</string>
@@ -126,9 +126,7 @@
     <string name="common_show_more">显示更多</string>
     <string name="common_search_more">继续搜</string>
 
-    <string name="home_daily_recommend">每日推荐</string>
-    <string name="home_daily_stop_scroll">关闭滚动</string>
-    <string name="home_daily_start_scroll">开启滚动</string>
+    <string name="home_daily_recommend">推荐</string>
     <string name="home_daily_shuffle">换一换</string>
     <string name="home_recently_added">最近添加</string>
     <string name="home_all_songs">所有歌曲</string>

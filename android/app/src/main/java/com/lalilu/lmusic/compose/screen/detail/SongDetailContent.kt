@@ -37,10 +37,10 @@ import com.lalilu.lmedia.entity.FileInfo
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.entity.Metadata
 import com.lalilu.lmedia.repository.SongWorkStore
-import com.lalilu.lmusic.compose.new_screen.detail.SongActionsCard
-import com.lalilu.lmusic.compose.new_screen.detail.SongAlbumInfoCard
-import com.lalilu.lmusic.compose.new_screen.detail.SongArtistsRow
-import com.lalilu.lmusic.compose.new_screen.detail.SongInformationCard
+import com.lalilu.lmusic.compose.screen.detail.component.SongActionsCard
+import com.lalilu.lmusic.compose.screen.detail.component.SongAlbumInfoCard
+import com.lalilu.lmusic.compose.screen.detail.component.SongArtistsRow
+import com.lalilu.lmusic.compose.screen.detail.component.SongInformationCard
 import org.koin.compose.koinInject
 
 

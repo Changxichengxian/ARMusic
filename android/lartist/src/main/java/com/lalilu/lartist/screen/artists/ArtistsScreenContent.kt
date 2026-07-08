@@ -37,7 +37,7 @@ import com.lalilu.component.navigation.AppRouter
 import com.lalilu.component.navigation.NavIntent
 import com.lalilu.lartist.component.ArtistCard
 import com.lalilu.lartist.screen.ArtistDetailScreen
-import com.lalilu.lartist.viewModel.ArtistsEvent
+import com.lalilu.lartist.viewmodel.ArtistsEvent
 import com.lalilu.lmedia.entity.LArtist
 import com.lalilu.lmedia.extension.GroupIdentity
 import com.lalilu.lplayer.MPlayer

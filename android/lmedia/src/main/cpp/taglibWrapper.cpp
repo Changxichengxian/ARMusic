@@ -84,6 +84,7 @@ Java_com_lalilu_lmedia_wrapper_Taglib_writeMetadataWithFD(JNIEnv *env, jobject t
                                                           jstring track,
                                                           jstring disc,
                                                           jstring date,
+                                                          jstring work,
                                                           jstring same_song_group,
                                                           jstring lyric) {
     TagLib::FileStream fileStream(file_descriptor, false);
@@ -101,6 +102,7 @@ Java_com_lalilu_lmedia_wrapper_Taglib_writeMetadataWithFD(JNIEnv *env, jobject t
     auto trackStr = toTagString(env, track);
     auto discStr = toTagString(env, disc);
     auto dateStr = toTagString(env, date);
+    auto workStr = toTagString(env, work);
     auto sameSongGroupStr = toTagString(env, same_song_group);
     auto lyricStr = toTagString(env, lyric);
 
@@ -124,8 +126,25 @@ Java_com_lalilu_lmedia_wrapper_Taglib_writeMetadataWithFD(JNIEnv *env, jobject t
     replaceProperty(map, "TRACKNUMBER", trackStr);
     replaceProperty(map, "DISCNUMBER", discStr);
     replaceProperty(map, "DATE", dateStr);
+    replaceProperty(map, "WORK", workStr);
     replaceProperty(map, "ARMUSIC_GROUP", sameSongGroupStr);
     replaceProperty(map, "LYRICS", lyricStr);
+    fileRef.file()->setProperties(map);
+
+    return fileRef.file()->save() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_lalilu_lmedia_wrapper_Taglib_writeWorkWithFD(JNIEnv *env, jobject thiz,
+                                                      jint file_descriptor,
+                                                      jstring work) {
+    TagLib::FileStream fileStream(file_descriptor, false);
+    TagLib::FileRef fileRef(&fileStream, true, TagLib::AudioProperties::ReadStyle::Fast);
+    if (fileRef.isNull() || fileRef.file() == nullptr) return JNI_FALSE;
+
+    auto map = fileRef.file()->properties();
+    replaceProperty(map, "WORK", toTagString(env, work));
     fileRef.file()->setProperties(map);
 
     return fileRef.file()->save() ? JNI_TRUE : JNI_FALSE;
@@ -278,6 +297,11 @@ Java_com_lalilu_lmedia_wrapper_Taglib_retrieveMetadataWithFD(JNIEnv *env, jobjec
     auto lyricist_str = toString(env, map["LYRICIST"].toString());
     auto genre_str = toString(env, map["GENRE"].toString());
     auto date = toString(env, map["DATE"].toString());
+    auto workValue = map["WORK"].toString();
+    if (workValue.isEmpty()) {
+        workValue = map["GROUPING"].toString();
+    }
+    auto work_str = toString(env, workValue);
     auto same_song_group = toString(env, map["ARMUSIC_GROUP"].toString());
 
     // 获取需要创建的jclass
@@ -285,7 +309,7 @@ Java_com_lalilu_lmedia_wrapper_Taglib_retrieveMetadataWithFD(JNIEnv *env, jobjec
 
     // 获取构造器方法ID
     jmethodID constructor = env->GetMethodID(metadata_class, "<init>",
-                                             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JJJ)V");
+                                             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JJJ)V");
 
     // 创建对象传入并参数
     jobject metadata_obj_j = env->NewObject(
@@ -302,6 +326,7 @@ Java_com_lalilu_lmedia_wrapper_Taglib_retrieveMetadataWithFD(JNIEnv *env, jobjec
             track_num,
             disc_num,
             date,
+            work_str,
             same_song_group,
             duration,
             dateAdded,
