@@ -8,36 +8,45 @@ import com.lalilu.lmedia.wrapper.Taglib
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 class SongWorkStore(
     private val application: Application,
 ) {
     private val sp = application.getSharedPreferences("armusic_song_works", Application.MODE_PRIVATE)
+    private val sessionWorks = ConcurrentHashMap<String, String>()
     private val _changes = MutableStateFlow(0)
     val changes: StateFlow<Int> = _changes
 
     fun getManualWork(song: LSong): String {
-        return getStoredWork(song).orEmpty()
+        return getWork(song)
     }
 
     fun getWork(song: LSong): String {
-        return getStoredWork(song)?.trim()
+        return getSessionWork(song)
             ?: song.metadata.work.trim()
     }
 
-    fun setWork(song: LSong, work: String, writeFile: Boolean = false) {
+    fun setWork(song: LSong, work: String, writeFile: Boolean = false): Boolean {
         val normalized = work.trim()
+
+        if (writeFile && !writeWorkTag(song, normalized)) {
+            return false
+        }
+
+        val mediaIdKey = idKey(song.id)
+        sessionWorks[mediaIdKey] = normalized
         sp.edit().apply {
-            putString(idKey(song.id), normalized)
+            remove(mediaIdKey)
             song.fileInfo.pathStr?.takeIf { it.isNotBlank() && it != "<unknown_path>" }?.let {
-                putString(pathKey(it), normalized)
+                val filePathKey = pathKey(it)
+                sessionWorks[filePathKey] = normalized
+                remove(filePathKey)
             }
         }.apply()
 
-        if (writeFile) {
-            writeWorkTag(song, normalized)
-        }
         _changes.value = _changes.value + 1
+        return true
     }
 
     fun buildWorks(songs: Collection<LSong>): List<LAlbum> {
@@ -99,17 +108,19 @@ class SongWorkStore(
         _changes.value = _changes.value + 1
     }
 
-    private fun getStoredWork(song: LSong): String? {
+    private fun getSessionWork(song: LSong): String? {
         val mediaIdKey = idKey(song.id)
-        if (sp.contains(mediaIdKey)) return sp.getString(mediaIdKey, "").orEmpty()
+        if (sessionWorks.containsKey(mediaIdKey)) return sessionWorks[mediaIdKey].orEmpty()
 
         val path = song.fileInfo.pathStr
             ?.takeIf { it.isNotBlank() && it != "<unknown_path>" }
             ?: return null
         val filePathKey = pathKey(path)
-        if (sp.contains(filePathKey)) return sp.getString(filePathKey, "").orEmpty()
-
-        return null
+        return if (sessionWorks.containsKey(filePathKey)) {
+            sessionWorks[filePathKey].orEmpty()
+        } else {
+            null
+        }
     }
 
     private fun writeWorkTag(song: LSong, work: String): Boolean {

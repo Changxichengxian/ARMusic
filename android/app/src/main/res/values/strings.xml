@@ -147,6 +147,7 @@
     <string name="wishlist_title">愿望单</string>
     <string name="wishlist_exported">已导出</string>
     <string name="wishlist_export_failed">导出失败</string>
+    <string name="wishlist_changed_retry">愿望单刚刚从另一端更新，已保留最新内容，请重试这次编辑</string>
     <string name="wishlist_item_count">共 %1$d 条</string>
     <string name="wishlist_empty_create_category">点右上方 + 新建一个栏目</string>
     <string name="wishlist_delete_category_title">删除%1$s</string>
@@ -239,4 +240,6 @@
     <string name="tag_editor_cover_too_small">图片太小，可能不清晰。</string>
     <string name="tag_editor_cover_too_large">图片较大，保存时会压缩到 1200。</string>
 
+    <string name="armusic_usb_sync_channel_name">ARMusic 电脑同步</string>
+    <string name="armusic_usb_sync_in_progress">正在与电脑同步</string>
 </resources>

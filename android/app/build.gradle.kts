@@ -47,8 +47,8 @@ android {
         applicationId = "com.armusic"
         minSdk = libs.versions.min.sdk.version.get().toIntOrNull()
         targetSdk = libs.versions.compile.version.get().toIntOrNull()
-        versionCode = 137
-        versionName = "1.3.7"
+        versionCode = 150
+        versionName = "1.5.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -237,6 +237,8 @@ dependencies {
 
     implementation("com.github.commandiron:WheelPickerCompose:1.1.11")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
+    testImplementation(kotlin("test-junit"))
 
 //    debugImplementation("com.github.getActivity:Logcat:11.8")
 //    debugImplementation("io.github.knight-zxw:blockcanary:0.0.5")

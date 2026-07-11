@@ -7,6 +7,7 @@ import com.lalilu.common.toCachedFlow
 import com.lalilu.lhistory.KEY_SETTINGS_HISTORY_DURATION_FILTER
 import com.lalilu.lhistory.entity.LHistory
 import com.lalilu.lhistory.historyDurationFilterMs
+import com.lalilu.lhistory.HistoryMutationCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,6 +26,7 @@ import kotlin.coroutines.CoroutineContext
 class HistoryRepositoryImpl(
     private val historyDao: HistoryDao,
     private val statIdResolver: com.lalilu.lhistory.HistoryStatIdResolver,
+    private val mutationCoordinator: HistoryMutationCoordinator,
     application: Application,
 ) : HistoryRepository, CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO
@@ -108,7 +110,7 @@ class HistoryRepositoryImpl(
     }
 
     override fun clearHistories() {
-        launch { historyDao.clear() }
+        launch { mutationCoordinator.withMutation { historyDao.clear() } }
     }
 
     override fun getAllData(): PagingSource<Int, LHistory> {

@@ -32,6 +32,32 @@ class ARMusicLanSyncClient(
         pathSegments = listOf("manifest"),
     )
 
+    suspend fun fetchHistory(baseUrl: String): Result<ARMusicHistoryPayload> = fetchJson(
+        baseUrl = baseUrl,
+        pathSegments = listOf("history"),
+    )
+
+    suspend fun mergeHistory(
+        baseUrl: String,
+        payload: ARMusicHistoryPayload,
+    ): Result<ARMusicHistoryMergeResponse> = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = Request.Builder()
+                .url(buildUrl(baseUrl, "history", "merge"))
+                .post(
+                    RequestBody.create(
+                        "application/json; charset=utf-8".toMediaType(),
+                        json.encodeToString(payload),
+                    )
+                )
+                .build()
+            client.newCall(request).execute().useSuccess { response ->
+                val body = response.body?.string() ?: error("电脑端没有返回听歌记录")
+                json.decodeFromString<ARMusicHistoryMergeResponse>(body)
+            }
+        }
+    }
+
     suspend fun downloadTrack(
         baseUrl: String,
         syncId: String,
@@ -56,17 +82,42 @@ class ARMusicLanSyncClient(
         baseUrl: String,
         track: ARMusicSyncTrack,
         inputStream: InputStream,
+    ): Result<Unit> = sendTrack(baseUrl, track, inputStream, replace = false, expectedDesktopRevision = null)
+
+    suspend fun replaceTrack(
+        baseUrl: String,
+        track: ARMusicSyncTrack,
+        inputStream: InputStream,
+        expectedDesktopRevision: String,
+    ): Result<Unit> = sendTrack(
+        baseUrl,
+        track,
+        inputStream,
+        replace = true,
+        expectedDesktopRevision = expectedDesktopRevision,
+    )
+
+    private suspend fun sendTrack(
+        baseUrl: String,
+        track: ARMusicSyncTrack,
+        inputStream: InputStream,
+        replace: Boolean,
+        expectedDesktopRevision: String?,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val metadata = Base64.encodeToString(
                 json.encodeToString(track).toByteArray(Charsets.UTF_8),
                 Base64.NO_WRAP,
             )
-            val request = Request.Builder()
+            val requestBuilder = Request.Builder()
                 .url(buildUrl(baseUrl, "tracks", track.syncId))
                 .header("X-ARMusic-Track", metadata)
-                .post(inputStream.asRequestBody(track.sizeBytes))
-                .build()
+            if (replace) requestBuilder.header(
+                "X-ARMusic-If-Match",
+                expectedDesktopRevision ?: error("缺少电脑端预览版本，已拒绝覆盖"),
+            )
+            val body = inputStream.asRequestBody(track.sizeBytes)
+            val request = if (replace) requestBuilder.put(body).build() else requestBuilder.post(body).build()
 
             client.newCall(request).execute().useSuccess {}
         }

@@ -16,14 +16,22 @@ class LSongFetcher private constructor(
     private val song: LSong
 ) : BaseFetcher() {
 
-    override suspend fun fetch(): FetchResult? = fetchForSong(options.context, song)
-        ?.let { stream ->
-            SourceFetchResult(
-                source = ImageSource(stream.source().buffer(), options.fileSystem),
-                mimeType = null,
-                dataSource = DataSource.DISK
+    override suspend fun fetch(): FetchResult? {
+        val realCover = fetchForSong(options.context, song)
+        val stream = realCover
+            ?: ARMusicFallbackCover.create(
+                identity = song.id,
+                title = song.metadata.title.ifBlank { song.name },
+                artist = song.metadata.artist,
+                year = song.metadata.date,
             )
-        }
+
+        return SourceFetchResult(
+            source = ImageSource(stream.source().buffer(), options.fileSystem),
+            mimeType = null,
+            dataSource = if (realCover != null) DataSource.DISK else DataSource.MEMORY,
+        )
+    }
 
     class SongFactory : Fetcher.Factory<LSong> {
         override fun create(data: LSong, options: Options, imageLoader: ImageLoader): Fetcher? =

@@ -1,0 +1,507 @@
+.adb-sync-panel {
+  display: grid;
+  gap: 15px;
+  margin-top: 16px;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 93% 4%, var(--accent-soft), transparent 190px),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.adb-sync-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.adb-sync-panel__heading {
+  min-width: 0;
+}
+
+.adb-sync-panel__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.adb-sync-panel__heading h2 {
+  margin: 7px 0 5px;
+  font-size: 20px;
+  letter-spacing: -0.04em;
+}
+
+.adb-sync-panel__heading p,
+.adb-sync-panel__section-heading p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.adb-sync-panel__refresh {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.adb-sync-panel__refresh:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.adb-sync-panel__empty,
+.adb-sync-panel__loading {
+  display: grid;
+  min-height: 130px;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-soft) 80%, transparent);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.adb-sync-panel__empty strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.adb-sync-panel__empty span,
+.adb-sync-panel__loading {
+  font-size: 10px;
+}
+
+.adb-sync-panel__device-row {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-soft);
+}
+
+.adb-sync-panel__device-row label,
+.adb-sync-panel__connected {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.adb-sync-panel__device-row select {
+  width: 100%;
+  padding: 7px 28px 7px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  outline: 0;
+  background: var(--panel);
+  font-size: 10px;
+}
+
+.adb-sync-panel__connected {
+  color: var(--green);
+}
+
+.adb-sync-panel__connected i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 15%, transparent);
+}
+
+.adb-sync-panel__stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+}
+
+.adb-sync-panel__stats article {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 10px;
+  border-right: 1px solid var(--line);
+}
+
+.adb-sync-panel__stats article:last-child {
+  border-right: 0;
+}
+
+.adb-sync-panel__stat-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--panel-strong);
+  color: var(--text-2);
+}
+
+.adb-sync-panel__stats article.is-accent .adb-sync-panel__stat-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.adb-sync-panel__stats article.is-warning .adb-sync-panel__stat-icon {
+  background: color-mix(in srgb, #f2a100 14%, transparent);
+  color: #c67a00;
+}
+
+.adb-sync-panel__stats article > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.adb-sync-panel__stats strong {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.adb-sync-panel__stats article > div > span {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adb-sync-panel__scope-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: -5px 1px 0;
+  color: var(--text-3);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.adb-sync-panel__scope-note svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--accent);
+}
+
+.adb-sync-panel__conflicts,
+.adb-sync-panel__history {
+  display: grid;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-soft) 65%, transparent);
+}
+
+.adb-sync-panel__section-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.adb-sync-panel__section-heading > span {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--panel-strong);
+  color: var(--text-2);
+}
+
+.adb-sync-panel__section-heading h3 {
+  margin: 0 0 2px;
+  font-size: 11px;
+}
+
+.adb-sync-panel__conflict-list {
+  display: grid;
+  gap: 7px;
+  max-height: 240px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.adb-sync-panel__conflict {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(320px, auto);
+  align-items: center;
+  gap: 12px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.adb-sync-panel__conflict-copy {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.adb-sync-panel__conflict-copy > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.adb-sync-panel__conflict-copy strong,
+.adb-sync-panel__conflict-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adb-sync-panel__conflict-copy strong {
+  font-size: 10px;
+}
+
+.adb-sync-panel__conflict-copy small {
+  color: var(--text-3);
+  font-size: 8px;
+}
+
+.adb-sync-panel__resolution {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.adb-sync-panel__resolution button {
+  position: relative;
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  color: var(--text-2);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.adb-sync-panel__resolution button.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.adb-sync-panel__resolution em {
+  position: absolute;
+  top: -6px;
+  right: 3px;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: var(--text);
+  color: var(--panel);
+  font-size: 6px;
+  font-style: normal;
+}
+
+.adb-sync-panel__mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.adb-sync-panel__mode-grid > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  text-align: left;
+}
+
+.adb-sync-panel__mode-grid > button.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: var(--accent-soft);
+}
+
+.adb-sync-panel__mode-grid > button.is-danger.is-selected {
+  border-color: color-mix(in srgb, #e03e3e 55%, var(--line));
+  background: color-mix(in srgb, #e03e3e 10%, var(--panel));
+}
+
+.adb-sync-panel__radio {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: white;
+}
+
+.adb-sync-panel__mode-grid > button.is-selected .adb-sync-panel__radio {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.adb-sync-panel__mode-grid > button > span:last-child {
+  display: grid;
+  gap: 3px;
+}
+
+.adb-sync-panel__mode-grid strong {
+  font-size: 10px;
+}
+
+.adb-sync-panel__mode-grid small {
+  color: var(--text-2);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.adb-sync-panel__danger-note,
+.adb-sync-panel__error,
+.adb-sync-panel__result {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  padding: 8px 9px;
+  border-radius: 7px;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.adb-sync-panel__danger-note,
+.adb-sync-panel__error {
+  background: color-mix(in srgb, #e03e3e 10%, transparent);
+  color: #d23a3a;
+}
+
+.adb-sync-panel__error > span {
+  display: grid;
+  gap: 2px;
+}
+
+.adb-sync-panel__error small {
+  color: inherit;
+  font-size: 8px;
+  opacity: 0.82;
+  overflow-wrap: anywhere;
+}
+
+.adb-sync-panel__error--standalone {
+  margin-top: -6px;
+}
+
+.adb-sync-panel__result {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  color: var(--green);
+}
+
+.adb-sync-panel__result > span {
+  display: grid;
+  gap: 2px;
+}
+
+.adb-sync-panel__result small {
+  color: var(--text-2);
+  font-size: 8px;
+  overflow-wrap: anywhere;
+}
+
+.adb-sync-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.adb-sync-panel__footer p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 9px;
+}
+
+.adb-sync-panel__footer > button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: 132px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--panel);
+  font-size: 10px;
+  font-weight: 700;
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.adb-sync-panel__footer > button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.adb-sync-panel .is-spinning {
+  animation: adb-sync-spin 900ms linear infinite;
+}
+
+@keyframes adb-sync-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1260px) {
+  .adb-sync-panel__stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .adb-sync-panel__stats article:nth-child(3) {
+    border-right: 0;
+  }
+
+  .adb-sync-panel__stats article:nth-child(-n + 3) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .adb-sync-panel__conflict {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adb-sync-panel .is-spinning {
+    animation: none;
+  }
+}

@@ -9,6 +9,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 private const val BACKGROUND_CROSSFADE_MS = 1400
+private const val BACKGROUND_DECODE_SIZE = 720
+private const val BACKGROUND_SAMPLING_SIZE = 256
 
 @Composable
 fun BlurBackground(
@@ -53,18 +56,23 @@ fun BlurBackground(
         remember { Paint(Paint.ANTI_ALIAS_FLAG).also { it.color = android.graphics.Color.BLACK } }
     val targetRect = remember { Rect() }
 
+    DisposableEffect(Unit) {
+        onDispose { StackBlurUtils.clearMemory() }
+    }
+
     LaunchedEffect(currentData) {
         val loaded = withContext(Dispatchers.IO) {
             val key = backgroundKey(currentData)
             val request = ImageRequest.Builder(context)
                 .data(currentData)
+                .size(BACKGROUND_DECODE_SIZE)
                 .allowHardware(false)
                 .build()
             val result = context.imageLoader.execute(request) as? SuccessResult
                 ?: return@withContext null
             val source = result.image.toBitmap()
-            val displayBitmap = createBoundedBitmap(source, 1080)
-            val samplingBitmap = createSamplingBitmap(source, 400)
+            val displayBitmap = createBoundedBitmap(source, BACKGROUND_DECODE_SIZE)
+            val samplingBitmap = createSamplingBitmap(source, BACKGROUND_SAMPLING_SIZE)
             val color = Palette.from(samplingBitmap)
                 .generate()
                 .getAutomaticColor()
@@ -229,18 +237,12 @@ private fun createBoundedBitmap(source: Bitmap, maxSide: Int): Bitmap {
 fun createSamplingBitmap(source: Bitmap, samplingValue: Int): Bitmap {
     val width = source.width
     val height = source.height
-    val matrix = Matrix()
+    val largestSide = maxOf(width, height)
+    if (largestSide <= samplingValue) return source
 
-    val scaleWidth: Float
-    val scaleHeight: Float
-    if (width > height) {
-        scaleHeight = samplingValue.toFloat() / height
-        scaleWidth = scaleHeight
-    } else {
-        scaleWidth = samplingValue.toFloat() / width
-        scaleHeight = scaleWidth
-    }
-    matrix.setScale(scaleWidth, scaleHeight)
+    val matrix = Matrix()
+    val scale = samplingValue.toFloat() / largestSide.toFloat()
+    matrix.setScale(scale, scale)
 
     return Bitmap.createBitmap(
         source, 0, 0, width, height, matrix, false

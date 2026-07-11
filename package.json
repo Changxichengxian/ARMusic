@@ -1,0 +1,15 @@
+{
+  "name": "armusic",
+  "private": true,
+  "version": "1.5.0",
+  "workspaces": [
+    "desktop"
+  ],
+  "scripts": {
+    "desktop:web": "npm --workspace desktop run dev",
+    "desktop:dev": "npm --workspace desktop run app:dev",
+    "desktop:build": "npm --workspace desktop run build",
+    "desktop:package": "npm --workspace desktop run app:package",
+    "desktop:preview": "npm --workspace desktop run preview"
+  }
+}

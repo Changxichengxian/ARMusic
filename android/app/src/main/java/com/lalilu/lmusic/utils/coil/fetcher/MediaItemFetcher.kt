@@ -33,7 +33,7 @@ class MediaItemFetcher(
             .build()
             ?: return null
 
-        val stream = when (item.mediaMetadata.mediaType) {
+        val realCover = when (item.mediaMetadata.mediaType) {
             MediaMetadata.MEDIA_TYPE_MUSIC -> {
                 fetchCoverByTaglib(options.context, songUri)
                     ?: fetchCoverByRetriever(options.context, songUri)
@@ -41,12 +41,17 @@ class MediaItemFetcher(
             }
 
             else -> fetchMediaStoreCovers(options.context, item.mediaMetadata.artworkUri)
-        } ?: return null
+        }
+        val stream = realCover ?: ARMusicFallbackCover.create(
+            identity = item.mediaId,
+            title = item.mediaMetadata.title?.toString().orEmpty(),
+            artist = item.mediaMetadata.artist?.toString().orEmpty(),
+        )
 
         return SourceFetchResult(
             source = ImageSource(stream.source().buffer(), options.fileSystem),
             mimeType = null,
-            dataSource = DataSource.DISK
+            dataSource = if (realCover != null) DataSource.DISK else DataSource.MEMORY,
         )
     }
 
@@ -58,7 +63,9 @@ class MediaItemFetcher(
 
         try {
             retriever.setDataSource(context, songUri)
-            retriever.embeddedPicture?.inputStream()
+            retriever.embeddedPicture
+                ?.takeIf { it.isNotEmpty() }
+                ?.inputStream()
         } catch (e: Exception) {
             LogUtils.e(songUri, e)
             null
@@ -79,6 +86,7 @@ class MediaItemFetcher(
             null
         }?.use { fileDescriptor ->
             Taglib.getPictureWithFD(fileDescriptor.detachFd())
+                ?.takeIf { it.isNotEmpty() }
                 ?.inputStream()
         }
     }

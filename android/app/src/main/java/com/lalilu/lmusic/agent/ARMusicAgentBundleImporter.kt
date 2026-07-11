@@ -1,11 +1,15 @@
 package com.lalilu.lmusic.agent
 
 import com.lalilu.lhistory.entity.LHistory
+import com.lalilu.lhistory.HistoryMutationCoordinator
 import com.lalilu.lhistory.repository.HistoryDao
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.repository.SongWorkStore
 import com.lalilu.lmusic.tag.SongGroupStore
+import com.lalilu.lmusic.sync.ARMusicAndroidManifestBuilder
+import com.lalilu.lmusic.sync.ARMusicHistoryIdentityStore
+import com.lalilu.lmusic.sync.ARMusicLocalSyncTrack
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.Normalizer
@@ -16,6 +20,9 @@ class ARMusicAgentBundleImporter(
     private val historyDao: HistoryDao,
     private val songWorkStore: SongWorkStore,
     private val songGroupStore: SongGroupStore,
+    private val manifestBuilder: ARMusicAndroidManifestBuilder,
+    private val mutationCoordinator: HistoryMutationCoordinator,
+    private val historyIdentityStore: ARMusicHistoryIdentityStore,
 ) {
     suspend fun importBundle(inputPath: String): AgentCommandResult {
         awaitARMusicLibraryReady()
@@ -98,8 +105,11 @@ class ARMusicAgentBundleImporter(
                 return@forEach
             }
 
-            songWorkStore.setWork(song, work, writeFile = true)
-            imported += 1
+            if (songWorkStore.setWork(song, work, writeFile = true)) {
+                imported += 1
+            } else {
+                skipped += 1
+            }
         }
 
         return ImportCount(imported = imported, skipped = skipped)
@@ -127,11 +137,33 @@ class ARMusicAgentBundleImporter(
         return ImportCount(imported = imported, skipped = skipped)
     }
 
-    private fun importHistories(rows: List<JSONObject>): ImportCount {
-        val index = SongIndex(LMedia.get(blockFilter = false))
-        var imported = 0
+    private suspend fun importHistories(rows: List<JSONObject>): ImportCount {
+        // Normalize the known MediaStore renumbering before the expensive identity scan. This
+        // prevents the old/new copies of one event from inflating the history totals used while
+        // the local sync library is built.
+        val aliasStatsBeforeImport = mutationCoordinator.withMutation {
+            historyDao.mergeKnownContentIdAliases(manifestBuilder.knownHistoryMediaIdAliases())
+        }
+        val songs = LMedia.get<LSong>(blockFilter = false)
+        val cachedBySyncId = songs.mapNotNull { song ->
+            historyIdentityStore.resolve(song.id, song.metadata.title.ifBlank { song.name })
+                ?.let { syncId -> syncId to song }
+        }.toMap()
+        val requestedSyncIds = rows.map { row ->
+            row.stringAny("syncId", "sync_id").trim()
+        }
+        val syncTracks = if (needsHistoryIdentityScan(requestedSyncIds, cachedBySyncId.keys)) {
+            manifestBuilder.buildLocalTracks()
+        } else {
+            emptyList()
+        }
+        val index = SongIndex(
+            songs = songs,
+            syncTracks = syncTracks,
+            cachedBySyncId = cachedBySyncId,
+        )
         var skipped = 0
-        var duplicates = 0
+        val pending = mutableListOf<LHistory>()
 
         rows.forEach { row ->
             val song = index.find(row)
@@ -167,7 +199,8 @@ class ARMusicAgentBundleImporter(
 
             val statIdentity = songGroupStore.resolve(song.id, song.name)
             val hasParent = statIdentity.id != song.id
-            val startTime = row.longAny("startTime", "start_time", "playedAt", "played_at")
+            val startTime = row.longAny("startedAtMs", "started_at_ms", "startTime", "start_time", "playedAt", "played_at")
+                ?.takeIf { it > 0L }
                 ?: stableHistoryStartTime(song, row)
             val history = LHistory(
                 contentId = song.id,
@@ -179,16 +212,28 @@ class ARMusicAgentBundleImporter(
                 startTime = startTime,
             )
 
-            if (historyDao.countSimilar(history.contentId, history.startTime, history.duration) > 0) {
-                duplicates += 1
-                return@forEach
-            }
-
-            historyDao.save(history)
-            imported += 1
+            pending += history
         }
 
-        return ImportCount(imported = imported, skipped = skipped, duplicates = duplicates)
+        val (stats, aliasStatsDuringImport) = mutationCoordinator.withMutation {
+            val canonicalPending = pending.map { history ->
+                history.copy(
+                    contentId = manifestBuilder.canonicalHistoryMediaId(history.contentId),
+                )
+            }
+            val merged = historyDao.mergeHistories(canonicalPending)
+            val aliases = historyDao.mergeKnownContentIdAliases(
+                manifestBuilder.knownHistoryMediaIdAliases()
+            )
+            merged to aliases
+        }
+        return ImportCount(
+            imported = stats.inserted,
+            skipped = skipped + stats.skipped,
+            duplicates = stats.merged + stats.unchanged +
+                aliasStatsBeforeImport.removedDuplicates +
+                aliasStatsDuringImport.removedDuplicates,
+        )
     }
 
     private fun readInput(path: String): AgentInput {
@@ -205,7 +250,7 @@ class ARMusicAgentBundleImporter(
 
         val root = JSONObject(text)
         val items = root.firstArray("songs", "items", "tracks").toObjects()
-        val histories = root.firstArray("histories", "history").toObjects()
+        val histories = root.firstArray("histories", "history", "sessions").toObjects()
         if (items.isEmpty() && histories.isEmpty()) {
             return AgentInput(items = listOf(root))
         }
@@ -260,13 +305,27 @@ class ARMusicAgentBundleImporter(
 
 private class SongIndex(
     private val songs: List<LSong>,
+    syncTracks: List<ARMusicLocalSyncTrack> = emptyList(),
+    cachedBySyncId: Map<String, LSong> = emptyMap(),
 ) {
     private val byId = songs.associateBy { it.id }
     private val byPath = songs
         .mapNotNull { song -> song.fileInfo.pathStr?.takeIf(String::isNotBlank)?.let { it to song } }
         .toMap()
+    private val bySyncId = buildMap {
+        putAll(cachedBySyncId)
+        syncTracks.forEach { local ->
+            put(local.track.syncId, local.song)
+            local.track.legacySyncIds.forEach { id -> putIfAbsent(id, local.song) }
+        }
+    }
 
     fun find(row: JSONObject): LSong? {
+        row.stringAny("syncId", "sync_id")
+            .takeIf(String::isNotBlank)
+            ?.let { bySyncId[it] }
+            ?.let { return it }
+
         row.stringAny("mediaId", "media_id", "id", "contentId", "content_id")
             .takeIf(String::isNotBlank)
             ?.let { byId[it] }
@@ -304,6 +363,13 @@ private class SongIndex(
             )
             .firstOrNull()
     }
+}
+
+internal fun needsHistoryIdentityScan(
+    requestedSyncIds: Collection<String>,
+    cachedSyncIds: Set<String>,
+): Boolean = requestedSyncIds.any { requested ->
+    requested.isNotBlank() && requested !in cachedSyncIds
 }
 
 private fun JSONObject.firstArray(vararg keys: String): JSONArray {

@@ -53,6 +53,7 @@ import com.lalilu.component.base.screen.ScreenActionFactory
 import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.lfolder.R
 import com.lalilu.lhistory.repository.HistoryDao
+import com.lalilu.lhistory.HistoryMutationCoordinator
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.extension.extraMediaId
@@ -85,6 +86,7 @@ class DictionaryScreenModel(
     private val lMediaSp: LMediaSp,
     private val fileSystemScanner: FileSystemScanner,
     private val historyDao: HistoryDao,
+    private val historyMutationCoordinator: HistoryMutationCoordinator,
     private val playlistRepository: PlaylistRepository,
 ) : ScreenModel {
     val targetDirectory = lMediaSp.includePath
@@ -244,7 +246,7 @@ class DictionaryScreenModel(
         }
     }
 
-    private fun relinkSongDataAfterMove(source: Uri, target: Uri) {
+    private suspend fun relinkSongDataAfterMove(source: Uri, target: Uri) {
         val oldId = source.extraMediaId(application)
             ?: source.mediaIdByPath()
             ?: return
@@ -258,11 +260,6 @@ class DictionaryScreenModel(
         val newTitle = LMedia.get<LSong>(newId, blockFilter = false)?.name
             ?: target.safeDisplayName().substringBeforeLast('.', target.safeDisplayName())
 
-        historyDao.relinkContentId(
-            oldContentId = oldId,
-            newContentId = newId,
-            newContentTitle = newTitle,
-        )
         playlistRepository.relinkMediaId(oldId, newId)
         relinkPrefs(
             prefsName = "armusic_song_works",
@@ -278,13 +275,20 @@ class DictionaryScreenModel(
             oldPath = oldPath,
             newPath = newPath,
         )
-        if (!group.isNullOrBlank()) {
-            val statId = "armusic-group:${group.trim().replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)}"
-            historyDao.updateParentForContentId(
-                contentId = newId,
-                parentId = statId,
-                parentTitle = group.trim(),
+        historyMutationCoordinator.withMutation {
+            historyDao.relinkContentId(
+                oldContentId = oldId,
+                newContentId = newId,
+                newContentTitle = newTitle,
             )
+            if (!group.isNullOrBlank()) {
+                val statId = "armusic-group:${group.trim().replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)}"
+                historyDao.updateParentForContentId(
+                    contentId = newId,
+                    parentId = statId,
+                    parentTitle = group.trim(),
+                )
+            }
         }
     }
 

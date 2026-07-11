@@ -46,6 +46,8 @@ dependencies {
 
     api("androidx.media3:media3-common:1.5.1")
 
+    testImplementation(kotlin("test-junit"))
+
     // https://github.com/sachiotomita/kanhira
     // https://github.com/cy745/kanhira
     // 汉字转平假名库

@@ -7,6 +7,8 @@ interface PlaylistRepository {
     fun getPlaylistsFlow(): Flow<List<LPlaylist>>
     fun getPlaylists(): List<LPlaylist>
     fun setPlaylists(playlists: List<LPlaylist>)
+    /** Runs a read-modify-write under the same process-wide lock used by every playlist edit. */
+    fun mutatePlaylists(action: (List<LPlaylist>) -> List<LPlaylist>): List<LPlaylist>
 
     fun save(playlist: LPlaylist)
     fun remove(playlist: LPlaylist)

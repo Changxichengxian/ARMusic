@@ -50,4 +50,6 @@ dependencies {
 
     implementation(project(":component"))
     ksp(libs.koin.compiler)
+
+    testImplementation(kotlin("test-junit"))
 }

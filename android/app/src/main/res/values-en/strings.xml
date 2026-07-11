@@ -159,6 +159,7 @@
     <string name="wishlist_title">Wishlist</string>
     <string name="wishlist_exported">Exported</string>
     <string name="wishlist_export_failed">Export failed</string>
+    <string name="wishlist_changed_retry">The wishlist was just updated elsewhere. The latest copy was kept; please retry this edit.</string>
     <string name="wishlist_item_count">%1$d items</string>
     <string name="wishlist_empty_create_category">Tap + at the top right to create a category</string>
     <string name="wishlist_delete_category_title">Delete %1$s</string>
@@ -266,4 +267,6 @@
         <item>日本語</item>
         <item>English</item>
     </string-array>
+    <string name="armusic_usb_sync_channel_name">ARMusic computer sync</string>
+    <string name="armusic_usb_sync_in_progress">Syncing with your computer</string>
 </resources>

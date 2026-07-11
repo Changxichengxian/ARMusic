@@ -9,7 +9,7 @@ class ARMusicBackupCodec(
     private val preferenceMigrator: ARMusicPreferenceMigrator,
     private val historyMigrator: ARMusicHistoryMigrator,
 ) {
-    fun importFromText(text: String): LMusicMigrationResult {
+    suspend fun importFromText(text: String): LMusicMigrationResult {
         if (text.isBlank()) {
             return LMusicMigrationResult(
                 imported = emptyMap(),

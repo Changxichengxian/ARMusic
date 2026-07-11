@@ -3,6 +3,7 @@ package com.lalilu.lmusic.migration
 import android.app.Application
 import com.blankj.utilcode.util.LogUtils
 import com.lalilu.lhistory.entity.LHistory
+import com.lalilu.lhistory.HistoryMutationCoordinator
 import com.lalilu.lhistory.repository.HistoryDao
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
@@ -19,6 +20,7 @@ class ARMusicPlayCountSeedImporter(
     private val application: Application,
     private val historyDao: HistoryDao,
     private val songGroupStore: SongGroupStore,
+    private val mutationCoordinator: HistoryMutationCoordinator,
 ) : CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO + SupervisorJob()
 
@@ -28,11 +30,11 @@ class ARMusicPlayCountSeedImporter(
         LMedia.whenReady { launch { importDatasets() } }
     }
 
-    private fun importDatasets() {
-        DATASETS.forEach(::importDataset)
+    private suspend fun importDatasets() {
+        DATASETS.forEach { importDataset(it) }
     }
 
-    private fun importDataset(dataset: PlayCountDataset) {
+    private suspend fun importDataset(dataset: PlayCountDataset) {
         if (sp.getBoolean(dataset.importedKey, false)) return
 
         val seeds = readSeeds(dataset.assetName)
@@ -63,22 +65,16 @@ class ARMusicPlayCountSeedImporter(
             return
         }
 
-        val newHistories = histories.filter {
-            historyDao.countSimilar(
-                contentId = it.contentId,
-                startTime = it.startTime,
-                duration = it.duration,
-            ) <= 0
+        val stats = mutationCoordinator.withMutation {
+            historyDao.mergeHistories(histories)
         }
-
-        newHistories.forEach(historyDao::save)
         sp.edit()
             .putBoolean(dataset.importedKey, true)
             .putInt(dataset.matchedCountKey, histories.size)
-            .putInt(dataset.insertedCountKey, newHistories.size)
+            .putInt(dataset.insertedCountKey, stats.inserted)
             .apply()
 
-        LogUtils.i("[ARMusic] Seeded ${newHistories.size}/${histories.size} play-count histories from ${dataset.assetName}.")
+        LogUtils.i("[ARMusic] Seeded ${stats.inserted}/${histories.size} play-count histories from ${dataset.assetName}.")
     }
 
     private fun readSeeds(assetName: String): List<PlayCountSeed> {

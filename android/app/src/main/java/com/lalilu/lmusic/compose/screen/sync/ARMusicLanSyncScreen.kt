@@ -24,7 +24,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,10 +39,12 @@ import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.extension.dayNightTextColor
 import com.lalilu.lmusic.sync.ARMusicAndroidManifestBuilder
-import com.lalilu.lmusic.sync.ARMusicDiscoveredPeer
-import com.lalilu.lmusic.sync.ARMusicLanDiscoveryClient
 import com.lalilu.lmusic.sync.ARMusicLanSyncClient
+import com.lalilu.lmusic.sync.ARMusicHistorySyncCoordinator
+import com.lalilu.lmusic.sync.ARMusicHistorySyncMode
 import com.lalilu.lmusic.sync.ARMusicSyncHealth
+import com.lalilu.lmusic.sync.ARMusicConflictResolution
+import com.lalilu.lmusic.sync.ARMusicSyncConflict
 import com.lalilu.lmusic.sync.ARMusicSyncManifest
 import com.lalilu.lmusic.sync.ARMusicSyncPlan
 import com.lalilu.lmusic.sync.ARMusicSyncPlanner
@@ -71,22 +72,32 @@ object ARMusicLanSyncScreen : Screen, ScreenInfoFactory {
 
 @Composable
 private fun ARMusicLanSyncContent(
-    discoveryClient: ARMusicLanDiscoveryClient = koinInject(),
     syncClient: ARMusicLanSyncClient = koinInject(),
     manifestBuilder: ARMusicAndroidManifestBuilder = koinInject(),
     downloader: ARMusicTrackDownloader = koinInject(),
     uploader: ARMusicTrackUploader = koinInject(),
+    historyCoordinator: ARMusicHistorySyncCoordinator = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
-    var address by rememberSaveable { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
     var isBusy by remember { mutableStateOf(false) }
-    var isDiscovering by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("正在搜索局域网内的桌面端。") }
-    var discoveredPeers by remember { mutableStateOf<List<ARMusicDiscoveredPeer>>(emptyList()) }
+    var message by remember { mutableStateOf("请粘贴电脑端显示的完整同步地址（含临时 token），再手动连接。") }
     var health by remember { mutableStateOf<ARMusicSyncHealth?>(null) }
     var localManifest by remember { mutableStateOf<ARMusicSyncManifest?>(null) }
     var remoteManifest by remember { mutableStateOf<ARMusicSyncManifest?>(null) }
     var syncPlan by remember { mutableStateOf<ARMusicSyncPlan?>(null) }
+    var conflictResolutions by remember {
+        mutableStateOf<Map<String, ARMusicConflictResolution>>(emptyMap())
+    }
+
+    LaunchedEffect(syncPlan) {
+        conflictResolutions = syncPlan?.conflicts.orEmpty().associate { conflict ->
+                conflict.local.syncId to (
+                conflictResolutions[conflict.local.syncId]
+                    ?: ARMusicConflictResolution.SKIP
+                )
+        }
+    }
 
     fun refreshPlan(targetAddress: String = address) {
         if (targetAddress.isBlank() || isBusy) return
@@ -117,47 +128,21 @@ private fun ARMusicLanSyncContent(
         }
     }
 
-    fun discoverDevices(autoConnect: Boolean = false) {
-        if (isDiscovering || isBusy) return
-
-        scope.launch {
-            isDiscovering = true
-            message = "正在搜索局域网内的桌面端"
-            val peers = runCatching { discoveryClient.discover() }
-                .getOrDefault(emptyList())
-
-            discoveredPeers = peers
-            val first = peers.firstOrNull()
-            when {
-                first == null -> message = "没有搜到桌面端，可以检查电脑端同步服务是否已启动。"
-                autoConnect -> {
-                    message = "找到 ${first.name}，正在连接"
-                    refreshPlan(first.baseUrl)
-                }
-                else -> message = "搜到 ${peers.size} 台设备。"
-            }
-            isDiscovering = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        discoverDevices(autoConnect = true)
-    }
-
     fun downloadMissingTracks() {
         val plan = syncPlan ?: return
         if (address.isBlank() || plan.download.isEmpty() || isBusy) return
+        val targetAddress = address
 
         scope.launch {
             isBusy = true
             runCatching {
                 plan.download.forEachIndexed { index, track ->
                     message = "正在下载 ${index + 1}/${plan.download.size}：${track.title}"
-                    downloader.downloadToMusicDirectory(address, track)
+                    downloader.downloadToMusicDirectory(targetAddress, track)
                 }
                 message = "下载完成，系统音乐库会自动刷新"
 
-                val remote = remoteManifest ?: syncClient.fetchManifest(address).getOrThrow()
+                val remote = remoteManifest ?: syncClient.fetchManifest(targetAddress).getOrThrow()
                 val local = manifestBuilder.buildManifest()
                 localManifest = local
                 syncPlan = ARMusicSyncPlanner.buildPlan(
@@ -174,17 +159,18 @@ private fun ARMusicLanSyncContent(
     fun uploadMissingTracks() {
         val plan = syncPlan ?: return
         if (address.isBlank() || plan.upload.isEmpty() || isBusy) return
+        val targetAddress = address
 
         scope.launch {
             isBusy = true
             runCatching {
                 plan.upload.forEachIndexed { index, track ->
                     message = "正在上传 ${index + 1}/${plan.upload.size}：${track.title}"
-                    uploader.uploadToDesktop(address, track)
+                    uploader.uploadToDesktop(targetAddress, track)
                 }
                 message = "上传完成，桌面端会重新扫描音乐库"
 
-                val remote = syncClient.fetchManifest(address).getOrThrow()
+                val remote = syncClient.fetchManifest(targetAddress).getOrThrow()
                 val local = manifestBuilder.buildManifest()
                 remoteManifest = remote
                 localManifest = local
@@ -194,6 +180,95 @@ private fun ARMusicLanSyncContent(
                 )
             }.getOrElse { error ->
                 message = error.message ?: "上传失败"
+            }
+            isBusy = false
+        }
+    }
+
+    fun syncHistory() {
+        if (address.isBlank() || isBusy) return
+        val targetAddress = address
+        scope.launch {
+            isBusy = true
+            message = "正在安全合并听歌时间"
+            runCatching {
+                historyCoordinator.sync(
+                    baseUrl = targetAddress,
+                    mode = ARMusicHistorySyncMode.KEEP_ON_BOTH,
+                )
+            }.onSuccess { outcome ->
+                message = "听歌时间已合并：手机新增 ${outcome.importedToPhone} 条，重复记录没有再次累计"
+            }.onFailure { error ->
+                message = error.message ?: "听歌时间同步失败，手机记录保持不变"
+            }
+            isBusy = false
+        }
+    }
+
+    fun syncBothDirections() {
+        val plan = syncPlan ?: return
+        if (address.isBlank() || isBusy) return
+        val targetAddress = address
+        val targetResolutions = conflictResolutions.toMap()
+        scope.launch {
+            isBusy = true
+            runCatching {
+                plan.upload.forEachIndexed { index, track ->
+                    message = "手机 → 电脑 ${index + 1}/${plan.upload.size}：${track.title}"
+                    uploader.uploadToDesktop(targetAddress, track)
+                }
+                plan.download.forEachIndexed { index, track ->
+                    message = "电脑 → 手机 ${index + 1}/${plan.download.size}：${track.title}"
+                    downloader.downloadToMusicDirectory(targetAddress, track)
+                }
+                var resolvedConflicts = 0
+                var usbOnlyConflicts = 0
+                plan.conflicts.forEachIndexed { index, conflict ->
+                    when (targetResolutions[conflict.local.syncId]
+                        ?: ARMusicConflictResolution.SKIP
+                    ) {
+                        ARMusicConflictResolution.ANDROID_TO_DESKTOP -> {
+                            message = "更新冲突 ${index + 1}/${plan.conflicts.size}：手机版本 → 电脑"
+                            uploader.replaceOnDesktop(
+                                targetAddress,
+                                conflict.local,
+                                conflict.remote.revisionHash
+                                    ?: error("电脑端没有提供可校验的文件版本，已跳过覆盖"),
+                            )
+                            resolvedConflicts += 1
+                        }
+                        ARMusicConflictResolution.DESKTOP_TO_ANDROID -> {
+                            // Scoped storage cannot guarantee rollback after a process crash.
+                            // The desktop USB workflow performs a verified same-directory rename.
+                            usbOnlyConflicts += 1
+                        }
+                        ARMusicConflictResolution.SKIP -> Unit
+                    }
+                }
+                message = "正在合并听歌时间"
+                val history = historyCoordinator.sync(
+                    baseUrl = targetAddress,
+                    mode = ARMusicHistorySyncMode.KEEP_ON_BOTH,
+                )
+                val remote = syncClient.fetchManifest(targetAddress).getOrThrow()
+                val local = manifestBuilder.buildManifest()
+                remoteManifest = remote
+                localManifest = local
+                syncPlan = ARMusicSyncPlanner.buildPlan(local.tracks, remote.tracks)
+                Triple(history, resolvedConflicts, usbOnlyConflicts)
+            }.onSuccess { (history, resolvedConflicts, usbOnlyConflicts) ->
+                val skippedConflicts = plan.conflicts.count { conflict ->
+                    (targetResolutions[conflict.local.syncId]
+                        ?: ARMusicConflictResolution.SKIP) == ARMusicConflictResolution.SKIP
+                }
+                val conflictNote = buildString {
+                    if (resolvedConflicts > 0) append("；已处理 $resolvedConflicts 个冲突")
+                    if (skippedConflicts > 0) append("；$skippedConflicts 个冲突已跳过")
+                    if (usbOnlyConflicts > 0) append("；$usbOnlyConflicts 个需在电脑用 USB 安全替换")
+                }
+                message = "双向同步完成：手机新增 ${plan.download.size} 首，电脑新增 ${plan.upload.size} 首，听歌记录新增 ${history.importedToPhone} 条$conflictNote"
+            }.onFailure { error ->
+                message = error.message ?: "双向同步失败；冲突和手机听歌记录均未静默删除"
             }
             isBusy = false
         }
@@ -225,9 +300,10 @@ private fun ARMusicLanSyncContent(
                     OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
                         value = address,
+                        enabled = !isBusy,
                         onValueChange = { address = it },
                         label = { Text("桌面端地址") },
-                        placeholder = { Text("例如 192.168.1.20:38689") },
+                        placeholder = { Text("粘贴电脑端完整地址，必须包含 token") },
                         singleLine = true,
                     )
                     FlowRow(
@@ -241,12 +317,6 @@ private fun ARMusicLanSyncContent(
                             onClick = { refreshPlan() },
                         )
                         ActionButton(
-                            text = if (isDiscovering) "搜索中" else "自动搜索",
-                            enabled = !isBusy && !isDiscovering,
-                            color = Color(0xFF6B5BD2),
-                            onClick = { discoverDevices(autoConnect = true) },
-                        )
-                        ActionButton(
                             text = "下载缺失歌曲",
                             enabled = !isBusy && (syncPlan?.download?.isNotEmpty() == true),
                             color = Color(0xFF3EA22C),
@@ -258,20 +328,44 @@ private fun ARMusicLanSyncContent(
                             color = Color(0xFFFF8B3F),
                             onClick = ::uploadMissingTracks,
                         )
+                        ActionButton(
+                            text = "一键双向同步",
+                            enabled = !isBusy && syncPlan != null,
+                            color = Color(0xFF006E7C),
+                            onClick = { syncBothDirections() },
+                        )
                     }
+                    Text(
+                        text = "听歌时间保存位置",
+                        color = dayNightTextColor(0.65f),
+                        fontSize = 12.sp,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ActionButton(
+                            text = "手机和电脑都保留（局域网）",
+                            enabled = false,
+                            color = Color(0xFF3EA22C),
+                            onClick = {},
+                        )
+                        ActionButton(
+                            text = "只在电脑保留（仅电脑端 USB）",
+                            enabled = false,
+                            color = Color(0xFFFF8B3F),
+                            onClick = {},
+                        )
+                    }
+                    Text(
+                        text = "局域网只做两端保留并去重合并。要让听歌时间只留在电脑，请连接 USB 后在电脑端执行。",
+                        color = dayNightTextColor(0.5f),
+                        fontSize = 12.sp,
+                    )
+                    ActionButton(
+                        text = "合并听歌时间",
+                        enabled = !isBusy && address.isNotBlank(),
+                        color = Color(0xFF6B5BD2),
+                        onClick = ::syncHistory,
+                    )
                 }
-            }
-        }
-
-        discoveredPeers.takeIf { it.isNotEmpty() }?.let { peers ->
-            item { SectionTitle("搜到的桌面端", peers.size) }
-            items(peers, key = { it.baseUrl }) { peer ->
-                DiscoveredPeerRow(
-                    peer = peer,
-                    isSelected = address == peer.baseUrl,
-                    enabled = !isBusy && !isDiscovering,
-                    onClick = { refreshPlan(peer.baseUrl) },
-                )
             }
         }
 
@@ -315,6 +409,22 @@ private fun ARMusicLanSyncContent(
                         fontSize = 12.sp,
                     )
                 }
+            }
+        }
+
+        syncPlan?.conflicts?.takeIf { it.isNotEmpty() }?.let { conflicts ->
+            item { SectionTitle("同一首歌的版本冲突", conflicts.size) }
+            items(conflicts, key = { it.local.syncId }) { conflict ->
+                ConflictRow(
+                    conflict = conflict,
+                    resolution = conflictResolutions[conflict.local.syncId]
+                        ?: ARMusicConflictResolution.SKIP,
+                    enabled = !isBusy,
+                    onResolution = { resolution ->
+                        conflictResolutions = conflictResolutions +
+                            (conflict.local.syncId to resolution)
+                    },
+                )
             }
         }
 
@@ -367,6 +477,18 @@ private fun SyncSummaryCard(
             )
             SummaryLine("Android 本地", localManifest?.tracks?.size?.toString() ?: "--")
             SummaryLine("桌面端", remoteManifest?.tracks?.size?.toString() ?: "--")
+            SummaryLine(
+                "Android 已排除（非 MP3/少于 15 秒）",
+                localManifest?.let {
+                    (it.ignoredTracks.size + (plan?.ignoredLocal?.size ?: 0)).toString()
+                } ?: "--",
+            )
+            SummaryLine(
+                "桌面已排除（非 MP3/少于 15 秒）",
+                remoteManifest?.let {
+                    (it.ignoredTracks.size + (plan?.ignoredRemote?.size ?: 0)).toString()
+                } ?: "--",
+            )
             SummaryLine("可下载到 Android", plan?.download?.size?.toString() ?: "--")
             SummaryLine("待上传到桌面端", plan?.upload?.size?.toString() ?: "--")
             SummaryLine("冲突", plan?.conflicts?.size?.toString() ?: "--")
@@ -397,57 +519,6 @@ private fun SectionTitle(title: String, count: Int) {
 }
 
 @Composable
-private fun DiscoveredPeerRow(
-    peer: ARMusicDiscoveredPeer,
-    isSelected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(10.dp),
-        color = if (isSelected) Color(0xFF3EA22C).copy(alpha = 0.14f) else dayNightTextColor(0.05f),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                Text(
-                    text = peer.name,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = dayNightTextColor(),
-                    style = MaterialTheme.typography.body1,
-                )
-                Text(
-                    text = peer.baseUrl,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = dayNightTextColor(0.55f),
-                    fontSize = 12.sp,
-                )
-            }
-            TextButton(
-                enabled = enabled,
-                onClick = onClick,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = Color(0xFF006E7C),
-                    backgroundColor = Color(0xFF006E7C).copy(alpha = 0.14f),
-                )
-            ) {
-                Text(if (isSelected) "已选" else "使用")
-            }
-        }
-    }
-}
-
-@Composable
 private fun TrackRow(track: ARMusicSyncTrack) {
     Column(
         modifier = Modifier
@@ -470,4 +541,71 @@ private fun TrackRow(track: ARMusicSyncTrack) {
             fontSize = 12.sp,
         )
     }
+}
+
+@Composable
+private fun ConflictRow(
+    conflict: ARMusicSyncConflict,
+    resolution: ARMusicConflictResolution,
+    enabled: Boolean,
+    onResolution: (ARMusicConflictResolution) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = dayNightTextColor(0.05f),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Text(conflict.local.title, color = dayNightTextColor())
+            Text(
+                text = conflict.recommendedResolution?.let { "修改时间可供参考，但默认仍会跳过" }
+                    ?: "修改时间相同或无法判断，默认跳过",
+                color = dayNightTextColor(0.5f),
+                fontSize = 12.sp,
+            )
+            FlowRow(mainAxisSpacing = 7.dp, crossAxisSpacing = 7.dp) {
+                ConflictChoice(
+                    text = "以电脑为准（请在电脑用 USB）",
+                    selected = resolution == ARMusicConflictResolution.DESKTOP_TO_ANDROID,
+                    enabled = false,
+                    onClick = { onResolution(ARMusicConflictResolution.DESKTOP_TO_ANDROID) },
+                )
+                ConflictChoice(
+                    text = "以手机为准",
+                    selected = resolution == ARMusicConflictResolution.ANDROID_TO_DESKTOP,
+                    enabled = enabled,
+                    onClick = { onResolution(ARMusicConflictResolution.ANDROID_TO_DESKTOP) },
+                )
+                ConflictChoice(
+                    text = "跳过",
+                    selected = resolution == ARMusicConflictResolution.SKIP,
+                    enabled = enabled,
+                    onClick = { onResolution(ARMusicConflictResolution.SKIP) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConflictChoice(
+    text: String,
+    selected: Boolean,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    TextButton(
+        enabled = enabled,
+        onClick = onClick,
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = if (selected) Color.White else Color(0xFF006E7C),
+            backgroundColor = if (selected) Color(0xFF006E7C) else Color(0xFF006E7C).copy(alpha = 0.12f),
+            disabledContentColor = dayNightTextColor(0.35f),
+        ),
+    ) { Text(text) }
 }

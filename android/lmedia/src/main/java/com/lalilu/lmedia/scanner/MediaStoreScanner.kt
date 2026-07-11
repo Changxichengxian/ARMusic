@@ -11,10 +11,15 @@ import android.provider.MediaStore
 import androidx.core.database.getIntOrNull
 import androidx.core.database.getLongOrNull
 import androidx.core.database.getStringOrNull
+import com.blankj.utilcode.util.LogUtils
 import com.lalilu.common.toUpdatableFlow
 import com.lalilu.lmedia.entity.LSong
+import com.lalilu.lmedia.entity.Metadata
+import com.lalilu.lmedia.extension.mediaUri
 import com.lalilu.lmedia.extension.parseId3GenreName
 import com.lalilu.lmedia.repository.LMediaSp
+import com.lalilu.lmedia.wrapper.Taglib
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -30,6 +35,8 @@ open class MediaStoreScanner(
     private val context: Context,
     private val lMediaSp: LMediaSp
 ) : MediaSource<LSong> {
+    private val embeddedMetadataCache = EmbeddedMetadataCache(context.applicationContext)
+
     companion object {
 
         @Suppress("inlinedApi")
@@ -38,8 +45,10 @@ open class MediaStoreScanner(
         @Suppress("inlinedApi")
         private const val AUDIO_COLUMN_ALBUM_ARTIST = MediaStore.Audio.AudioColumns.ALBUM_ARTIST
         private const val BASE_SELECTOR =
-            "${MediaStore.Audio.Media.SIZE} >= 10 AND ${MediaStore.Audio.Media.DURATION} >= 15000"
+            "(${MediaStore.Audio.Media.SIZE} IS NULL OR ${MediaStore.Audio.Media.SIZE} >= 10) " +
+                "AND (${MediaStore.Audio.Media.DURATION} IS NULL OR ${MediaStore.Audio.Media.DURATION} >= 15000)"
         private const val BASE_SORT_ORDER = "${MediaStore.Audio.Media._ID} DESC"
+        private const val TAG_READ_BATCH_SIZE = 4
     }
 
     /**
@@ -126,7 +135,7 @@ open class MediaStoreScanner(
             )
     }
 
-    private suspend fun retrieve(): List<LSong> = withContext(Dispatchers.Default) {
+    private suspend fun retrieve(): List<LSong> = withContext(Dispatchers.IO) {
         val exclusionMatcher = PathExclusionMatcher(lMediaSp.excludePath.value)
         val genresFetchJob = async {
             val tempGenres = queryGenres()
@@ -141,12 +150,75 @@ open class MediaStoreScanner(
         }
 
         val genresMap = genresFetchJob.await()
-        songsFetchJob.await().mapNotNull {
-            it.toSong(genre = genresMap[it.id.toString()] ?: "")
-                ?.takeUnless { song ->
-                    exclusionMatcher.isExcluded(song.fileInfo.pathStr) ||
-                        exclusionMatcher.isExcluded(song.fileInfo.directoryPath)
+        val cachedMetadata = embeddedMetadataCache.snapshot()
+        val taggedAudio = songsFetchJob.await()
+            .chunked(TAG_READ_BATCH_SIZE)
+            .flatMap { batch ->
+                batch.map { audio ->
+                    async(Dispatchers.IO) {
+                        val initialKey = EmbeddedMetadataCacheKey.from(audio)
+                        val cachedEntry = cachedMetadata[audio.id]
+                            ?.takeIf { it.key == initialKey }
+                        val fileMetadata = cachedEntry?.metadata ?: readFileMetadata(audio)
+                        TaggedAudio(
+                            audio = audio,
+                            cacheHit = cachedEntry != null,
+                            cacheEntry = fileMetadata?.let {
+                                EmbeddedMetadataCacheEntry(
+                                    key = EmbeddedMetadataCacheKey.from(audio),
+                                    metadata = it,
+                                )
+                            },
+                        )
+                    }
+                }.awaitAll()
+            }
+        val cacheHits = taggedAudio.count { it.cacheHit }
+        LogUtils.i(
+            "[LMedia] Embedded metadata cache: $cacheHits hits, " +
+                "${taggedAudio.size - cacheHits} TagLib reads."
+        )
+        embeddedMetadataCache.replace(taggedAudio.mapNotNull { it.cacheEntry })
+        taggedAudio
+            .map { tagged ->
+                tagged.audio.toSong(
+                    genre = genresMap[tagged.audio.id.toString()] ?: "",
+                    fileMetadata = tagged.cacheEntry?.metadata,
+                )
+            }
+            .mapNotNull { song ->
+                song?.takeUnless {
+                    exclusionMatcher.isExcluded(it.fileInfo.pathStr) ||
+                        exclusionMatcher.isExcluded(it.fileInfo.directoryPath)
                 }
+            }
+    }
+
+    private data class TaggedAudio(
+        val audio: Audio,
+        val cacheHit: Boolean,
+        val cacheEntry: EmbeddedMetadataCacheEntry?,
+    )
+
+    /**
+     * MediaStore 的 TITLE/ARTIST/ALBUM 可能是系统生成或尚未刷新过的值。
+     * 使用相同的 TagLib 读取链路直接读取音频文件，失败时仍保留 MediaStore 数据。
+     */
+    private suspend fun readFileMetadata(audio: Audio): Metadata? {
+        return try {
+            context.applicationContext.contentResolver
+                .openFileDescriptor(audio.id.mediaUri(), "r")
+                ?.use { descriptor ->
+                    descriptor.statSize
+                        .takeIf { audio.size <= 0 && it > 0 }
+                        ?.let { audio.size = it }
+                    Taglib.retrieveMetadataWithFD(descriptor.detachFd())
+                }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            LogUtils.e("[LMedia] Failed to read embedded tags for MediaStore id=${audio.id}", error)
+            null
         }
     }
 

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ARMusic",
+  "version": "1.5.0",
+  "identifier": "app.armusic.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "ARMusic",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 600,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true
+      },
+      {
+        "label": "tray",
+        "url": "index.html?window=tray",
+        "title": "ARMusic",
+        "width": 360,
+        "height": 118,
+        "minWidth": 360,
+        "minHeight": 118,
+        "maxWidth": 360,
+        "maxHeight": 118,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "visible": false,
+        "focus": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["../../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"],
+    "category": "Music",
+    "shortDescription": "ARMusic desktop player"
+  }
+}

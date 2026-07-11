@@ -36,7 +36,8 @@ data class Audio(
     }
 
     fun toSong(
-        genre: String = ""
+        genre: String = "",
+        fileMetadata: Metadata? = null,
     ): LSong? {
         try {
             val pathPath = runCatching { URLDecoder.decode(data, "UTF-8") }
@@ -78,11 +79,32 @@ data class Audio(
                     duration = duration,
                     dateAdded = dateAdded ?: 0,
                     dateModified = dateModified ?: 0
-                ),
+                ).preferEmbeddedTags(fileMetadata),
             )
         } catch (e: Exception) {
             LogUtils.e(e.message, e)
             return null
         }
     }
+}
+
+/**
+ * 文件内标签是可随音频文件迁移的真实来源；空标签才使用 MediaStore 的索引值。
+ * 这里只覆盖产品明确依赖的字段，其余字段继续沿用 MediaStore，避免一次扫描改变过多行为。
+ */
+private fun Metadata.preferEmbeddedTags(fileMetadata: Metadata?): Metadata {
+    if (fileMetadata == null) return this
+
+    return copy(
+        title = fileMetadata.title.nonBlankOr(title),
+        artist = fileMetadata.artist.nonBlankOr(artist),
+        album = fileMetadata.album.nonBlankOr(album),
+        work = fileMetadata.work.nonBlankOr(work),
+        sameSongGroup = fileMetadata.sameSongGroup.nonBlankOr(sameSongGroup),
+        duration = fileMetadata.duration.takeIf { it > 0 } ?: duration,
+    )
+}
+
+private fun String.nonBlankOr(fallback: String): String {
+    return trim().takeIf(String::isNotEmpty) ?: fallback
 }

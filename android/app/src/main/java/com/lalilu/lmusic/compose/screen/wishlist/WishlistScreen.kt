@@ -30,6 +30,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +52,7 @@ import com.lalilu.component.base.screen.ScreenInfoFactory
 import com.lalilu.component.base.smartBarPadding
 import com.lalilu.component.extension.rememberFixedStatusBarHeightDp
 import com.lalilu.lmusic.datastore.SettingsSp
+import com.lalilu.lmusic.wishlist.ARMusicWishlistStore
 import com.lalilu.remixicon.Design
 import com.lalilu.remixicon.design.editBoxFill
 import org.json.JSONArray
@@ -79,9 +81,10 @@ object WishlistScreen : Screen, ScreenInfoFactory {
 @Composable
 private fun WishlistContent(
     settingsSp: SettingsSp = koinInject(),
+    wishlistStore: ARMusicWishlistStore = koinInject(),
 ) {
     val context = LocalContext.current
-    val categoriesJson = settingsSp.wishlistCategoriesJson.value
+    val categoriesJson by wishlistStore.categoriesJson.collectAsState()
     val categories = remember(categoriesJson) {
         decodeMemoCategories(categoriesJson).ifEmpty {
             buildInitialMemoCategories(settingsSp, context)
@@ -94,8 +97,15 @@ private fun WishlistContent(
     var addingCategory by remember { mutableStateOf(false) }
     var deletingCategory by remember { mutableStateOf<MemoCategory?>(null) }
 
-    fun saveCategories(next: List<MemoCategory>) {
-        settingsSp.wishlistCategoriesJson.value = encodeMemoCategories(next)
+    fun saveCategories(next: List<MemoCategory>): Boolean {
+        val saved = wishlistStore.replaceRawIfUnchanged(
+            expectedValue = categoriesJson,
+            value = encodeMemoCategories(next),
+        )
+        if (!saved) {
+            ToastUtils.showShort(context.getString(R.string.wishlist_changed_retry))
+        }
+        return saved
     }
 
     fun updateCategoryItems(categoryId: String, items: List<String>) {
@@ -107,8 +117,11 @@ private fun WishlistContent(
     }
 
     LaunchedEffect(Unit) {
-        if (settingsSp.wishlistCategoriesJson.value.isBlank()) {
-            settingsSp.wishlistCategoriesJson.value = encodeMemoCategories(categories)
+        if (categoriesJson.isBlank()) {
+            wishlistStore.replaceRawIfUnchanged(
+                expectedValue = categoriesJson,
+                value = encodeMemoCategories(categories),
+            )
         }
     }
 
@@ -323,9 +336,10 @@ private fun WishlistContent(
                     colorArgb = colorArgb,
                     items = emptyList(),
                 )
-                saveCategories(next)
-                selectedIndex = next.lastIndex
-                addingCategory = false
+                if (saveCategories(next)) {
+                    selectedIndex = next.lastIndex
+                    addingCategory = false
+                }
             }
         )
     }
@@ -353,9 +367,10 @@ private fun WishlistContent(
                 TextButton(
                     onClick = {
                         val next = categories.filterNot { it.id == category.id }
-                        saveCategories(next)
-                        selectedIndex = selectedIndex.coerceAtMost((next.size - 1).coerceAtLeast(0))
-                        deletingCategory = null
+                        if (saveCategories(next)) {
+                            selectedIndex = selectedIndex.coerceAtMost((next.size - 1).coerceAtLeast(0))
+                            deletingCategory = null
+                        }
                     }
                 ) {
                     Text(stringResource(id = R.string.common_delete))

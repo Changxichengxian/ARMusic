@@ -19,17 +19,25 @@ class ARMusicMigrationImportActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         val uri = intent?.data
-        if (uri == null) {
+        if (uri == null || uri.scheme !in ALLOWED_URI_SCHEMES) {
             ToastUtils.showShort("没有收到迁移文件")
             openMainAndFinish()
             return
         }
 
-        CoroutineScope(Dispatchers.Main).launch {
-            val result = migrationManager.importFromUri(uri)
-            ToastUtils.showLong(result.message)
-            openMainAndFinish()
-        }
+        showImportConfirmation(
+            uri = uri,
+            title = "导入 ARMusic 备份？",
+            impact = "会导入备份中的设置并合并听歌历史；同名设置可能改成备份里的值。",
+            onConfirm = {
+                CoroutineScope(Dispatchers.Main).launch {
+                    val result = migrationManager.importFromUri(uri)
+                    ToastUtils.showLong(result.message)
+                    openMainAndFinish()
+                }
+            },
+            onCancel = ::openMainAndFinish,
+        )
     }
 
     private fun openMainAndFinish() {
@@ -38,5 +46,9 @@ class ARMusicMigrationImportActivity : Activity() {
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         )
         finish()
+    }
+
+    companion object {
+        private val ALLOWED_URI_SCHEMES = setOf("content", "file")
     }
 }

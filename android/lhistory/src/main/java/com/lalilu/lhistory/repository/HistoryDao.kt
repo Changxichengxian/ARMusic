@@ -8,6 +8,7 @@ import androidx.room.MapInfo
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Transaction
 import com.lalilu.lhistory.entity.LHistory
 import kotlinx.coroutines.flow.Flow
 
@@ -28,8 +29,109 @@ interface HistoryDao {
     @Query("UPDATE m_history SET contentId = :newContentId, contentTitle = :newContentTitle WHERE contentId = :oldContentId;")
     fun relinkContentId(oldContentId: String, newContentId: String, newContentTitle: String): Int
 
+    @Query("SELECT * FROM m_history WHERE contentId IN (:contentIds) ORDER BY startTime ASC, id ASC")
+    fun getByContentIds(contentIds: List<String>): List<LHistory>
+
+    @Transaction
+    fun mergeKnownContentIdAliases(aliases: Map<String, String>): HistoryAliasMergeStats {
+        val relevantIds = (aliases.keys + aliases.values)
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .distinct()
+        if (relevantIds.isEmpty()) return HistoryAliasMergeStats()
+        val plan = planHistoryContentIdAliasMerge(getByContentIds(relevantIds), aliases)
+        if (plan.updates.isNotEmpty()) update(*plan.updates.toTypedArray())
+        if (plan.deletes.isNotEmpty()) delete(*plan.deletes.toTypedArray())
+        return plan.stats
+    }
+
     @Query("DELETE FROM m_history;")
     fun clear()
+
+    @Transaction
+    fun clearIfUnchanged(expected: List<LHistory>): Int {
+        val current = getAllForBackup()
+        if (current != expected) return -1
+        clear()
+        return current.size
+    }
+
+    /** Atomic merge without a schema migration or a destructive replace. */
+    @Transaction
+    fun mergeHistories(incoming: List<LHistory>): HistoryMergeStats {
+        var inserted = 0
+        var merged = 0
+        var unchanged = 0
+        var skipped = 0
+        incoming.forEach { history ->
+            if (history.contentId.isBlank() || history.startTime <= 0L) {
+                skipped += 1
+                return@forEach
+            }
+
+            val existing = getByContentAndStart(history.contentId, history.startTime)
+            if (existing == null) {
+                save(history.copy(id = 0L))
+                inserted += 1
+                return@forEach
+            }
+
+            val next = existing.copy(
+                contentTitle = history.contentTitle.ifBlank { existing.contentTitle },
+                parentId = history.parentId.ifBlank { existing.parentId },
+                parentTitle = history.parentTitle.ifBlank { existing.parentTitle },
+                duration = maxOf(existing.duration, history.duration),
+                repeatCount = maxOf(existing.repeatCount, history.repeatCount),
+            )
+            if (next == existing) {
+                unchanged += 1
+            } else {
+                update(next)
+                merged += 1
+            }
+        }
+        return HistoryMergeStats(
+            inserted = inserted,
+            merged = merged,
+            unchanged = unchanged,
+            skipped = skipped,
+        )
+    }
+
+    /** Restores every raw metadata field while still keeping larger accumulated counters. */
+    @Transaction
+    fun restoreRawHistories(incoming: List<LHistory>): HistoryMergeStats {
+        var inserted = 0
+        var merged = 0
+        var unchanged = 0
+        var skipped = 0
+        incoming.forEach { history ->
+            if (history.contentId.isBlank() || history.startTime <= 0L) {
+                skipped += 1
+                return@forEach
+            }
+            val existing = getByContentAndStart(history.contentId, history.startTime)
+            if (existing == null) {
+                save(history.copy(id = 0L))
+                inserted += 1
+                return@forEach
+            }
+            val next = existing.copy(
+                contentTitle = history.contentTitle,
+                parentId = history.parentId,
+                parentTitle = history.parentTitle,
+                duration = maxOf(existing.duration, history.duration),
+                repeatCount = maxOf(existing.repeatCount, history.repeatCount),
+            )
+            if (next == existing) {
+                unchanged += 1
+            } else {
+                update(next)
+                merged += 1
+            }
+        }
+        return HistoryMergeStats(inserted, merged, unchanged, skipped)
+    }
 
     @Delete(entity = LHistory::class)
     fun delete(vararg history: LHistory)
@@ -45,6 +147,9 @@ interface HistoryDao {
 
     @Query("SELECT COUNT(*) FROM m_history WHERE contentId = :contentId AND startTime = :startTime AND duration = :duration")
     fun countSimilar(contentId: String, startTime: Long, duration: Long): Int
+
+    @Query("SELECT * FROM m_history WHERE contentId = :contentId AND startTime = :startTime ORDER BY id ASC LIMIT 1")
+    fun getByContentAndStart(contentId: String, startTime: Long): LHistory?
 
     @Query("SELECT * FROM m_history ORDER BY id DESC LIMIT 1")
     fun getLatestHistory(): LHistory?
@@ -118,3 +223,10 @@ interface HistoryDao {
     )
     fun getFlowStatIdsMapWithDuration(limit: Int, minDuration: Long): Flow<Map<String, Long>>
 }
+
+data class HistoryMergeStats(
+    val inserted: Int,
+    val merged: Int,
+    val unchanged: Int,
+    val skipped: Int,
+)

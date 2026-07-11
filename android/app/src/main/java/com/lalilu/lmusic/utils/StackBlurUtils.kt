@@ -6,8 +6,6 @@ import com.enrique.stackblur.NativeBlurProcess
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
@@ -16,7 +14,9 @@ object StackBlurUtils : NativeBlurProcess(), CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO
 
     const val MAX_RADIUS = 40
-    private val cache = object : LruCache<String, Bitmap>(50 * 1024 * 1024) {
+    private const val RADIUS_STEP = 5
+    private const val CACHE_SIZE_BYTES = 12 * 1024 * 1024
+    private val cache = object : LruCache<String, Bitmap>(CACHE_SIZE_BYTES) {
         override fun sizeOf(key: String?, value: Bitmap?): Int {
             return value?.byteCount ?: 0
         }
@@ -42,8 +42,12 @@ object StackBlurUtils : NativeBlurProcess(), CoroutineScope {
         radius: Int,
         extraKey: String = ""
     ): Bitmap? {
-        val key = "${source.generationId}|$extraKey|$radius"
-        return cache.get(key) ?: blur(source, radius.toFloat()).also { cache.put(key, it) }
+        val boundedRadius = quantizeRadius(radius)
+        if (boundedRadius == 0) return null
+
+        val key = "${source.generationId}|$extraKey|$boundedRadius"
+        return cache.get(key)
+            ?: blur(source, boundedRadius.toFloat()).also { cache.put(key, it) }
     }
 
     fun preload(
@@ -52,17 +56,36 @@ object StackBlurUtils : NativeBlurProcess(), CoroutineScope {
     ) {
         preloadJob?.cancel()
         preloadJob = launch {
-            (1..MAX_RADIUS).map { radius ->
-                async {
-                    val key = "${source.generationId}|$extraKey|$radius"
-                    if (cache.get(key) != null || !isActive) return@async
+            // Eight bounded variants are visually smooth enough behind the dark mask. Building
+            // them sequentially avoids a burst of 40 native allocations and worker threads.
+            for (radius in RADIUS_STEP..MAX_RADIUS step RADIUS_STEP) {
+                if (!isActive) return@launch
+                val key = "${source.generationId}|$extraKey|$radius"
+                if (cache.get(key) != null) continue
 
-                    val temp = blur(source, radius.toFloat())
-                    if (cache.get(key) != null || !isActive) return@async
-
-                    cache.put(key, temp)
+                val temp = blur(source, radius.toFloat())
+                if (!isActive) {
+                    temp.recycle()
+                    return@launch
                 }
-            }.awaitAll()
+                if (cache.get(key) == null) {
+                    cache.put(key, temp)
+                } else {
+                    temp.recycle()
+                }
+            }
         }
+    }
+
+    fun clearMemory() {
+        preloadJob?.cancel()
+        preloadJob = null
+        cache.evictAll()
+    }
+
+    private fun quantizeRadius(radius: Int): Int {
+        if (radius <= 0) return 0
+        return (((radius + RADIUS_STEP - 1) / RADIUS_STEP) * RADIUS_STEP)
+            .coerceAtMost(MAX_RADIUS)
     }
 }

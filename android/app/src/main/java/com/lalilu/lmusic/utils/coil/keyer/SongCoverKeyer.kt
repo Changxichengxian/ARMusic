@@ -16,7 +16,13 @@ class LSongCoverKeyer : Keyer<LSong> {
 
 class LAlbumCoverKeyer : Keyer<LAlbum> {
     override fun key(data: LAlbum, options: Options): String {
-        return "LALBUM_${data.id}_${options.size.width}_${options.size.height}"
+        var songsSignature = 1
+        data.songs.forEach { song ->
+            songsSignature = 31 * songsSignature + song.id.hashCode()
+            songsSignature = 31 * songsSignature + song.metadata.dateModified.hashCode()
+            songsSignature = 31 * songsSignature + song.metadata.hashCode()
+        }
+        return "LALBUM_${data.id}_${data.coverOverride.hashCode()}_${songsSignature}_${options.size.width}_${options.size.height}"
     }
 }
 

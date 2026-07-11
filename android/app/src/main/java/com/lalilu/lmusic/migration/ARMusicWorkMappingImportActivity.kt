@@ -23,26 +23,29 @@ class ARMusicWorkMappingImportActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         val uri = intent?.data
-        val path = intent?.getStringExtra(EXTRA_PATH).orEmpty()
-        if (uri == null && path.isBlank()) {
+        if (uri == null || uri.scheme !in ALLOWED_URI_SCHEMES) {
             ToastUtils.showShort(MSG_NO_MAPPING_FILE)
             openMainAndFinish()
             return
         }
 
-        LMedia.whenReady {
-            CoroutineScope(Dispatchers.Main).launch {
-                importMapping(uri, path)
-            }
-        }
+        showImportConfirmation(
+            uri = uri,
+            title = "导入作品标签表？",
+            impact = "会匹配表格中的歌曲，并把作品标签写进对应音乐文件；被匹配文件的元数据会发生变化。",
+            onConfirm = {
+                LMedia.whenReady {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        importMapping(uri)
+                    }
+                }
+            },
+            onCancel = ::openMainAndFinish,
+        )
     }
 
-    private suspend fun importMapping(uri: Uri?, path: String) {
-        val result = if (uri != null) {
-            workMappingManager.importFromUri(uri)
-        } else {
-            workMappingManager.importFromFilePath(path)
-        }
+    private suspend fun importMapping(uri: Uri) {
+        val result = workMappingManager.importFromUri(uri)
         Log.i(LOG_TAG, "Work mapping import: ${result.message}")
         ToastUtils.showLong(result.message)
         openMainAndFinish()
@@ -58,7 +61,7 @@ class ARMusicWorkMappingImportActivity : Activity() {
 
     companion object {
         val ACTION_IMPORT_WORK_MAPPING = "${BuildConfig.APPLICATION_ID}.IMPORT_WORK_MAPPING"
-        const val EXTRA_PATH = "path"
+        private val ALLOWED_URI_SCHEMES = setOf("content", "file")
         private const val LOG_TAG = "ARMusicWorkImport"
         private const val MSG_NO_MAPPING_FILE = "\u6ca1\u6709\u6536\u5230\u4f5c\u54c1\u6620\u5c04\u6587\u4ef6"
     }

@@ -34,38 +34,43 @@ sealed interface LibraryState {
 @OptIn(ExperimentalCoroutinesApi::class)
 abstract class BaseLibrary {
     val coroutineScope = CoroutineScope(Dispatchers.IO) + SupervisorJob()
+    private val libraryStateLock = Any()
     private var libraryState: LibraryState = LibraryState.Idle
     private var readyCallbacks = listOf<() -> Unit>()
 
     fun whenReady(callback: () -> Unit) {
-        if (libraryState is LibraryState.Ready) {
-            callback()
-        } else {
-            readyCallbacks += callback
+        val runImmediately = synchronized(libraryStateLock) {
+            if (libraryState is LibraryState.Ready) {
+                true
+            } else {
+                readyCallbacks += callback
+                false
+            }
         }
+        if (runImmediately) callback()
     }
 
     internal fun updateState(state: LibraryState) {
-        when (state) {
-            is LibraryState.Error -> {
-                libraryState = state
-            }
+        val callbacks = synchronized(libraryStateLock) {
+            when (state) {
+                is LibraryState.Error,
+                is LibraryState.Idle,
+                is LibraryState.Loading -> {
+                    libraryState = state
+                    emptyList()
+                }
 
-            is LibraryState.Idle -> {
-                libraryState = state
-            }
-
-            is LibraryState.Loading -> {
-                libraryState = state
-            }
-
-            is LibraryState.Ready -> {
-                if (libraryState is LibraryState.Ready) return
-                libraryState = state
-                readyCallbacks.forEach { it.invoke() }
-                readyCallbacks = emptyList()
+                is LibraryState.Ready -> {
+                    if (libraryState is LibraryState.Ready) {
+                        emptyList()
+                    } else {
+                        libraryState = state
+                        readyCallbacks.also { readyCallbacks = emptyList() }
+                    }
+                }
             }
         }
+        callbacks.forEach { it.invoke() }
     }
 
     private val _songsFlow = MutableStateFlow<Map<String, LSong>>(emptyMap())

@@ -17,30 +17,59 @@ class LAlbumFetcher private constructor(
     private val album: LAlbum
 ) : BaseFetcher() {
     override suspend fun fetch(): FetchResult? {
-        val override = album.coverOverride.orEmpty()
-        val overrideResult = when {
-            override.startsWith(COVER_URI_PREFIX) -> {
-                fetchMediaStoreCovers(options.context, override.removePrefix(COVER_URI_PREFIX).toUri())
+        // 作品封面优先来自歌曲文件本身。旧版 work-cover 映射只用于兼容回退，
+        // 避免应用内的旧标记盖过后来写进音频文件的真实封面。
+        // Album/work grids only need a thumbnail. MediaStore normally exposes the embedded cover
+        // as a bounded thumbnail and avoids decoding a multi-megapixel APIC frame for every card.
+        val mediaStoreCover = album.songs.firstNotNullOfOrNull {
+            fetchMediaStoreCovers(options.context, it.artworkUri)
+        } ?: album.songs.firstNotNullOfOrNull {
+            fetchMediaStoreCovers(options.context, it.albumCoverUri)
+        } ?: fetchMediaStoreCovers(options.context, album.coverUri)
+        val embeddedCover = if (mediaStoreCover == null) {
+            album.songs.firstNotNullOfOrNull {
+                fetchCoverByTaglib(options.context, it)
+            } ?: album.songs.firstNotNullOfOrNull {
+                fetchCoverByRetriever(options.context, it)
             }
-
-            override.startsWith(COVER_SONG_PREFIX) -> {
-                val songId = override.removePrefix(COVER_SONG_PREFIX)
-                album.songs.firstOrNull { it.id == songId }
-                    ?.let { fetchForSong(options.context, it) }
-            }
-
-            else -> null
+        } else {
+            null
         }
 
-        val result = overrideResult
-            ?: fetchMediaStoreCovers(options.context, album.coverUri)
-            ?: album.songs.firstNotNullOfOrNull { fetchForSong(options.context, it) }
+        val overrideResult = if (mediaStoreCover == null && embeddedCover == null) {
+            val override = album.coverOverride.orEmpty()
+            when {
+                override.startsWith(COVER_URI_PREFIX) -> {
+                    fetchMediaStoreCovers(options.context, override.removePrefix(COVER_URI_PREFIX).toUri())
+                }
 
-        return result?.let { stream ->
+                override.startsWith(COVER_SONG_PREFIX) -> {
+                    val songId = override.removePrefix(COVER_SONG_PREFIX)
+                    album.songs.firstOrNull { it.id == songId }
+                        ?.let { fetchForSong(options.context, it) }
+                }
+
+                else -> null
+            }
+        } else {
+            null
+        }
+
+        val realCover = mediaStoreCover
+            ?: embeddedCover
+            ?: overrideResult
+        val result = realCover
+            ?: ARMusicFallbackCover.create(
+                identity = album.id,
+                title = album.name,
+                artist = album.artistName.orEmpty(),
+            )
+
+        return result.let { stream ->
             SourceFetchResult(
                 source = ImageSource(stream.source().buffer(), options.fileSystem),
                 mimeType = null,
-                dataSource = DataSource.DISK
+                dataSource = if (realCover != null) DataSource.DISK else DataSource.MEMORY,
             )
         }
     }

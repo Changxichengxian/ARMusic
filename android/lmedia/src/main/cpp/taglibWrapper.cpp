@@ -29,6 +29,14 @@ unsigned int toUInt(const TagLib::String &value) {
     }
 }
 
+TagLib::String firstNonEmpty(const TagLib::StringList &values) {
+    for (const auto &value: values) {
+        auto trimmed = value.stripWhiteSpace();
+        if (!trimmed.isEmpty()) return trimmed;
+    }
+    return TagLib::String();
+}
+
 void replaceProperty(TagLib::PropertyMap &map, const char *key, const TagLib::String &value) {
     map.replace(key, TagLib::StringList(value));
 }
@@ -297,12 +305,12 @@ Java_com_lalilu_lmedia_wrapper_Taglib_retrieveMetadataWithFD(JNIEnv *env, jobjec
     auto lyricist_str = toString(env, map["LYRICIST"].toString());
     auto genre_str = toString(env, map["GENRE"].toString());
     auto date = toString(env, map["DATE"].toString());
-    auto workValue = map["WORK"].toString();
+    auto workValue = firstNonEmpty(map["WORK"]);
     if (workValue.isEmpty()) {
-        workValue = map["GROUPING"].toString();
+        workValue = firstNonEmpty(map["GROUPING"]);
     }
     auto work_str = toString(env, workValue);
-    auto same_song_group = toString(env, map["ARMUSIC_GROUP"].toString());
+    auto same_song_group = toString(env, firstNonEmpty(map["ARMUSIC_GROUP"]));
 
     // 获取需要创建的jclass
     jclass metadata_class = env->FindClass("com/lalilu/lmedia/entity/Metadata");

@@ -1,7 +1,10 @@
 package com.lalilu.lplayer
 
 import android.content.ComponentName
+import android.content.Context
 import android.os.Bundle
+import android.os.SystemClock
+import android.provider.Settings
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -27,10 +30,20 @@ import com.lalilu.lplayer.service.getHistoryItems
 import com.lalilu.lplayer.service.saveHistoryIds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.koin.dsl.module
 import kotlin.coroutines.CoroutineContext
+import java.util.UUID
+
+data class UsbFileReplaceLease(
+    val token: String,
+    val expiresAtEpochMs: Long,
+)
 
 @OptIn(UnstableApi::class)
 object MPlayer : CoroutineScope, Player.Listener {
@@ -41,6 +54,9 @@ object MPlayer : CoroutineScope, Player.Listener {
 
     private var browserInstance: MediaBrowser? = null
     private var initialized = false
+    private var usbReplaceLeaseToken: String? = null
+    private var usbReplaceLeaseUntilElapsedMs: Long = 0L
+    private var usbReplaceLeaseExpiryJob: Job? = null
     private val browserFuture by lazy {
         MediaBrowser
             .Builder(Utils.getApp(), sessionToken)
@@ -85,6 +101,7 @@ object MPlayer : CoroutineScope, Player.Listener {
             val browser = browserFuture.await()
             browserInstance = browser
             browser.addListener(this@MPlayer)
+            if (usbReplaceLeaseActive()) browser.pause()
 
             val items = getHistoryItems()
             if (items.isEmpty()) {
@@ -100,6 +117,10 @@ object MPlayer : CoroutineScope, Player.Listener {
 
     fun doAction(action: Action) = launch(Dispatchers.Main) {
         val browser = browserFuture.await()
+        if (usbReplaceLeaseActive() && action.requestsPlayback(browser)) {
+            browser.pause()
+            return@launch
+        }
 
         when (action) {
             PlayerAction.Play -> browser.play()
@@ -192,6 +213,41 @@ object MPlayer : CoroutineScope, Player.Listener {
         }
     }
 
+    /**
+     * Blocks every app-owned resume path for a short USB replacement window.
+     * The caller must already have paused playback; this method never hides an active session.
+     */
+    suspend fun beginUsbFileReplaceLease(durationMs: Long = 30_000L): UsbFileReplaceLease =
+        withContext(Dispatchers.Main.immediate) {
+            require(durationMs in 1_000L..600_000L) { "USB 文件替换租约时长不正确" }
+            val browser = browserFuture.await()
+            require(!browser.isPlaying) { "请先暂停播放，再执行电脑端文件替换" }
+
+            val token = UUID.randomUUID().toString().replace("-", "")
+            val lease = setUsbFileReplaceLease(token, durationMs)
+            browser.pause()
+            withTimeout(2_000L) {
+                while (browser.isPlaying) delay(20L)
+            }
+            lease
+        }
+
+    suspend fun renewUsbFileReplaceLease(
+        token: String,
+        durationMs: Long = 30_000L,
+    ): UsbFileReplaceLease = withContext(Dispatchers.Main.immediate) {
+        require(usbReplaceLeaseToken == token && usbReplaceLeaseActive()) {
+            "USB 文件替换租约已失效"
+        }
+        val browser = browserFuture.await()
+        require(!browser.isPlaying) { "播放已恢复，USB 文件替换租约校验失败" }
+        setUsbFileReplaceLease(token, durationMs)
+    }
+
+    suspend fun cancelUsbFileReplaceLease(token: String) = withContext(Dispatchers.Main.immediate) {
+        if (usbReplaceLeaseToken == token) clearUsbFileReplaceLease()
+    }
+
     fun replaceMediaItem(item: MediaItem) = launch(Dispatchers.Main) {
         val browser = browserFuture.await()
         val index = browser.currentTimeline.indexOf(item.mediaId)
@@ -209,6 +265,11 @@ object MPlayer : CoroutineScope, Player.Listener {
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (isPlaying && usbReplaceLeaseActive()) {
+            browserInstance?.pause()
+            this@MPlayer.isPlaying = false
+            return
+        }
         this@MPlayer.isPlaying = isPlaying
     }
 
@@ -252,6 +313,107 @@ object MPlayer : CoroutineScope, Player.Listener {
         val ids = currentTimelineItems.map { it.mediaId }
         saveHistoryIds(mediaIds = ids)
     }
+
+    private fun usbReplaceLeaseActive(): Boolean {
+        if (usbReplaceLeaseToken == null && !restoreUsbFileReplaceLease()) return false
+        if (SystemClock.elapsedRealtime() < usbReplaceLeaseUntilElapsedMs) return true
+        clearUsbFileReplaceLease()
+        return false
+    }
+
+    private fun restoreUsbFileReplaceLease(): Boolean {
+        val app = Utils.getApp()
+        val preferences = app.getSharedPreferences(app.packageName, Context.MODE_PRIVATE)
+        val storedBootCount = preferences.getInt(USB_REPLACE_LEASE_BOOT_COUNT_KEY, -1)
+        val currentBootCount = Settings.Global.getInt(
+            app.contentResolver,
+            Settings.Global.BOOT_COUNT,
+            -2,
+        )
+        val token = preferences.getString(USB_REPLACE_LEASE_TOKEN_KEY, null)
+            ?.takeIf(String::isNotBlank)
+            ?: return false
+        val untilElapsed = preferences.getLong(USB_REPLACE_LEASE_UNTIL_ELAPSED_KEY, 0L)
+        val remaining = untilElapsed - SystemClock.elapsedRealtime()
+        if (storedBootCount < 0 || storedBootCount != currentBootCount || remaining !in 1L..600_000L) {
+            preferences.edit()
+                .remove(USB_REPLACE_LEASE_UNTIL_ELAPSED_KEY)
+                .remove(USB_REPLACE_LEASE_BOOT_COUNT_KEY)
+                .remove(USB_REPLACE_LEASE_TOKEN_KEY)
+                .commit()
+            return false
+        }
+
+        usbReplaceLeaseToken = token
+        usbReplaceLeaseUntilElapsedMs = untilElapsed
+        usbReplaceLeaseExpiryJob?.cancel()
+        usbReplaceLeaseExpiryJob = launch(Dispatchers.Main) {
+            delay(remaining)
+            if (usbReplaceLeaseToken == token) clearUsbFileReplaceLease()
+        }
+        return true
+    }
+
+    private fun clearUsbFileReplaceLease() {
+        usbReplaceLeaseToken = null
+        usbReplaceLeaseUntilElapsedMs = 0L
+        usbReplaceLeaseExpiryJob?.cancel()
+        usbReplaceLeaseExpiryJob = null
+        Utils.getApp()
+            .getSharedPreferences(Utils.getApp().packageName, Context.MODE_PRIVATE)
+                .edit()
+                .remove(USB_REPLACE_LEASE_UNTIL_ELAPSED_KEY)
+                .remove(USB_REPLACE_LEASE_BOOT_COUNT_KEY)
+                .remove(USB_REPLACE_LEASE_TOKEN_KEY)
+                .commit()
+    }
+
+    private fun setUsbFileReplaceLease(token: String, durationMs: Long): UsbFileReplaceLease {
+        require(durationMs in 1_000L..600_000L) { "USB 文件替换租约时长不正确" }
+        usbReplaceLeaseToken = token
+        usbReplaceLeaseUntilElapsedMs = SystemClock.elapsedRealtime() + durationMs
+        check(
+            Utils.getApp()
+                .getSharedPreferences(Utils.getApp().packageName, Context.MODE_PRIVATE)
+                .edit()
+                .putLong(USB_REPLACE_LEASE_UNTIL_ELAPSED_KEY, usbReplaceLeaseUntilElapsedMs)
+                .putString(USB_REPLACE_LEASE_TOKEN_KEY, token)
+                .putInt(
+                    USB_REPLACE_LEASE_BOOT_COUNT_KEY,
+                    Settings.Global.getInt(
+                        Utils.getApp().contentResolver,
+                        Settings.Global.BOOT_COUNT,
+                        -1,
+                    ),
+                )
+                .commit()
+        ) { "无法持久保存 USB 文件替换租约" }
+        usbReplaceLeaseExpiryJob?.cancel()
+        usbReplaceLeaseExpiryJob = launch(Dispatchers.Main) {
+            delay(durationMs)
+            if (usbReplaceLeaseToken == token) clearUsbFileReplaceLease()
+        }
+        return UsbFileReplaceLease(
+            token = token,
+            expiresAtEpochMs = System.currentTimeMillis() + durationMs,
+        )
+    }
+
+    private fun Action.requestsPlayback(browser: Player): Boolean = when (this) {
+        PlayerAction.Play -> true
+        PlayerAction.PlayOrPause -> !browser.isPlaying
+        is PlayerAction.PlayById -> true
+        is PlayerAction.UpdateList -> start
+        PlayerAction.ReloadAndPlay -> true
+        else -> false
+    }
+
+    private const val USB_REPLACE_LEASE_UNTIL_ELAPSED_KEY =
+        "armusic_usb_replace_lease_until_elapsed_ms"
+    private const val USB_REPLACE_LEASE_BOOT_COUNT_KEY =
+        "armusic_usb_replace_lease_boot_count"
+    private const val USB_REPLACE_LEASE_TOKEN_KEY =
+        "armusic_usb_replace_lease_token"
 }
 
 private fun Timeline.toMediaItems(): List<MediaItem> {

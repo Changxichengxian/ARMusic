@@ -17,7 +17,6 @@ fun provideRoom(
     application: Application
 ): LDatabase {
     return Room.databaseBuilder(application, LDatabase::class.java, "lmedia.db")
-        .fallbackToDestructiveMigration()
         .build()
 }
 

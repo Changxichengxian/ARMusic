@@ -4,6 +4,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
+import android.provider.Settings
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -80,7 +82,7 @@ class MService : MediaLibraryService(), CoroutineScope {
             .build()
             .apply {
                 historyAnalyticsListener?.let { addAnalyticsListener(it) }
-                addListener(MPlayerListener(this))
+                addListener(MPlayerListener(this, this@MService))
             }
             .setUpQueueControl()
 
@@ -126,7 +128,14 @@ class MService : MediaLibraryService(), CoroutineScope {
     }
 }
 
-private class MPlayerListener(val player: Player) : Player.Listener {
+private class MPlayerListener(
+    val player: Player,
+    private val context: Context,
+) : Player.Listener {
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (isPlaying && usbFileReplaceLeaseActive()) player.pause()
+    }
+
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
         val playMode = PlayMode.of(
             repeatMode = player.repeatMode,
@@ -141,6 +150,28 @@ private class MPlayerListener(val player: Player) : Player.Listener {
             shuffleModeEnabled = player.shuffleModeEnabled
         )
         MPlayerKV.playMode.value = playMode.name
+    }
+
+    private fun usbFileReplaceLeaseActive(): Boolean {
+        val preferences = context.getSharedPreferences(context.packageName, Context.MODE_PRIVATE)
+        val storedBootCount = preferences.getInt(USB_REPLACE_LEASE_BOOT_COUNT_KEY, -1)
+        val currentBootCount = Settings.Global.getInt(
+            context.contentResolver,
+            Settings.Global.BOOT_COUNT,
+            -2,
+        )
+        if (storedBootCount < 0 || storedBootCount != currentBootCount) return false
+        val remaining = preferences.getLong(USB_REPLACE_LEASE_UNTIL_ELAPSED_KEY, 0L) -
+            SystemClock.elapsedRealtime()
+        return remaining in 1L..USB_REPLACE_MAX_LEASE_MS
+    }
+
+    private companion object {
+        const val USB_REPLACE_LEASE_UNTIL_ELAPSED_KEY =
+            "armusic_usb_replace_lease_until_elapsed_ms"
+        const val USB_REPLACE_LEASE_BOOT_COUNT_KEY =
+            "armusic_usb_replace_lease_boot_count"
+        const val USB_REPLACE_MAX_LEASE_MS = 10 * 60 * 1000L
     }
 }
 

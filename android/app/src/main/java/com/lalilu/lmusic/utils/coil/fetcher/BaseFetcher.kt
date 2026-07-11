@@ -29,7 +29,9 @@ abstract class BaseFetcher : Fetcher {
 
         return try {
             retriever.setDataSource(context, song.uri)
-            retriever.embeddedPicture?.inputStream()
+            retriever.embeddedPicture
+                ?.takeIf { it.isNotEmpty() }
+                ?.inputStream()
         } catch (e: Exception) {
             LogUtils.e(song, e)
             null
@@ -46,6 +48,7 @@ abstract class BaseFetcher : Fetcher {
                 null
             }?.use { fileDescriptor ->
                 Taglib.getPictureWithFD(fileDescriptor.detachFd())
+                    ?.takeIf { it.isNotEmpty() }
                     ?.inputStream()
             }
     }

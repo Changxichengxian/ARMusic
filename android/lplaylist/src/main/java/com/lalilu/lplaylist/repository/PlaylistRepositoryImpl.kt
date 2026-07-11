@@ -14,52 +14,57 @@ internal class PlaylistRepositoryImpl : PlaylistRepository {
     override fun getPlaylistsFlow(): Flow<List<LPlaylist>> {
         return PlaylistKV.playlistList.flow()
             .mapLatest { playlists ->
-                sanitizeAndPersist(playlists)
+                playlists.sanitizePlaylists()
             }
     }
 
     override fun getPlaylists(): List<LPlaylist> {
-        return sanitizeAndPersist(runCatching { PlaylistKV.playlistList.value }.getOrNull())
+        return synchronized(MUTATION_LOCK) {
+            sanitizeAndPersist(runCatching { PlaylistKV.playlistList.value }.getOrNull())
+        }
     }
 
     override fun setPlaylists(playlists: List<LPlaylist>) {
-        PlaylistKV.playlistList.apply {
-            value = playlists.sanitizePlaylists()
-            if (!autoSave) save()
+        synchronized(MUTATION_LOCK) {
+            persist(playlists.sanitizePlaylists())
+        }
+    }
+
+    override fun mutatePlaylists(action: (List<LPlaylist>) -> List<LPlaylist>): List<LPlaylist> {
+        return synchronized(MUTATION_LOCK) {
+            val current = sanitizeAndPersist(runCatching { PlaylistKV.playlistList.value }.getOrNull())
+            val next = action(current).sanitizePlaylists()
+            persist(next)
+            sanitizeAndPersist(runCatching { PlaylistKV.playlistList.value }.getOrNull())
         }
     }
 
     override fun save(playlist: LPlaylist) {
-        val playlists = getPlaylists().toMutableList()
-        val index = playlists.indexOfFirst { it.id == playlist.id }
-
-        // 若已存在则更新
-        if (index >= 0) {
-            playlists[index] = playlist
-            setPlaylists(playlists)
-            return
+        mutatePlaylists { source ->
+            val playlists = source.toMutableList()
+            val index = playlists.indexOfFirst { it.id == playlist.id }
+            val now = System.currentTimeMillis()
+            val updated = playlist.copy(
+                createTime = source.getOrNull(index)?.createTime ?: playlist.createTime,
+                modifyTime = now,
+            )
+            if (index >= 0) playlists[index] = updated else playlists.add(0, updated)
+            playlists
         }
-
-        playlists.add(0, playlist)
-        setPlaylists(playlists)
     }
 
     override fun remove(playlist: LPlaylist) {
-        val playlists = getPlaylists().toMutableList()
-        playlists.remove(playlist)
-        setPlaylists(playlists)
+        mutatePlaylists { it.filterNot { item -> item.id == playlist.id } }
     }
 
     override fun removeById(id: String) {
         // 筛选不用删除的元素
-        val result = getPlaylists().filter { it.id != id }
-        setPlaylists(result)
+        mutatePlaylists { it.filter { item -> item.id != id } }
     }
 
     override fun removeByIds(ids: List<String>) {
         // 筛选不用删除的元素
-        val result = getPlaylists().filter { it.id !in ids }
-        setPlaylists(result)
+        mutatePlaylists { it.filter { item -> item.id !in ids } }
     }
 
     override fun isExist(playlistId: String): Boolean {
@@ -73,96 +78,89 @@ internal class PlaylistRepositoryImpl : PlaylistRepository {
     }
 
     override fun updateMediaIdsToPlaylist(mediaIds: List<String>, playlistId: String) {
-        updatePlaylist(playlistId) { it.copy(mediaIds = mediaIds.distinct()) }
+        updatePlaylist(playlistId) { it.copy(mediaIds = mediaIds.distinct(), modifyTime = System.currentTimeMillis()) }
     }
 
     override fun addMediaIdsToPlaylist(mediaIds: List<String>, playlistId: String) {
-        updatePlaylist(playlistId) { it.copy(mediaIds = mediaIds.plus(it.mediaIds).distinct()) }
+        updatePlaylist(playlistId) { it.copy(mediaIds = mediaIds.plus(it.mediaIds).distinct(), modifyTime = System.currentTimeMillis()) }
     }
 
     override fun addMediaIdsToPlaylists(mediaIds: List<String>, playlistIds: List<String>) {
-        var changed = false
-        val playlists = getPlaylists().toMutableList()
-
-        for (index in playlists.indices) {
-            val playlist = playlists[index]
-            val playlistId = playlist.id
-            val exist = playlistIds.any { it == playlistId }
-            if (!exist) continue
-
-            val mediaIdsSet = playlist.mediaIds.toHashSet()
-                .also {
-                    changed = true
-                    it.addAll(mediaIds)
-                }
-
-            playlists[index] = playlist.copy(mediaIds = mediaIdsSet.toList())
+        mutatePlaylists { source ->
+            source.map { playlist ->
+                if (playlist.id !in playlistIds) playlist else playlist.copy(
+                    mediaIds = (mediaIds + playlist.mediaIds).distinct(),
+                    modifyTime = System.currentTimeMillis(),
+                )
+            }
         }
-
-        if (!changed) return
-        setPlaylists(playlists)
     }
 
     override fun removeMediaIdsFromPlaylist(mediaIds: List<String>, playlistId: String) {
-        updatePlaylist(playlistId) { it.copy(mediaIds = it.mediaIds.minus(mediaIds.toSet())) }
+        updatePlaylist(playlistId) { it.copy(mediaIds = it.mediaIds.minus(mediaIds.toSet()), modifyTime = System.currentTimeMillis()) }
     }
 
     override fun removeMediaIdsFromPlaylists(mediaIds: List<String>, playlistIds: List<String>) {
-        var changed = false
-        val playlists = getPlaylists().toMutableList()
-
-        for (index in playlists.indices) {
-            val playlist = playlists[index]
-            val playlistId = playlist.id
-            val exist = playlistIds.any { it == playlistId }
-            if (!exist) continue
-
-            changed = true
-            val newMediaIds = playlist.mediaIds.minus(mediaIds.toSet())
-
-            playlists[index] = playlist.copy(mediaIds = newMediaIds)
+        mutatePlaylists { source ->
+            source.map { playlist ->
+                if (playlist.id !in playlistIds) playlist else playlist.copy(
+                    mediaIds = playlist.mediaIds.minus(mediaIds.toSet()),
+                    modifyTime = System.currentTimeMillis(),
+                )
+            }
         }
-
-        if (!changed) return
-        setPlaylists(playlists)
     }
 
     override fun relinkMediaId(oldMediaId: String, newMediaId: String): Int {
         if (oldMediaId.isBlank() || newMediaId.isBlank() || oldMediaId == newMediaId) return 0
 
         var changedCount = 0
-        val playlists = getPlaylists().map { playlist ->
-            if (oldMediaId !in playlist.mediaIds) return@map playlist
-
-            changedCount += 1
-            playlist.copy(
-                mediaIds = playlist.mediaIds
-                    .map { if (it == oldMediaId) newMediaId else it }
-                    .distinct(),
-                modifyTime = System.currentTimeMillis(),
-            )
+        mutatePlaylists { source ->
+            source.map { playlist ->
+                if (oldMediaId !in playlist.mediaIds) return@map playlist
+                changedCount += 1
+                playlist.copy(
+                    mediaIds = playlist.mediaIds
+                        .map { if (it == oldMediaId) newMediaId else it }
+                        .distinct(),
+                    modifyTime = System.currentTimeMillis(),
+                )
+            }
         }
-
-        if (changedCount > 0) setPlaylists(playlists)
         return changedCount
     }
 
     private fun updatePlaylist(playlistId: String, action: (LPlaylist) -> LPlaylist) {
-        val playlists = getPlaylists().toMutableList()
-        val index = playlists.indexOfFirst { it.id == playlistId }.takeIf { it >= 0 } ?: return
-
-        playlists[index] = action(playlists[index])
-        setPlaylists(playlists)
+        mutatePlaylists { source ->
+            val playlists = source.toMutableList()
+            val index = playlists.indexOfFirst { it.id == playlistId }.takeIf { it >= 0 }
+                ?: return@mutatePlaylists source
+            playlists[index] = action(playlists[index])
+            playlists
+        }
     }
 
     private fun sanitizeAndPersist(playlists: List<LPlaylist>?): List<LPlaylist> {
-        val cleaned = playlists.sanitizePlaylists()
-        if (cleaned != playlists.orEmpty()) {
-            PlaylistKV.playlistList.apply {
-                value = cleaned
-                if (!autoSave) save()
+        return synchronized(MUTATION_LOCK) {
+            val cleaned = playlists.sanitizePlaylists()
+            if (cleaned != playlists.orEmpty()) {
+                PlaylistKV.playlistList.apply {
+                    value = cleaned
+                    if (!autoSave) save()
+                }
             }
+            cleaned
         }
-        return cleaned
+    }
+
+    private fun persist(playlists: List<LPlaylist>) {
+        PlaylistKV.playlistList.apply {
+            value = playlists
+            if (!autoSave) save()
+        }
+    }
+
+    private companion object {
+        val MUTATION_LOCK = Any()
     }
 }
