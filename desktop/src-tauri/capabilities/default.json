@@ -11,6 +11,8 @@
     "core:window:allow-is-maximized",
     "core:window:allow-start-dragging",
     "core:event:allow-listen",
-    "core:event:allow-unlisten"
+    "core:event:allow-unlisten",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister"
   ]
 }

@@ -1,5 +1,20 @@
 import type { Track } from "../types";
 
+export const DEFAULT_POSTER_ROWS = 8;
+
+export function posterRowsForViewport(
+  width: number,
+  height: number,
+  columns: number,
+  gap = 10,
+  horizontalPadding = 20,
+): number {
+  if (width <= 0 || height <= 0 || columns <= 0) return DEFAULT_POSTER_ROWS;
+  const usableWidth = Math.max(1, width - horizontalPadding - gap * Math.max(0, columns - 1));
+  const tileStep = usableWidth / columns + gap;
+  return Math.max(5, Math.min(12, Math.ceil(height / tileStep) + 2));
+}
+
 export function posterLibrarySignature(tracks: readonly Track[]): string {
   return tracks.map((track) => [
     track.syncId,

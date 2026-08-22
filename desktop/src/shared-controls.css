@@ -1,0 +1,232 @@
+.ui-select {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  color: var(--text);
+}
+
+.ui-select__trigger {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--panel-soft);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.ui-select__trigger:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--panel-soft) 86%, var(--text) 4%);
+}
+
+.ui-select__trigger:focus-visible,
+.ui-select.is-open .ui-select__trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.ui-select__value {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ui-select__value strong,
+.ui-select__option strong {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select__value small,
+.ui-select__option small {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 8px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select__value.is-placeholder strong { color: var(--text-3); font-weight: 550; }
+.ui-select__chevron { flex: 0 0 auto; color: var(--text-3); transition: transform 160ms ease; }
+.ui-select.is-open .ui-select__chevron { transform: rotate(180deg); }
+.ui-select.is-disabled { opacity: .58; }
+.ui-select.is-disabled .ui-select__trigger { cursor: not-allowed; }
+
+.ui-select__menu {
+  position: absolute;
+  z-index: 700;
+  top: calc(100% + 7px);
+  right: 0;
+  left: 0;
+  display: grid;
+  max-height: min(276px, 48vh);
+  gap: 3px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: var(--panel);
+  box-shadow: 0 18px 44px rgba(13, 12, 11, .24), 0 3px 10px rgba(13, 12, 11, .12);
+  animation: ui-select-enter 130ms ease-out both;
+  overscroll-behavior: contain;
+}
+
+.ui-select__menu.opens-above {
+  top: auto;
+  bottom: calc(100% + 7px);
+  transform-origin: bottom;
+}
+
+.ui-select__option {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 9px;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.ui-select__option > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ui-select__option > svg { flex: 0 0 auto; color: var(--accent); }
+.ui-select__option:hover:not(:disabled),
+.ui-select__option:focus-visible,
+.ui-select__option.is-active { background: var(--hover); }
+.ui-select__option.is-selected { background: var(--accent-soft); }
+.ui-select__option:disabled { cursor: not-allowed; opacity: .42; }
+
+.ui-confirm-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(14, 13, 12, .58);
+  backdrop-filter: blur(10px);
+  animation: ui-backdrop-enter 150ms ease-out both;
+}
+
+.ui-confirm-dialog {
+  width: min(420px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .34);
+  animation: ui-dialog-enter 170ms ease-out both;
+}
+
+.ui-confirm-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 22px 0;
+}
+
+.ui-confirm-dialog > header > div { display: grid; gap: 5px; }
+.ui-confirm-dialog > header span {
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ui-confirm-dialog > header h2 { margin: 0; font-size: 20px; letter-spacing: -.035em; }
+.ui-confirm-dialog > header button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text-3);
+}
+.ui-confirm-dialog > header button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+
+.ui-confirm-dialog__body {
+  padding: 15px 22px 20px;
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.65;
+}
+.ui-confirm-dialog__body strong { color: var(--text); overflow-wrap: anywhere; }
+
+.ui-confirm-dialog > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 15px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.ui-confirm-dialog > footer button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+.ui-confirm-dialog__cancel { background: var(--panel); color: var(--text-2); }
+.ui-confirm-dialog__confirm { border-color: var(--accent) !important; background: var(--accent); color: white; }
+.ui-confirm-dialog__confirm.is-danger { border-color: #d65345 !important; background: #d65345; }
+.ui-confirm-dialog > footer button:hover:not(:disabled) { transform: translateY(-1px); }
+.ui-confirm-dialog > footer button:disabled { cursor: wait; opacity: .65; }
+.ui-spin { animation: ui-spin 900ms linear infinite; }
+
+@keyframes ui-select-enter {
+  from { opacity: 0; transform: translateY(-4px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ui-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-dialog-enter {
+  from { opacity: 0; transform: translateY(9px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-select__menu,
+  .ui-confirm-backdrop,
+  .ui-confirm-dialog { animation: none; }
+}

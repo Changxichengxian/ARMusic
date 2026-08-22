@@ -23,6 +23,7 @@ import com.lalilu.lmedia.LMedia
 import com.lalilu.lplayer.action.Action
 import com.lalilu.lplayer.action.PlayerAction
 import com.lalilu.lplayer.extensions.PlayMode
+import com.lalilu.lplayer.extensions.hasPlayMode
 import com.lalilu.lplayer.extensions.playMode
 import com.lalilu.lplayer.service.CustomCommand
 import com.lalilu.lplayer.service.MService
@@ -39,10 +40,18 @@ import kotlinx.coroutines.withTimeout
 import org.koin.dsl.module
 import kotlin.coroutines.CoroutineContext
 import java.util.UUID
+import kotlin.math.abs
 
 data class UsbFileReplaceLease(
     val token: String,
     val expiresAtEpochMs: Long,
+)
+
+data class PlaybackModeSnapshot(
+    val playMode: PlayMode,
+    val storedPlayMode: PlayMode,
+    val repeatMode: Int,
+    val shuffleModeEnabled: Boolean,
 )
 
 @OptIn(UnstableApi::class)
@@ -87,6 +96,48 @@ object MPlayer : CoroutineScope, Player.Listener {
     val currentBufferedPosition: Long
         get() = runCatching { if (browserFuture.isDone) browserFuture.get()?.bufferedPosition else null }
             .getOrNull() ?: 0L
+
+    suspend fun setCapturePlaybackSpeed(speed: Float) = withContext(Dispatchers.Main.immediate) {
+        require(speed in 0.25f..2f) { "Capture playback speed must be between 0.25 and 2.0" }
+        browserFuture.await().setPlaybackSpeed(speed)
+    }
+
+    suspend fun correctCapturePosition(
+        positionMs: Long,
+        toleranceMs: Long = 750L,
+    ) = withContext(Dispatchers.Main.immediate) {
+        require(positionMs >= 0L) { "Capture playback position must not be negative" }
+        val browser = browserFuture.await()
+        val driftMs = abs(browser.currentPosition - positionMs)
+        if (driftMs > toleranceMs || browser.playbackState != Player.STATE_READY) {
+            browser.seekTo(positionMs)
+        }
+        if (!browser.playWhenReady) browser.play()
+    }
+
+    suspend fun playbackModeSnapshot() = withContext(Dispatchers.Main.immediate) {
+        val browser = browserFuture.await()
+        PlaybackModeSnapshot(
+            playMode = browser.playMode,
+            storedPlayMode = PlayMode.from(MPlayerKV.playMode.value),
+            repeatMode = browser.repeatMode,
+            shuffleModeEnabled = browser.shuffleModeEnabled,
+        )
+    }
+
+    suspend fun setPlaybackMode(playMode: PlayMode) = withContext(Dispatchers.Main.immediate) {
+        MPlayerKV.playMode.value = playMode.name
+        val browser = browserFuture.await()
+        withTimeout(3_000L) {
+            while (!browser.hasPlayMode(playMode)) delay(25L)
+        }
+        PlaybackModeSnapshot(
+            playMode = browser.playMode,
+            storedPlayMode = PlayMode.from(MPlayerKV.playMode.value),
+            repeatMode = browser.repeatMode,
+            shuffleModeEnabled = browser.shuffleModeEnabled,
+        )
+    }
 
     fun isItemPlaying(mediaId: String): Boolean {
         if (!isPlaying) return false
@@ -184,7 +235,7 @@ object MPlayer : CoroutineScope, Player.Listener {
             }
 
             is PlayerAction.SetPlayMode -> {
-                browser.playMode = action.playMode
+                MPlayerKV.playMode.value = action.playMode.name
             }
 
             is PlayerAction.AddToNext -> {

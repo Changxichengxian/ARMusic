@@ -38,7 +38,7 @@ html.tray-document body {
   box-shadow: none;
   color: var(--tray-text);
   opacity: 0;
-  transition: opacity 100ms ease;
+  transition: opacity var(--ui-motion) ease;
   user-select: none;
 }
 
@@ -185,7 +185,7 @@ html.tray-document body {
   right: auto;
   width: var(--tray-progress, 0%);
   background: rgba(255, 255, 255, 0.84);
-  transition: width 100ms linear;
+  transition: width var(--ui-motion) linear;
 }
 
 .tray-player__progress:focus-within::after,

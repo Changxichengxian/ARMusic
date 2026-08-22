@@ -307,7 +307,8 @@ fun SeekbarLayout(
                 .combineDetectDrag(
                     onLongClickStart = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        switchModeX.floatValue = it.x
+                        val selectedIndex = switchIndex().coerceIn(0, 2)
+                        switchModeX.floatValue = boxSize.maxWidth * (selectedIndex + 0.5f) / 3f
                         switchMode.value = true
                         seekbarState.value = SeekbarState.Switcher
                     },

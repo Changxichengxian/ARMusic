@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.Constraints
 data class LyricContext(
     val currentTime: () -> Long,
     val currentIndex: () -> Int,
+    val isBeforeFirstLine: () -> Boolean,
+    val openingProgress: () -> Float,
     val isUserScrolling: () -> Boolean,
     val screenConstraints: Constraints,
     val textMeasurer: TextMeasurer,

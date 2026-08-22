@@ -26,6 +26,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
@@ -68,6 +69,17 @@ class Indexer(
         LogUtils.i("start index: $startAt")
 
         loopJob = scanner.requireFlow()
+            .onStart {
+                val snapshot = scanner.loadStartupSnapshot()
+                if (snapshot.isNotEmpty()) {
+                    val snapshotStartedAt = System.currentTimeMillis()
+                    handleIndex(snapshot, markReady = false)
+                    LogUtils.i(
+                        "[LMedia] Startup snapshot presented: ${snapshot.size} songs, " +
+                            "index cost: ${System.currentTimeMillis() - snapshotStartedAt} ms"
+                    )
+                }
+            }
             .onEach {
                 LogUtils.i("end index: cost: ${System.currentTimeMillis() - startAt}")
                 library.updateState(LibraryState.Loading)
@@ -91,7 +103,10 @@ class Indexer(
         handleIndex(songs)
     }
 
-    private suspend fun handleIndex(songs: List<LSong>) = withContext(Dispatchers.IO) {
+    private suspend fun handleIndex(
+        songs: List<LSong>,
+        markReady: Boolean = true,
+    ) = withContext(Dispatchers.IO) {
         val actualSongs = songs.map { songOverrides[it.id] ?: it }
 
         val buildSongsJob = async {
@@ -139,7 +154,9 @@ class Indexer(
             buildFolderJob
         ).joinAll()
 
-        library.updateState(LibraryState.Ready)
+        if (markReady) {
+            library.updateState(LibraryState.Ready)
+        }
     }
 
     private fun retrieveGenres(songs: Collection<LSong>): List<LGenre> =

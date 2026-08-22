@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Track } from "../types";
-import { posterLibrarySignature, shuffledPosterBatch } from "./posterQueue";
+import { DEFAULT_POSTER_ROWS, posterLibrarySignature, posterRowsForViewport, shuffledPosterBatch } from "./posterQueue";
 
 function track(overrides: Partial<Track> = {}): Track {
   return {
@@ -45,5 +45,17 @@ describe("posterLibrarySignature", () => {
 
     expect(checkpoint).toBe(initial);
     expect(retagged).not.toBe(initial);
+  });
+});
+
+describe("posterRowsForViewport", () => {
+  it("keeps only the visible rows plus a small scrolling buffer", () => {
+    expect(posterRowsForViewport(1200, 900, 7)).toBe(8);
+    expect(posterRowsForViewport(1200, 900, 10)).toBe(10);
+    expect(posterRowsForViewport(3700, 2160, 4)).toBe(5);
+  });
+
+  it("uses a safe default before the wall has a measurable size", () => {
+    expect(posterRowsForViewport(0, 0, 7)).toBe(DEFAULT_POSTER_ROWS);
   });
 });

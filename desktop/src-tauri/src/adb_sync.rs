@@ -5,8 +5,9 @@ use crate::{
     apply_history_to_tracks, atomic_replace_with_backup, copy_file_synced,
     desktop_playlists_device_id, desktop_wishlist_device_id, ensure_safe_directory, history_root,
     identity_index, import_track_from_reader, load_seeded_history, normalize_history_ids, now_iso,
-    refresh_library_locked, remove_imported_track_if_unchanged, scan_music_folder_uncached,
-    track_in_sync_scope, tracks_share_identity, validate_unique_track_identities, AppInner, Track,
+    refresh_library_cached_locked, refresh_library_locked, remove_imported_track_if_unchanged,
+    scan_music_folder_uncached, track_in_sync_scope, tracks_share_identity,
+    validate_unique_track_identities, AppInner, Track,
 };
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::{Deserialize, Serialize};
@@ -21,7 +22,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use wait_timeout::ChildExt;
 
-const AGENT_RECEIVER: &str = "com.armusic/com.lalilu.lmusic.agent.ARMusicAgentReceiver";
+const AGENT_ACTIVITY: &str = "com.armusic/com.lalilu.lmusic.agent.ARMusicAgentActivity";
 const PHONE_LIBRARY: &str =
     "/storage/emulated/0/Android/data/com.armusic/files/agent/armusic-library.json";
 const PHONE_HISTORY: &str =
@@ -320,7 +321,7 @@ pub fn preview(
     let device = choose_device(requested_serial)?;
     let snapshot = export_phone_snapshot(&device)?;
     let _file_guard = state.file_mutation_lock.lock().expect("file mutation lock");
-    refresh_library_locked(&state)?;
+    refresh_library_cached_locked(&state)?;
     build_preview(&state, &snapshot)
 }
 
@@ -348,7 +349,7 @@ pub fn execute(
     }
     let preview = {
         let _file_guard = state.file_mutation_lock.lock().expect("file mutation lock");
-        refresh_library_locked(&state)?;
+        refresh_library_cached_locked(&state)?;
         build_preview(&state, &snapshot)?
     };
     let mut uploaded_to_phone = 0;
@@ -739,8 +740,11 @@ fn upload_missing_to_phone(
     snapshot: &PhoneSnapshot,
     preview: &AdbSyncPreview,
 ) -> Result<(usize, Vec<String>), String> {
+    if preview.upload_to_phone.is_empty() {
+        return Ok((0, Vec::new()));
+    }
     let _file_guard = state.file_mutation_lock.lock().expect("file mutation lock");
-    refresh_library_locked(state)?;
+    refresh_library_cached_locked(state)?;
     let desktop = state.tracks.lock().expect("tracks lock").clone();
     let wanted = preview
         .upload_to_phone
@@ -1145,12 +1149,12 @@ fn resolve_conflicts(
                 copy_file_synced(&pulled, &staging).map_err(|error| error.to_string())?;
                 let staged_identity =
                     crate::sync_identity::create_audio_identity_uncached(&staging)?;
-                if staged_identity != identity {
+                if !same_file_identity(&staged_identity, &identity) {
                     let _ = fs::remove_file(&staging);
                     return Err(format!("{} 电脑替换临时文件校验失败", conflict.title));
                 }
                 let final_current = crate::sync_identity::create_audio_identity_uncached(&target)?;
-                if final_current != current_desktop_identity {
+                if !same_file_identity(&final_current, &current_desktop_identity) {
                     let _ = fs::remove_file(&staging);
                     warnings.push(format!(
                         "{} 电脑文件在原子替换前再次变化，已跳过",
@@ -1171,8 +1175,8 @@ fn resolve_conflicts(
                         ));
                     }
                 };
-                if final_identity != identity {
-                    if final_identity == current_desktop_identity {
+                if !same_file_identity(&final_identity, &identity) {
+                    if same_file_identity(&final_identity, &current_desktop_identity) {
                         warnings.push(format!(
                             "{} 原子替换没有发生，电脑原文件保持不变：{}",
                             conflict.title,
@@ -2096,13 +2100,17 @@ fn run_agent_command_with_id(
     let remote_result = format!("{PHONE_AGENT_DIR}/armusic-agent-result-{command_id}.json");
     let removed = adb_output(Some(serial), &["shell", "rm", "-f", &remote_result])?;
     ensure_success(&removed, "清理手机端旧命令结果")?;
+    // Aggressive OEM power managers can accept the receiver broadcast but register its service
+    // several seconds later. Starting the activity as a timed fallback then launches the same
+    // command twice. Use the app's protected, transparent automation activity as the sole entry
+    // point so every command id has exactly one executor. android.permission.DUMP restricts this
+    // component to ADB shell/system callers.
     let mut args = vec![
         "shell",
         "am",
-        "broadcast",
-        "--receiver-foreground",
+        "start",
         "-n",
-        AGENT_RECEIVER,
+        AGENT_ACTIVITY,
         "-a",
         "com.armusic.AGENT_COMMAND",
         "--es",
@@ -2119,11 +2127,11 @@ fn run_agent_command_with_id(
         args.extend(["--es", "path", path]);
     }
     let started = adb_output(Some(serial), &args)?;
-    ensure_success(&started, "投递手机后台同步命令")?;
+    ensure_success(&started, "通过手机代理页投递同步命令")?;
     let dispatch = String::from_utf8_lossy(&started.stdout);
-    if !dispatch.contains("result=-1") {
+    if !dispatch.contains("Starting:") && !dispatch.contains("Activity not started") {
         return Err(format!(
-            "手机没有接收后台同步命令：{}",
+            "手机没有接收同步命令：{}",
             dispatch.trim().replace('\r', " ").replace('\n', " ")
         ));
     }
@@ -2589,7 +2597,10 @@ const fn default_true() -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{hex_encode_utf8, phone_file_uri, ExecuteAdbSyncRequest, RENAME_EXCHANGE_ARM64};
+    use super::{
+        hex_encode_utf8, phone_file_uri, same_file_identity, ExecuteAdbSyncRequest,
+        RENAME_EXCHANGE_ARM64,
+    };
 
     #[test]
     fn file_uri_encodes_every_segment_without_flattening_slashes() {
@@ -2606,6 +2617,22 @@ mod tests {
             "2fe99fb3e4b9902f6120622e6d7033"
         );
         assert_eq!(&RENAME_EXCHANGE_ARM64[..4], b"\x7fELF");
+    }
+
+    #[test]
+    fn content_verification_ignores_filename_derived_legacy_identity() {
+        let pulled = crate::sync_identity::AudioIdentity {
+            stable_id: "audio-sha256-stable".to_string(),
+            revision_hash: "file-sha256-exact".to_string(),
+            legacy_id: "sha256-phone-name".to_string(),
+        };
+        let staged = crate::sync_identity::AudioIdentity {
+            legacy_id: "sha256-temporary-name".to_string(),
+            ..pulled.clone()
+        };
+
+        assert_ne!(pulled, staged);
+        assert!(same_file_identity(&pulled, &staged));
     }
 
     #[test]

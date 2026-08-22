@@ -117,6 +117,39 @@ open class MediaStoreScanner(
     override fun updateAsync() = resultFlow.requireUpdate()
     override fun requireFlow(): Flow<List<LSong>> = resultFlow
 
+    /**
+     * Builds a lightweight, current MediaStore snapshot for the first frame.
+     *
+     * It deliberately skips genre-member queries, TagLib reads and filesystem timestamp checks.
+     * The regular scan starts immediately afterwards and remains the source of truth; this snapshot
+     * only prevents a cold start from presenting an empty library while that scan is running.
+     */
+    fun loadStartupSnapshot(): List<LSong> {
+        val startedAt = System.currentTimeMillis()
+        return runCatching {
+            val exclusionMatcher = PathExclusionMatcher(lMediaSp.excludePath.value)
+            val songs = query(context).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        buildAudio(cursor).toSong()?.let(::add)
+                    }
+                }
+            }.filterNot {
+                exclusionMatcher.isExcluded(it.fileInfo.pathStr) ||
+                    exclusionMatcher.isExcluded(it.fileInfo.directoryPath)
+            }
+
+            LogUtils.i(
+                "[LMedia] Startup snapshot loaded: ${songs.size} songs in " +
+                    "${System.currentTimeMillis() - startedAt} ms"
+            )
+            songs
+        }.getOrElse { error ->
+            LogUtils.w("[LMedia] Startup snapshot failed; continuing with the full scan.", error)
+            emptyList()
+        }
+    }
+
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
             this@MediaStoreScanner.updateAsync()

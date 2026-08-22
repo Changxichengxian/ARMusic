@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.drawText
@@ -46,6 +47,11 @@ fun LyricContentNormal(
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
     val isCurrent = context.currentIndex() == index
+    val currentEmphasis = when {
+        !isCurrent -> 0f
+        context.isBeforeFirstLine() -> context.openingProgress()
+        else -> 1f
+    }
 
     val actualConstraints = remember(context, settings) {
         val paddingHorizontal = settings.containerPadding.calculateLeftPadding(direction) +
@@ -131,7 +137,7 @@ fun LyricContentNormal(
     )
 
     val color = animateColorAsState(
-        targetValue = if (isCurrent) Color.White else Color(0x80FFFFFF),
+        targetValue = lerp(Color(0x80FFFFFF), Color.White, currentEmphasis),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessLow
@@ -140,8 +146,8 @@ fun LyricContentNormal(
     )
 
     val scale = animateFloatAsState(
-        targetValue = if (isCurrent) settings.scaleRange.endInclusive
-        else settings.scaleRange.start,
+        targetValue = settings.scaleRange.start +
+                (settings.scaleRange.endInclusive - settings.scaleRange.start) * currentEmphasis,
         visibilityThreshold = 0.001f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
@@ -153,11 +159,23 @@ fun LyricContentNormal(
     val blurRadius = remember(
         context.isUserScrolling(),
         context.currentIndex(),
-        settings.blurEffectEnable
+        context.isBeforeFirstLine(),
+        context.openingProgress(),
+        settings.blurEffectEnable,
+        settings.blurOpeningEnable,
     ) {
         if (context.isUserScrolling()) return@remember 0.dp
-        if (!settings.blurEffectEnable) return@remember 0.dp
-        abs(index - context.currentIndex()).coerceAtMost(5).dp
+        val regularBlur = if (settings.blurEffectEnable) {
+            abs(index - context.currentIndex()).coerceAtMost(5).dp
+        } else {
+            0.dp
+        }
+        if (!context.isBeforeFirstLine() || !settings.blurOpeningEnable) {
+            return@remember regularBlur
+        }
+
+        val progress = context.openingProgress()
+        5.dp * (1f - progress) + regularBlur * progress
     }
     val animateBlurRadius = animateDpAsState(
         targetValue = blurRadius,

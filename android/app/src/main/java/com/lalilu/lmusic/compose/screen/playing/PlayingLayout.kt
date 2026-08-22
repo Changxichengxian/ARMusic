@@ -32,7 +32,9 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +65,7 @@ import com.lalilu.lmusic.compose.screen.playing.lyric.LyricLayout
 import com.lalilu.lmusic.compose.screen.playing.seekbar.ClickPart
 import com.lalilu.lmusic.compose.screen.playing.seekbar.SeekbarLayout
 import com.lalilu.lplayer.MPlayer
+import com.lalilu.lplayer.MPlayerKV
 import com.lalilu.lplayer.action.PlayerAction
 import com.lalilu.lplayer.extensions.PlayMode
 import kotlinx.coroutines.Dispatchers
@@ -86,6 +89,9 @@ fun PlayingLayout() {
     val currentPosition = remember { mutableFloatStateOf(0f) }
     val animation = remember { Animatable(0f) }
     val manualHideExpandedControls = remember { mutableStateOf(false) }
+    val playModeName by MPlayerKV.playMode.flow()
+        .collectAsState(initial = MPlayerKV.playMode.value)
+    val playMode = remember(playModeName) { PlayMode.from(playModeName) }
     val currentMediaItem = MPlayer.currentMediaItem
     val backgroundImageData = rememberRotatingCoverData(
         item = currentMediaItem,
@@ -357,6 +363,7 @@ fun PlayingLayout() {
                         maxValue = { MPlayer.currentDuration.toFloat() },
                         animation = animation,
                         dataValue = { currentPosition.floatValue },
+                        switchIndex = { playMode.ordinal },
                         onDispatchDragOffset = { enhanceSheetState?.dispatch(it) },
                         onDragStop = { result ->
                             if (result == -1) enhanceSheetState?.hide()

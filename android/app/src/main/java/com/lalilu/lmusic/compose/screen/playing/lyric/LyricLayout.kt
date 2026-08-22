@@ -1,20 +1,25 @@
 package com.lalilu.lmusic.compose.screen.playing.lyric
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideIn
 import androidx.compose.animation.slideOut
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ButtonDefaults
@@ -26,6 +31,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -39,22 +45,18 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.funny.data_saver.core.DataSaverMutableState
-import com.lalilu.component.extension.ItemRecorder
-import com.lalilu.component.extension.rememberLazyListAnimateScroller
-import com.lalilu.component.extension.startRecord
 import com.lalilu.lmedia.lyric.LyricItem
-import com.lalilu.lmedia.lyric.findPlayingIndex
 import com.lalilu.lmusic.compose.screen.playing.lyric.impl.LyricContentNormal
 import com.lalilu.lmusic.compose.screen.playing.lyric.impl.LyricContentWords
 import com.lalilu.lmusic.utils.extension.edgeTransparent
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.core.qualifier.named
-import kotlin.math.roundToInt
+import kotlin.math.abs
 
 @OptIn(FlowPreview::class)
 @Composable
@@ -73,79 +75,129 @@ fun LyricLayout(
     val density = LocalDensity.current
     val settings: DataSaverMutableState<LyricSettings> = koinInject(named("LyricSettings"))
     val textMeasurer = rememberTextMeasurer()
+    val scope = rememberCoroutineScope()
     val isUserScrolling = remember { mutableStateOf(isUserScrollEnable()) }
         .also { it.value = isUserScrollEnable() }
-    val recorder = remember { ItemRecorder() }
-    val scroller = rememberLazyListAnimateScroller(
-        listState = listState,
-        enableScrollAnimation = { !isUserScrolling.value },
-        keys = { recorder.list().filterNotNull() }
-    )
+    val displayLyrics = remember {
+        derivedStateOf {
+            lyricEntry.value.prepareLyricsForDisplay(
+                hideZeroTimeCredits = settings.value.hideZeroTimeCredits,
+            )
+        }
+    }
 
     val currentItemIndex = remember {
         derivedStateOf {
             val time = currentTime() + settings.value.timeOffset
-            val lyricEntryList = lyricEntry.value
+            val lyricEntryList = displayLyrics.value
 
-            lyricEntryList.findPlayingIndex(time)
+            lyricEntryList.findDisplayIndex(time)
         }
     }
 
-    val currentItem: State<LyricItem?> = remember {
+    val isBeforeFirstLine = remember {
         derivedStateOf {
-            currentItemIndex.value
-                .takeIf { it != Int.MAX_VALUE }
-                ?.let { lyricEntry.value[it] }
+            val firstLineTime = displayLyrics.value.firstOrNull()?.time
+                ?: return@derivedStateOf false
+            currentTime() + settings.value.timeOffset < firstLineTime
+        }
+    }
+
+    val openingProgress = remember {
+        derivedStateOf {
+            lyricOpeningProgress(
+                time = currentTime() + settings.value.timeOffset,
+                firstLineTime = displayLyrics.value.firstOrNull()?.time,
+                blurOpeningEnabled = settings.value.blurOpeningEnable,
+            )
         }
     }
 
     fun displayFocusPosition(): Float {
-        return settings.value.highlightPosition
-            .takeIf { it <= 0.375f }
-            ?.coerceIn(0.125f, 0.375f)
-            ?: 0.25f
+        return lyricFocusPosition(settings.value.highlightPosition)
     }
 
-    fun focusScrollOffset(item: LazyListItemInfo): Int {
-        val focusY = screenConstraints.maxHeight * displayFocusPosition()
-        val targetTop = focusY - item.size / 2f
-        return -targetTop.roundToInt()
-    }
-
-    fun scrollCurrentItemToFocus() {
-        currentItem.value?.key?.let {
-            scroller.animateTo(it, offset = ::focusScrollOffset)
+    suspend fun alignCurrentItemToFocus(animate: Boolean) {
+        if (isUserScrolling.value) return
+        val lyrics = displayLyrics.value
+        val targetIndex = if (lyrics.isEmpty()) {
+            1
+        } else {
+            currentItemIndex.value
+                .takeIf { it in lyrics.indices }
+                ?.plus(1)
+                ?: return
         }
-    }
 
-    suspend fun keepCurrentItemAtFocus() {
-        repeat(7) {
+        if (listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }) {
+            listState.scrollToItem(targetIndex)
             withFrameNanos { }
-            scrollCurrentItemToFocus()
-            delay(90)
         }
+
+        repeat(4) { attempt ->
+            withFrameNanos { }
+            val layoutInfo = listState.layoutInfo
+            val item = layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+                ?: return@repeat
+            val delta = lyricAnchorDelta(
+                itemOffset = item.offset,
+                itemSize = item.size,
+                viewportHeight = layoutInfo.viewportSize.height,
+                focusPosition = displayFocusPosition(),
+            )
+            if (abs(delta) <= 0.5f) return@repeat
+
+            if (animate && attempt == 0) {
+                listState.animateScrollBy(
+                    value = delta,
+                    animationSpec = spring(stiffness = Spring.StiffnessLow),
+                )
+            } else {
+                listState.scroll { scrollBy(delta) }
+            }
+        }
+
+        val layoutInfo = listState.layoutInfo
+        val item = layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+        val finalDelta = item?.let {
+            lyricAnchorDelta(
+                itemOffset = it.offset,
+                itemSize = it.size,
+                viewportHeight = layoutInfo.viewportSize.height,
+                focusPosition = displayFocusPosition(),
+            )
+        }
+        Log.w(
+            "ARMusicLyricAnchor",
+            "listIndex=$targetIndex focus=${displayFocusPosition()} " +
+                    "viewport=${layoutInfo.viewportSize.height} itemOffset=${item?.offset} " +
+                    "itemSize=${item?.size} errorPx=$finalDelta"
+        )
+    }
+
+    fun requestCurrentItemAlignment(animate: Boolean = true) {
+        scope.launch { alignCurrentItemToFocus(animate) }
     }
 
     BackHandler(enabled = isUserScrolling.value) {
         isUserScrolling.value = false
-        scrollCurrentItemToFocus()
+        requestCurrentItemAlignment()
         onPositionReset()
     }
 
-    LaunchedEffect(Unit) {
-        snapshotFlow { currentItem.value }
-            .collectLatest {
-                it ?: return@collectLatest
-                scroller.animateTo(it.key, offset = ::focusScrollOffset)
-            }
-    }
-
     LaunchedEffect(
+        displayLyrics.value,
+        currentItemIndex.value,
         settings.value.highlightPosition,
         settings.value.translationVisible,
         settings.value.hideMainWhenTranslationHidden,
     ) {
-        keepCurrentItemAtFocus()
+        withFrameNanos { }
+        alignCurrentItemToFocus(
+            animate = displayLyrics.value.isNotEmpty() &&
+                    currentItemIndex.value > 0 &&
+                    !isBeforeFirstLine.value,
+        )
     }
 
     LaunchedEffect(Unit) {
@@ -156,7 +208,7 @@ fun LyricLayout(
                 if (!isActive || isDragging || !isScrolling) return@collectLatest
 
                 isUserScrolling.value = false
-                scrollCurrentItemToFocus()
+                alignCurrentItemToFocus(animate = true)
                 onPositionReset()
             }
     }
@@ -165,6 +217,8 @@ fun LyricLayout(
         LyricContext(
             currentTime = { currentTime() + settings.value.timeOffset },
             currentIndex = { currentItemIndex.value },
+            isBeforeFirstLine = { isBeforeFirstLine.value },
+            openingProgress = { openingProgress.value },
             isUserScrolling = { isUserScrolling.value },
             screenConstraints = screenConstraints,
             textMeasurer = textMeasurer,
@@ -187,61 +241,63 @@ fun LyricLayout(
                 .fillMaxSize()
                 .edgeTransparent(top = topFade, bottom = bottomFade),
             userScrollEnabled = true,
-            contentPadding = PaddingValues(
-                top = topPadding,
-                bottom = bottomPadding
-            )
         ) {
-            startRecord(recorder) {
-                if (lyricEntry.value.isEmpty()) {
-                    itemWithRecord(key = "EMPTY_TIPS") {
-                        val item = remember {
-                            LyricItem.NormalLyric(
-                                key = "0",
-                                content = "暂无歌词",
-                                time = 0L
-                            )
-                        }
+            item(key = "LYRIC_TOP_SPACER", contentType = "LYRIC_SPACER") {
+                Spacer(Modifier.height(topPadding))
+            }
 
-                        LyricContentNormal(
+            if (displayLyrics.value.isEmpty()) {
+                item(key = "EMPTY_TIPS") {
+                    val item = remember {
+                        LyricItem.NormalLyric(
+                            key = "0",
+                            content = "暂无歌词",
+                            time = 0L
+                        )
+                    }
+
+                    LyricContentNormal(
+                        lyric = item,
+                        index = context.currentIndex(),
+                        modifier = Modifier,
+                        settings = settings.value,
+                        context = context,
+                        onLongClick = { if (isUserClickEnable()) onItemLongClick(item) },
+                        onClick = { }
+                    )
+                }
+            } else {
+                itemsIndexed(
+                    items = displayLyrics.value,
+                    key = { index, item -> "LYRIC_ITEM_${index}_${item.key}" },
+                    contentType = { _, _ -> LyricItem::class }
+                ) { index, item ->
+                    when (item) {
+                        is LyricItem.NormalLyric -> LyricContentNormal(
                             lyric = item,
-                            index = context.currentIndex(),
+                            index = index,
                             modifier = Modifier,
                             settings = settings.value,
                             context = context,
                             onLongClick = { if (isUserClickEnable()) onItemLongClick(item) },
-                            onClick = { }
+                            onClick = { if (isUserClickEnable()) onItemClick(item) }
+                        )
+
+                        is LyricItem.WordsLyric -> LyricContentWords(
+                            lyric = item,
+                            index = index,
+                            modifier = Modifier,
+                            settings = settings.value,
+                            context = context,
+                            onLongClick = { if (isUserClickEnable()) onItemLongClick(item) },
+                            onClick = { if (isUserClickEnable()) onItemClick(item) }
                         )
                     }
-                } else {
-                    itemsIndexedWithRecord(
-                        items = lyricEntry.value,
-                        key = { _, item -> item.key },
-                        contentType = { _, _ -> LyricItem::class }
-                    ) { index, item ->
-                        when (item) {
-                            is LyricItem.NormalLyric -> LyricContentNormal(
-                                lyric = item,
-                                index = index,
-                                modifier = Modifier,
-                                settings = settings.value,
-                                context = context,
-                                onLongClick = { if (isUserClickEnable()) onItemLongClick(item) },
-                                onClick = { if (isUserClickEnable()) onItemClick(item) }
-                            )
-
-                            is LyricItem.WordsLyric -> LyricContentWords(
-                                lyric = item,
-                                index = index,
-                                modifier = Modifier,
-                                settings = settings.value,
-                                context = context,
-                                onLongClick = { if (isUserClickEnable()) onItemLongClick(item) },
-                                onClick = { if (isUserClickEnable()) onItemClick(item) }
-                            )
-                        }
-                    }
                 }
+            }
+
+            item(key = "LYRIC_BOTTOM_SPACER", contentType = "LYRIC_SPACER") {
+                Spacer(Modifier.height(bottomPadding))
             }
         }
 
@@ -266,7 +322,7 @@ fun LyricLayout(
                 colors = colors,
                 onClick = {
                     isUserScrolling.value = false
-                    scrollCurrentItemToFocus()
+                    requestCurrentItemAlignment()
                     onPositionReset()
                 }
             ) {

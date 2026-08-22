@@ -276,7 +276,6 @@ export function TagEditor({ track, bridge, workLabel, onClose, onSaved, onNotice
       title: candidate.title || current.title,
       artist: candidate.artist || current.artist,
       album: candidate.album || current.album,
-      genre: candidate.genre || current.genre,
       date: candidate.date || current.date,
       lyrics: candidate.lyrics || current.lyrics,
     } : current);
@@ -421,10 +420,6 @@ export function TagEditor({ track, bridge, workLabel, onClose, onSaved, onNotice
                 <label className="tag-editor__field">
                   <span>{t("tag.sameSongGroup")}</span>
                   <input value={fields.sameSongGroup} maxLength={4096} onChange={(event) => update("sameSongGroup", event.target.value)} placeholder={t("tag.sameSongGroupPlaceholder")} />
-                </label>
-                <label className="tag-editor__field">
-                  <span>{t("tag.genre")}</span>
-                  <input value={fields.genre} maxLength={4096} onChange={(event) => update("genre", event.target.value)} />
                 </label>
                 <label className="tag-editor__field">
                   <span>{t("tag.date")}</span>

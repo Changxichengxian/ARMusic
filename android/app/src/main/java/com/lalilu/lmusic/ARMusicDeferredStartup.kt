@@ -23,15 +23,15 @@ object ARMusicDeferredStartup {
         if (!started.compareAndSet(false, true)) return
 
         scope.launch {
-            withContext(Dispatchers.IO) {
-                ARMusicFontManager(application).seedBundledFonts()
-            }
-
             runCatching { KoinJavaComponent.get<ARMusicMemoSeedImporter>(ARMusicMemoSeedImporter::class.java) }
             runCatching { KoinJavaComponent.get<ARMusicPlayCountSeedImporter>(ARMusicPlayCountSeedImporter::class.java) }
 
             LMedia.whenReady { MPlayer.init() }
             LMedia.init(application)
+
+            withContext(Dispatchers.IO) {
+                ARMusicFontManager(application).seedBundledFonts()
+            }
             KanjiToHiraTransformer.init(application)
         }
     }

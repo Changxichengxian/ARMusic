@@ -33,6 +33,10 @@ data class AgentCommandResult(
     val playlistCount: Int = 0,
     val playlistItems: Int = 0,
     val playlistSnapshotId: String? = null,
+    val playMode: String? = null,
+    val storedPlayMode: String? = null,
+    val repeatMode: Int = -1,
+    val shuffleModeEnabled: Boolean = false,
 ) {
     fun toJson(): JSONObject {
         return JSONObject()
@@ -66,5 +70,9 @@ data class AgentCommandResult(
             .put("playlistCount", playlistCount)
             .put("playlistItems", playlistItems)
             .put("playlistSnapshotId", playlistSnapshotId.orEmpty())
+            .put("playMode", playMode.orEmpty())
+            .put("storedPlayMode", storedPlayMode.orEmpty())
+            .put("repeatMode", repeatMode)
+            .put("shuffleModeEnabled", shuffleModeEnabled)
     }
 }

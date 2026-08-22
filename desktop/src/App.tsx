@@ -45,6 +45,7 @@ import {
   UsersRound,
   Volume2,
   VolumeX,
+  Usb,
   Wifi,
   X,
   type LucideIcon,
@@ -61,7 +62,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import {
   currentMonitor,
   getCurrentWindow,
@@ -86,7 +87,7 @@ import {
 import { buildSyncPlan, createManifest } from "./lib/sync";
 import { mediaListeningDeltaMs } from "./lib/listeningClock";
 import { editTrackFromContextMenu } from "./lib/trackContextMenu";
-import { posterLibrarySignature, shuffledPosterBatch } from "./lib/posterQueue";
+import { DEFAULT_POSTER_ROWS, posterLibrarySignature, posterRowsForViewport, shuffledPosterBatch } from "./lib/posterQueue";
 import { adjacentTrack, queueTracks, workPlaybackQueue, type PlaybackQueue } from "./lib/workQueue";
 import {
   getDesktopBehaviorPreferences,
@@ -123,7 +124,7 @@ const utilityNavigation: Array<{ id: ViewId; labelKey: MessageKey; icon: LucideI
 ];
 
 const emptySyncStatus: SyncServerStatus = { running: false, port: null, addresses: [] };
-const appVersion = "1.5.0";
+const appVersion = "1.6.0";
 const githubProjectUrl = "https://github.com/Changxichengxian/ARMusic";
 const githubLatestReleaseApi = "https://api.github.com/repos/Changxichengxian/ARMusic/releases/latest";
 
@@ -165,6 +166,66 @@ type GroupKind = "work" | "artist";
 type GroupSortMode = "name" | "songCount" | "recentPlayed" | "listenTime" | "random";
 type GroupTrackSortMode = "title" | "context" | "recentPlayed" | "listenTime" | "random";
 type SortDirection = "asc" | "desc";
+type ShortcutMode = "separate" | "unified";
+type PlaybackShortcutAction = "playPause" | "previous" | "next" | "seekBackward" | "seekForward";
+type ShortcutBindings = Record<PlaybackShortcutAction, string>;
+
+const playbackShortcutActions: PlaybackShortcutAction[] = ["playPause", "previous", "next", "seekBackward", "seekForward"];
+const defaultLocalShortcuts: ShortcutBindings = {
+  playPause: "Space",
+  previous: "Ctrl+ArrowLeft",
+  next: "Ctrl+ArrowRight",
+  seekBackward: "Shift+ArrowLeft",
+  seekForward: "Shift+ArrowRight",
+};
+const defaultGlobalShortcuts: ShortcutBindings = {
+  playPause: "Ctrl+Alt+P",
+  previous: "Ctrl+Alt+ArrowLeft",
+  next: "Ctrl+Alt+ArrowRight",
+  seekBackward: "Ctrl+Alt+Shift+ArrowLeft",
+  seekForward: "Ctrl+Alt+Shift+ArrowRight",
+};
+
+function readShortcutBindings(storageKey: string, defaults: ShortcutBindings): ShortcutBindings {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "{}") as Partial<ShortcutBindings>;
+    return Object.fromEntries(playbackShortcutActions.map((action) => [
+      action,
+      typeof saved[action] === "string" && saved[action] ? saved[action] : defaults[action],
+    ])) as ShortcutBindings;
+  } catch {
+    return { ...defaults };
+  }
+}
+
+function shortcutFromKeyboardEvent(event: globalThis.KeyboardEvent | ReactKeyboardEvent): string | null {
+  if (["Control", "Shift", "Alt", "Meta"].includes(event.key)) return null;
+  let key = event.code || event.key;
+  if (key.startsWith("Key")) key = key.slice(3);
+  else if (key.startsWith("Digit")) key = key.slice(5);
+  const parts: string[] = [];
+  if (event.ctrlKey) parts.push("Ctrl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  if (event.metaKey) parts.push("Meta");
+  parts.push(key === " " ? "Space" : key);
+  return parts.join("+");
+}
+
+function shortcutHasModifier(shortcut: string): boolean {
+  return /^(?:(?:Ctrl|Alt|Shift|Meta)\+)+/i.test(shortcut);
+}
+
+function formatShortcut(shortcut: string): string {
+  return shortcut.replaceAll("ArrowLeft", "←").replaceAll("ArrowRight", "→").replaceAll("ArrowUp", "↑").replaceAll("ArrowDown", "↓").replaceAll("+", "  ");
+}
+
+let globalShortcutRegistrationQueue: Promise<void> = Promise.resolve();
+let ownedGlobalShortcuts: string[] = [];
+
+function queueGlobalShortcutRegistration(task: () => Promise<void>): void {
+  globalShortcutRegistrationQueue = globalShortcutRegistrationQueue.catch(() => undefined).then(task);
+}
 
 const lyricFontFamilies: Record<LyricFont, string> = {
   system: '"Segoe UI Variable", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif',
@@ -379,6 +440,10 @@ function ARMusicApp() {
   });
   const [launchAtStartup, setLaunchAtStartup] = useState(() => localStorage.getItem("armusic-launch-at-startup") === "true");
   const [closeToTray, setCloseToTray] = useState(() => localStorage.getItem("armusic-close-to-tray") !== "false");
+  const [shortcutMode, setShortcutMode] = useState<ShortcutMode>(() => localStorage.getItem("armusic-shortcut-mode") === "unified" ? "unified" : "separate");
+  const [localShortcuts, setLocalShortcuts] = useState<ShortcutBindings>(() => readShortcutBindings("armusic-local-shortcuts", defaultLocalShortcuts));
+  const [globalShortcuts, setGlobalShortcuts] = useState<ShortcutBindings>(() => readShortcutBindings("armusic-global-shortcuts", defaultGlobalShortcuts));
+  const [globalShortcutErrors, setGlobalShortcutErrors] = useState<Partial<Record<PlaybackShortcutAction, string>>>({});
   const [searchEngaged, setSearchEngaged] = useState(false);
   const [tagEditorTrack, setTagEditorTrack] = useState<Track | null>(null);
   const [playlistTrack, setPlaylistTrack] = useState<Track | null>(null);
@@ -419,7 +484,7 @@ function ARMusicApp() {
     const query = searchText.trim().toLocaleLowerCase();
     const next = query
       ? tracks.filter((track) =>
-          [track.title, track.artist, track.album, track.work, track.genre, track.relativePath]
+          [track.title, track.artist, track.album, track.work, track.relativePath]
             .filter(Boolean)
             .some((value) => value!.toLocaleLowerCase().includes(query)),
         )
@@ -510,7 +575,7 @@ function ARMusicApp() {
     }
     document.documentElement.classList.add("armusic-theme-transition");
     const cleanup = () => document.documentElement.classList.remove("armusic-theme-transition");
-    const fallback = window.setTimeout(cleanup, 500);
+    const fallback = window.setTimeout(cleanup, 240);
     const transition = transitionDocument.startViewTransition(() => flushSync(update));
     void transition.finished?.finally(() => {
       window.clearTimeout(fallback);
@@ -534,6 +599,10 @@ function ARMusicApp() {
   const openWorkView = useCallback((name: string) => {
     setSelectedWorkName(name);
     setView("works");
+  }, []);
+  const openArtistView = useCallback((name: string) => {
+    setSelectedArtistName(name);
+    setView("artists");
   }, []);
   const closeWorkView = useCallback(() => setSelectedWorkName(""), []);
   const closeArtistView = useCallback(() => setSelectedArtistName(""), []);
@@ -941,6 +1010,66 @@ function ARMusicApp() {
     if (previous) startTrack(previous, playbackQueue);
   }, [currentTrackId, playbackQueue, startTrack, tracks]);
 
+  const shortcutActionsRef = useRef<Record<PlaybackShortcutAction, () => void>>({
+    playPause: () => undefined,
+    previous: () => undefined,
+    next: () => undefined,
+    seekBackward: () => undefined,
+    seekForward: () => undefined,
+  });
+  shortcutActionsRef.current = {
+    playPause: () => { if (tracks.length) setIsPlaying((value) => !value); },
+    previous: previousTrack,
+    next: nextTrack,
+    seekBackward: () => seekTo(position - 5, audioRef, duration, setPosition),
+    seekForward: () => seekTo(position + 5, audioRef, duration, setPosition),
+  };
+
+  useEffect(() => {
+    localStorage.setItem("armusic-shortcut-mode", shortcutMode);
+    localStorage.setItem("armusic-local-shortcuts", JSON.stringify(localShortcuts));
+    localStorage.setItem("armusic-global-shortcuts", JSON.stringify(globalShortcuts));
+  }, [globalShortcuts, localShortcuts, shortcutMode]);
+
+  useEffect(() => {
+    if (!window.__TAURI_INTERNALS__) return;
+    let active = true;
+    const requested = { ...globalShortcuts };
+    setGlobalShortcutErrors({});
+    queueGlobalShortcutRegistration(async () => {
+      const { register, unregister } = await import("@tauri-apps/plugin-global-shortcut");
+      const previous = ownedGlobalShortcuts;
+      ownedGlobalShortcuts = [];
+      if (previous.length) await unregister(previous).catch(() => undefined);
+      if (!active) return;
+
+      const errors: Partial<Record<PlaybackShortcutAction, string>> = {};
+      for (const action of playbackShortcutActions) {
+        if (!active) break;
+        const shortcut = requested[action];
+        try {
+          await register(shortcut, (event) => {
+            if (event.state === "Pressed") shortcutActionsRef.current[action]();
+          });
+          ownedGlobalShortcuts.push(shortcut);
+        } catch (error) {
+          errors[action] = String(error);
+        }
+      }
+      if (active) setGlobalShortcutErrors(errors);
+    });
+    return () => {
+      active = false;
+      queueGlobalShortcutRegistration(async () => {
+        const previous = ownedGlobalShortcuts;
+        ownedGlobalShortcuts = [];
+        if (!previous.length) return;
+        const { unregister } = await import("@tauri-apps/plugin-global-shortcut");
+        await unregister(previous).catch(() => undefined);
+      });
+    };
+  }, [globalShortcuts]);
+
   useEffect(() => {
     void publishTrayPlayerState({
       title: currentTrack?.title || "",
@@ -1021,26 +1150,18 @@ function ARMusicApp() {
         return;
       }
       if (isTyping) return;
-      if (event.code === "Space" && tracks.length) {
-        event.preventDefault();
-        setIsPlaying((value) => !value);
-      } else if (event.shiftKey && event.key === "ArrowRight") {
-        event.preventDefault();
-        seekTo(position + 5, audioRef, duration, setPosition);
-      } else if (event.shiftKey && event.key === "ArrowLeft") {
-        event.preventDefault();
-        seekTo(position - 5, audioRef, duration, setPosition);
-      } else if (event.ctrlKey && event.key === "ArrowRight") {
-        event.preventDefault();
-        nextTrack();
-      } else if (event.ctrlKey && event.key === "ArrowLeft") {
-        event.preventDefault();
-        previousTrack();
-      }
+      const shortcut = shortcutFromKeyboardEvent(event);
+      if (!shortcut) return;
+      if (shortcutMode === "unified" && window.__TAURI_INTERNALS__) return;
+      if (shortcutMode === "separate" && Object.values(globalShortcuts).includes(shortcut)) return;
+      const action = playbackShortcutActions.find((candidate) => localShortcuts[candidate] === shortcut);
+      if (!action) return;
+      event.preventDefault();
+      shortcutActionsRef.current[action]();
     }
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [duration, nextTrack, position, posterWallOpen, previousTrack, searchEngaged, switchPosterWall, tracks.length]);
+  }, [globalShortcuts, localShortcuts, posterWallOpen, searchEngaged, shortcutMode, switchPosterWall]);
 
   const chooseMusicFolder = useCallback(async () => {
     if (!bridge) {
@@ -1106,7 +1227,6 @@ function ARMusicApp() {
         playUrl: URL.createObjectURL(file),
         playSeconds: 0,
         source: "desktop",
-        genre: t("home.localMusic"),
       };
     });
 
@@ -1144,12 +1264,6 @@ function ARMusicApp() {
       return recommendationTracks[(index + direction + recommendationTracks.length) % recommendationTracks.length].syncId;
     });
   }, [recommendationTracks]);
-
-  useEffect(() => {
-    if (recommendationTracks.length < 2) return;
-    const timer = window.setInterval(() => cycleFeatured(1), 10_000);
-    return () => window.clearInterval(timer);
-  }, [cycleFeatured, recommendationTracks.length]);
 
   const openTagEditor = useCallback((track: Track) => {
     if (!bridge) {
@@ -1298,10 +1412,12 @@ function ARMusicApp() {
               onPlay={playTrack}
               onSelect={selectTrack}
               onEdit={openTagEditor}
+              onAddToPlaylist={openAddToPlaylist}
               onFeatured={setFeaturedTrackId}
               onCycleFeatured={cycleFeatured}
               onNavigate={setView}
               onOpenWork={openWorkView}
+              onOpenArtist={openArtistView}
               onChooseFolder={chooseMusicFolder}
             />
           ) : null}
@@ -1373,12 +1489,23 @@ function ARMusicApp() {
               workLabelMode={workLabelMode}
               launchAtStartup={launchAtStartup}
               closeToTray={closeToTray}
+              shortcutMode={shortcutMode}
+              localShortcuts={localShortcuts}
+              globalShortcuts={globalShortcuts}
+              globalShortcutErrors={globalShortcutErrors}
               updateCheck={updateCheck}
               onTheme={changeTheme}
               onChooseFolder={chooseMusicFolder}
               onWorkLabelMode={setWorkLabelMode}
               onLaunchAtStartup={changeLaunchAtStartup}
               onCloseToTray={changeCloseToTray}
+              onShortcutMode={setShortcutMode}
+              onLocalShortcut={(action, shortcut) => setLocalShortcuts((current) => ({ ...current, [action]: shortcut }))}
+              onGlobalShortcut={(action, shortcut) => setGlobalShortcuts((current) => ({ ...current, [action]: shortcut }))}
+              onResetShortcuts={() => {
+                setLocalShortcuts({ ...defaultLocalShortcuts });
+                setGlobalShortcuts({ ...defaultGlobalShortcuts });
+              }}
               onCheckForUpdate={() => void checkForUpdate(false)}
               onOpenGithub={() => void openGithub()}
               onNotice={flash}
@@ -1644,6 +1771,8 @@ function SearchExperience({ tracks, allTracks, query, currentTrack, position, ly
   const posterQueueSerialRef = useRef(0);
   const posterShuffleBagsRef = useRef(new Map<string, Track[]>());
   const posterRecentDrawsRef = useRef<string[]>([]);
+  const posterWallRef = useRef<HTMLDivElement>(null);
+  const [posterRowCount, setPosterRowCount] = useState(DEFAULT_POSTER_ROWS);
   const [posterQueues, setPosterQueues] = useState<PosterQueueItem[][]>([]);
   const trackRefs = useRef(new Map<number, HTMLDivElement>());
   const columnMotionRef = useRef(new Map<number, PosterColumnMotion>());
@@ -1666,6 +1795,20 @@ function SearchExperience({ tracks, allTracks, query, currentTrack, position, ly
   // the whole poster wall; real tag, cover or library changes still do.
   }, [posterSourceSignature]);
   const posterColumnCount = 11 - posterScale;
+
+  useEffect(() => {
+    const wall = posterWallRef.current;
+    if (!wall) return;
+    const updateRows = () => {
+      const bounds = wall.getBoundingClientRect();
+      const next = posterRowsForViewport(bounds.width, bounds.height, posterColumnCount);
+      setPosterRowCount((current) => current === next ? current : next);
+    };
+    updateRows();
+    const observer = new ResizeObserver(updateRows);
+    observer.observe(wall);
+    return () => observer.disconnect();
+  }, [posterColumnCount]);
 
   const nextQueueItem = useCallback((recent: PosterQueueItem[], fromStart = false): PosterQueueItem => {
     const bagKey = "global";
@@ -1694,14 +1837,14 @@ function SearchExperience({ tracks, allTracks, query, currentTrack, position, ly
     posterShuffleBagsRef.current.clear();
     posterRecentDrawsRef.current = [];
     const queues = Array.from({ length: posterColumnCount }, () => [] as PosterQueueItem[]);
-    for (let row = 0; row < 14 && posters.length; row += 1) {
+    for (let row = 0; row < posterRowCount && posters.length; row += 1) {
       for (let column = 0; column < posterColumnCount; column += 1) {
         queues[column].push(nextQueueItem(queues[column]));
       }
     }
     columnMotionRef.current.clear();
     setPosterQueues(queues);
-  }, [nextQueueItem, posterColumnCount, posters.length]);
+  }, [nextQueueItem, posterColumnCount, posterRowCount, posters.length]);
 
   const rotatePosterQueues = useCallback((rotations: Map<number, { direction: "up" | "down"; count: number }>) => {
     if (!rotations.size || !posters.length) return;
@@ -1732,13 +1875,15 @@ function SearchExperience({ tracks, allTracks, query, currentTrack, position, ly
   useEffect(() => {
     let frame = 0;
     let previousTime = performance.now();
+    const minimumFrameInterval = 1000 / 30;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const animate = (time: number) => {
-      if (document.documentElement.classList.contains("armusic-theme-transition")) {
+      frame = window.requestAnimationFrame(animate);
+      if (document.hidden || document.documentElement.classList.contains("armusic-theme-transition")) {
         previousTime = time;
-        frame = window.requestAnimationFrame(animate);
         return;
       }
+      if (time - previousTime < minimumFrameInterval) return;
       const elapsed = Math.min(0.05, Math.max(0, (time - previousTime) / 1000));
       previousTime = time;
       const { flow, speed } = motionSettingsRef.current;
@@ -1747,7 +1892,7 @@ function SearchExperience({ tracks, allTracks, query, currentTrack, position, ly
 
       trackRefs.current.forEach((element, column) => {
         let motion = columnMotionRef.current.get(column);
-        if (!motion || time - motion.lastMeasuredAt >= 350) {
+        if (!motion || time - motion.lastMeasuredAt >= 1000) {
           const run = element.firstElementChild as HTMLElement | null;
           const itemCount = run?.childElementCount ?? 0;
           const measuredStepHeight = itemCount > 0 ? (run?.scrollHeight ?? 0) / itemCount : 0;
@@ -1795,7 +1940,6 @@ function SearchExperience({ tracks, allTracks, query, currentTrack, position, ly
       transforms.forEach(([element, offset]) => {
         element.style.transform = `translate3d(0, ${-offset}px, 0)`;
       });
-      frame = window.requestAnimationFrame(animate);
     };
     frame = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(frame);
@@ -1813,6 +1957,7 @@ function SearchExperience({ tracks, allTracks, query, currentTrack, position, ly
 
   const posterWallGrid = useMemo(() => (
     <div
+      ref={posterWallRef}
       className="poster-wall"
       aria-label={t("search.title")}
       style={{ "--poster-columns": posterColumnCount } as CSSProperties}
@@ -1838,7 +1983,7 @@ function SearchExperience({ tracks, allTracks, query, currentTrack, position, ly
               {queue.map(({ key, track }, index) => (
                 <button
                   key={key}
-                  className="poster-wall__tile"
+                  className={`poster-wall__tile poster-wall__tile--tone-${stableNumber(track.syncId) % 3}`}
                   onClick={() => posterActionsRef.current.onPlay(track)}
                   onContextMenu={(event) => editTrackFromContextMenu(event, track, posterActionsRef.current.onEdit)}
                   tabIndex={index > 0 && index < 10 ? 0 : -1}
@@ -2038,15 +2183,53 @@ interface HomeViewProps {
   onPlay: (track: Track) => void;
   onSelect: (track: Track) => void;
   onEdit: (track: Track) => void;
+  onAddToPlaylist: (track: Track) => void;
   onFeatured: (id: string) => void;
   onCycleFeatured: (direction: number) => void;
   onNavigate: (view: ViewId) => void;
   onOpenWork: (name: string) => void;
+  onOpenArtist: (name: string) => void;
   onChooseFolder: () => void;
 }
 
-function HomeView({ tracks, recommendations, featuredTrack, works, workLabel, totalListenSeconds, trackCount, onPlay, onSelect, onEdit, onFeatured, onCycleFeatured, onNavigate, onOpenWork, onChooseFolder }: HomeViewProps) {
+function HomeView({ tracks, recommendations, featuredTrack, works, workLabel, totalListenSeconds, trackCount, onPlay, onSelect, onEdit, onAddToPlaylist, onFeatured, onCycleFeatured, onNavigate, onOpenWork, onOpenArtist, onChooseFolder }: HomeViewProps) {
   const { t, language } = useI18n();
+  const featuredMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const featuredMenuRef = useRef<HTMLDivElement>(null);
+  const featuredTimerRef = useRef<HTMLElement>(null);
+  const [featuredMenuOpen, setFeaturedMenuOpen] = useState(false);
+  const [featuredMenuPosition, setFeaturedMenuPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => setFeaturedMenuOpen(false), [featuredTrack?.syncId]);
+  useEffect(() => {
+    if (!featuredMenuOpen) return;
+    const closeFromOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (featuredMenuButtonRef.current?.contains(target) || featuredMenuRef.current?.contains(target)) return;
+      setFeaturedMenuOpen(false);
+    };
+    const closeOnResize = () => setFeaturedMenuOpen(false);
+    document.addEventListener("pointerdown", closeFromOutside, true);
+    window.addEventListener("resize", closeOnResize);
+    return () => {
+      document.removeEventListener("pointerdown", closeFromOutside, true);
+      window.removeEventListener("resize", closeOnResize);
+    };
+  }, [featuredMenuOpen]);
+  useEffect(() => {
+    const timer = featuredTimerRef.current;
+    if (!timer || !featuredTrack || recommendations.length < 2) {
+      if (timer) timer.style.transform = "scaleX(0)";
+      return;
+    }
+    const animation = timer.animate(
+      [{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }],
+      { duration: 10_000, easing: "linear", fill: "forwards" },
+    );
+    void animation.finished.then(() => onCycleFeatured(1)).catch(() => undefined);
+    return () => animation.cancel();
+  }, [featuredTrack?.syncId, onCycleFeatured, recommendations.length]);
+
   if (!featuredTrack) {
     return (
       <div className="page page--home page--empty-library">
@@ -2076,21 +2259,44 @@ function HomeView({ tracks, recommendations, featuredTrack, works, workLabel, to
       return playedAtDifference || right.playSeconds - left.playSeconds;
     })
     .slice(0, 8);
+  const featuredFormat = featuredTrack.relativePath.split(".").pop()?.toUpperCase() || "AUDIO";
+  const featuredMeta = [featuredTrack.year, featuredFormat, formatDuration(featuredTrack.durationSeconds)].filter(Boolean);
+  const toggleFeaturedMenu = () => {
+    if (featuredMenuOpen) {
+      setFeaturedMenuOpen(false);
+      return;
+    }
+    const bounds = featuredMenuButtonRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const menuWidth = 160;
+    const menuHeight = 154;
+    const left = Math.max(8, Math.min(bounds.left, window.innerWidth - menuWidth - 8));
+    const below = bounds.bottom + 7;
+    const top = below + menuHeight <= window.innerHeight - 8 ? below : Math.max(8, bounds.top - menuHeight - 7);
+    setFeaturedMenuPosition({ top, left });
+    setFeaturedMenuOpen(true);
+  };
   return (
     <div className="page page--home">
-      <section className="featured" key={featuredTrack.syncId} style={coverBackground(featuredTrack)} onContextMenu={(event) => editTrackFromContextMenu(event, featuredTrack, onEdit)}>
+      <section className="featured" style={coverBackground(featuredTrack)} onContextMenu={(event) => editTrackFromContextMenu(event, featuredTrack, onEdit)}>
         <div className="featured__wash"><CoverArt track={featuredTrack} decorative /></div>
-        <div className="featured__copy">
+        <div className="featured__copy" key={`featured-copy-${featuredTrack.syncId}`}>
           <span className="eyebrow"><Sparkles size={14} /> {t("home.daily")}</span>
           <h2>{featuredTrack.title}</h2>
           <p>{featuredTrack.artist} · {featuredTrack.album}</p>
           <div className="featured__actions">
             <button className="button button--primary" onClick={() => onPlay(featuredTrack)}><Play size={17} fill="currentColor" />{t("home.play")}</button>
-            <button className="icon-button icon-button--glass" aria-label={t("home.more")}><MoreHorizontal size={19} /></button>
+            <button ref={featuredMenuButtonRef} type="button" className={`icon-button icon-button--glass ${featuredMenuOpen ? "is-active" : ""}`} aria-label={t("home.more")} title={t("home.more")} onClick={toggleFeaturedMenu}><MoreHorizontal size={19} /></button>
           </div>
-          <div className="featured__meta"><span>{featuredTrack.genre || t("home.localMusic")}</span><span>{featuredTrack.year || "ARMusic"}</span><span>{formatDuration(featuredTrack.durationSeconds)}</span></div>
+          <div className="featured__meta">{featuredMeta.map((item) => <span key={item}>{item}</span>)}</div>
         </div>
-        <div className="featured__art"><CoverArt track={featuredTrack} /></div>
+        <div className="featured__visual">
+          <div className="featured__art" key={`featured-art-${featuredTrack.syncId}`}><CoverArt track={featuredTrack} /></div>
+          <div className="featured__arrows">
+            <button type="button" onClick={() => onCycleFeatured(-1)} aria-label={t("home.previousPick")}><ChevronLeft size={20} /></button>
+            <button type="button" onClick={() => onCycleFeatured(1)} aria-label={t("home.nextPick")}><ChevronRight size={20} /></button>
+          </div>
+        </div>
         <div className="featured__rail">
           {picks.map((track) => (
             <button key={track.syncId} className={track.syncId === featuredTrack.syncId ? "is-active" : ""} onClick={() => onFeatured(track.syncId)} onContextMenu={(event) => editTrackFromContextMenu(event, track, onEdit)}>
@@ -2098,12 +2304,18 @@ function HomeView({ tracks, recommendations, featuredTrack, works, workLabel, to
             </button>
           ))}
         </div>
-        <div className="featured__arrows">
-          <button onClick={() => onCycleFeatured(-1)} aria-label={t("home.previousPick")}><ChevronLeft size={18} /></button>
-          <button onClick={() => onCycleFeatured(1)} aria-label={t("home.nextPick")}><ChevronRight size={18} /></button>
-        </div>
-        <span className="featured__timer" aria-hidden="true"><i /></span>
+        <span className="featured__timer" aria-hidden="true"><i ref={featuredTimerRef} /></span>
       </section>
+
+      {featuredMenuOpen ? createPortal(
+        <div ref={featuredMenuRef} className="featured__more-menu" style={{ top: featuredMenuPosition.top, left: featuredMenuPosition.left }}>
+          <button type="button" onClick={() => { setFeaturedMenuOpen(false); onAddToPlaylist(featuredTrack); }}><ListPlus size={15} />{t("playlists.addToPlaylist")}</button>
+          <button type="button" onClick={() => { setFeaturedMenuOpen(false); onEdit(featuredTrack); }}><PencilLine size={15} />{t("songs.editTags")}</button>
+          {(featuredTrack.work || featuredTrack.album) ? <button type="button" onClick={() => { setFeaturedMenuOpen(false); onOpenWork(featuredTrack.work || featuredTrack.album); }}><Disc3 size={15} />{t("common.open", { title: workLabel })}</button> : null}
+          {featuredTrack.artist ? <button type="button" onClick={() => { setFeaturedMenuOpen(false); onOpenArtist(featuredTrack.artist); }}><UsersRound size={15} />{t("common.open", { title: t("nav.artists") })}</button> : null}
+        </div>,
+        document.body,
+      ) : null}
 
       <section className="quick-stats" aria-label={t("home.overview")}>
         <article><span>{t("home.library")}</span><strong>{trackCount}</strong><small>{t("home.songUnit")}</small></article>
@@ -2460,7 +2672,6 @@ function GroupedLibraryView({ kind, workLabel, groups, selectedName, currentTrac
   const Icon = kind === "work" ? Disc3 : UsersRound;
   const resolvedWorkLabel = workLabel || t("nav.works");
   const pageTitle = kind === "work" ? resolvedWorkLabel : t("nav.artists");
-  const pageSubtitle = t(kind === "work" ? "works.subtitle" : "artists.subtitle");
   const emptyTitle = kind === "work" ? t("works.emptyLabel", { label: resolvedWorkLabel }) : t("artists.emptyTitle");
   const emptyBody = t(kind === "work" ? "works.emptyBody" : "artists.emptyBody");
   const backLabel = kind === "work" ? t("works.backLabel", { label: resolvedWorkLabel }) : t("artists.back");
@@ -2554,7 +2765,7 @@ function GroupedLibraryView({ kind, workLabel, groups, selectedName, currentTrac
 
   return (
     <div className={`page grouped-library-page is-${kind}`}>
-      <PageHeading eyebrow={kind === "work" ? resolvedWorkLabel : "ARTISTS"} title={pageTitle} subtitle={pageSubtitle}>
+      <PageHeading eyebrow={kind === "work" ? resolvedWorkLabel : "ARTISTS"} title={pageTitle}>
         <GroupSortControl
           label={t("groups.sortGroups")}
           value={groupSort}
@@ -2617,14 +2828,31 @@ const MemoSongsView = memo(SongsView);
 const MemoWorksView = memo(WorksView);
 const MemoArtistsView = memo(ArtistsView);
 
+const HISTORY_SUBTITLE_KEYS = [
+  "history.subtitle",
+  "history.subtitle2",
+  "history.subtitle3",
+  "history.subtitle4",
+  "history.subtitle5",
+  "history.subtitle6",
+] as const satisfies readonly MessageKey[];
+let previousHistorySubtitle = -1;
+
+function nextHistorySubtitleKey(): MessageKey {
+  const candidates = HISTORY_SUBTITLE_KEYS.map((_, index) => index).filter((index) => index !== previousHistorySubtitle);
+  previousHistorySubtitle = candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
+  return HISTORY_SUBTITLE_KEYS[previousHistorySubtitle];
+}
+
 function HistoryView({ tracks, onPlay, onEdit }: { tracks: Track[]; onPlay: (track: Track) => void; onEdit: (track: Track) => void }) {
   const { t, language } = useI18n();
+  const [subtitleKey] = useState(nextHistorySubtitleKey);
   const sorted = tracks
     .filter((track) => track.playSeconds > 0 || Boolean(track.lastPlayedAt))
     .sort((a, b) => b.playSeconds - a.playSeconds);
   return (
     <div className="page">
-      <PageHeading eyebrow="LISTENING HISTORY" title={t("nav.history")} subtitle={t("history.subtitle")} />
+      <PageHeading eyebrow="LISTENING HISTORY" title={t("nav.history")} subtitle={t(subtitleKey)} />
       {sorted.length ? (
         <>
           <div className="history-hero">
@@ -2801,7 +3029,7 @@ function WishlistView({ bridge, onNotice }: { bridge?: ARMusicBridge; onNotice: 
 
   return (
     <div className="page">
-      <PageHeading eyebrow="WISHLIST" title={t("nav.wishlist")} subtitle={t("wishlist.subtitle")}><button className="button button--soft" disabled={saving} onClick={() => void addCategory()}>{saving ? <RefreshCw className="spin" size={16} /> : <Sparkles size={16} />}{t("wishlist.new")}</button></PageHeading>
+      <PageHeading eyebrow="WISHLIST" title={t("nav.wishlist")}><button className="button button--soft" disabled={saving} onClick={() => void addCategory()}>{saving ? <RefreshCw className="spin" size={16} /> : <Sparkles size={16} />}{t("wishlist.new")}</button></PageHeading>
       <div className="wishlist-tabs">
         {categories.map((category) => <button key={category.id} disabled={saving} className={category.id === active?.id ? "is-active" : ""} onClick={() => setActiveId(category.id)}>{categoryName(category)} <span>{category.items.length}</span></button>)}
         <button disabled={saving} onClick={() => void addCategory()}>＋</button>
@@ -2837,6 +3065,19 @@ function SyncView({ status, isSyncing, folderPath, trackCount, upload, download,
   return (
     <div className="page">
       <PageHeading eyebrow="AR MUSIC LINK" title={t("nav.sync")} subtitle={t("sync.subtitle")} />
+      <section className="sync-overview">
+        <div className="sync-overview__intro">
+          <span><Usb size={15} />{t("sync.overviewEyebrow")}</span>
+          <h2>{t("sync.overviewTitle")}</h2>
+          <p>{t("sync.overviewBody")}</p>
+        </div>
+        <div className="sync-overview__scopes">
+          <SyncScopeCard icon={Music2} title={t("sync.scopeSongs")} body={t("sync.scopeSongsBody")} badge={t("sync.badgeTwoWay")} />
+          <SyncScopeCard icon={ListMusic} title={t("sync.scopePlaylists")} body={t("sync.scopePlaylistsBody")} badge={t("sync.badgeSafeMerge")} />
+          <SyncScopeCard icon={Sparkles} title={t("sync.scopeWishlist")} body={t("sync.scopeWishlistBody")} badge={t("sync.badgeKeepNew")} />
+          <SyncScopeCard icon={History} title={t("sync.scopeHistory")} body={t("sync.scopeHistoryBody")} badge={t("sync.badgeVerified")} />
+        </div>
+      </section>
       <AdbSyncPanel bridge={bridge} onLibraryChanged={onLibraryChanged} onNotice={onNotice} />
       <div className="sync-secondary-heading">
         <span>WI-FI</span>
@@ -2855,11 +3096,15 @@ function SyncView({ status, isSyncing, folderPath, trackCount, upload, download,
   );
 }
 
+function SyncScopeCard({ icon: Icon, title, body, badge }: { icon: LucideIcon; title: string; body: string; badge: string }) {
+  return <article className="sync-scope-card"><span><Icon size={17} /></span><div><strong>{title}</strong><small>{body}</small></div><em>{badge}</em></article>;
+}
+
 function SyncList({ icon: Icon, title, tracks }: { icon: LucideIcon; title: string; tracks: Track[] }) {
   return <div className="sync-list"><div><Icon size={17} /><strong>{title}</strong><span>{tracks.length}</span></div>{tracks.slice(0, 3).map((track) => <div className="sync-list__track" key={track.syncId}><CoverArt track={track} decorative /><span><strong>{track.title}</strong><small>{track.artist} · {formatBytes(track.sizeBytes)}</small></span></div>)}</div>;
 }
 
-function SettingsView({ theme, folderPath, isScanning, needsMusicFolder, workLabelMode, launchAtStartup, closeToTray, updateCheck, onTheme, onChooseFolder, onWorkLabelMode, onLaunchAtStartup, onCloseToTray, onCheckForUpdate, onOpenGithub, onNotice }: {
+function SettingsView({ theme, folderPath, isScanning, needsMusicFolder, workLabelMode, launchAtStartup, closeToTray, shortcutMode, localShortcuts, globalShortcuts, globalShortcutErrors, updateCheck, onTheme, onChooseFolder, onWorkLabelMode, onLaunchAtStartup, onCloseToTray, onShortcutMode, onLocalShortcut, onGlobalShortcut, onResetShortcuts, onCheckForUpdate, onOpenGithub, onNotice }: {
   theme: "light" | "dark";
   folderPath: string;
   isScanning: boolean;
@@ -2867,12 +3112,20 @@ function SettingsView({ theme, folderPath, isScanning, needsMusicFolder, workLab
   workLabelMode: WorkLabelMode;
   launchAtStartup: boolean;
   closeToTray: boolean;
+  shortcutMode: ShortcutMode;
+  localShortcuts: ShortcutBindings;
+  globalShortcuts: ShortcutBindings;
+  globalShortcutErrors: Partial<Record<PlaybackShortcutAction, string>>;
   updateCheck: UpdateCheckState;
   onTheme: (theme: "light" | "dark") => void;
   onChooseFolder: () => void;
   onWorkLabelMode: (mode: WorkLabelMode) => void;
   onLaunchAtStartup: (enabled: boolean) => void;
   onCloseToTray: (enabled: boolean) => void;
+  onShortcutMode: (mode: ShortcutMode) => void;
+  onLocalShortcut: (action: PlaybackShortcutAction, shortcut: string) => void;
+  onGlobalShortcut: (action: PlaybackShortcutAction, shortcut: string) => void;
+  onResetShortcuts: () => void;
   onCheckForUpdate: () => void;
   onOpenGithub: () => void;
   onNotice: (message: string) => void;
@@ -2933,7 +3186,46 @@ function SettingsView({ theme, folderPath, isScanning, needsMusicFolder, workLab
       <section className="settings-group"><h3>{t("settings.playback")}</h3>
         <SettingRow icon={Volume2} title={t("settings.fade")} body={t("settings.fadeBody")}><Switch defaultChecked onChange={() => onNotice(t("settings.updatedPlayback"))} /></SettingRow>
       </section>
-      <section className="settings-group"><h3>{t("settings.shortcuts")}</h3><ShortcutRow label={t("settings.playPause")} keys="Space" /><ShortcutRow label={t("settings.searchLibrary")} keys="Ctrl  F" /><ShortcutRow label={t("settings.seek")} keys="Shift  ← / →" /><ShortcutRow label={t("settings.prevNext")} keys="Ctrl  ← / →" /></section>
+      <section className="settings-group shortcut-settings">
+        <div className="shortcut-settings__heading">
+          <div><h3>{t("settings.shortcuts")}</h3><p>{t(shortcutMode === "separate" ? "settings.shortcutSeparateBody" : "settings.shortcutUnifiedBody")}</p></div>
+          <div className="segmented" role="radiogroup" aria-label={t("settings.shortcutMode")}>
+            <button role="radio" aria-checked={shortcutMode === "separate"} className={shortcutMode === "separate" ? "is-active" : ""} onClick={() => onShortcutMode("separate")}>{t("settings.shortcutSeparate")}</button>
+            <button role="radio" aria-checked={shortcutMode === "unified"} className={shortcutMode === "unified" ? "is-active" : ""} onClick={() => onShortcutMode("unified")}>{t("settings.shortcutUnified")}</button>
+          </div>
+        </div>
+        <div className={`shortcut-settings__sets ${shortcutMode === "unified" ? "is-unified" : ""}`}>
+          {shortcutMode === "separate" ? (
+            <ShortcutSet
+              title={t("settings.shortcutInApp")}
+              description={t("settings.shortcutInAppBody")}
+              bindings={localShortcuts}
+              onChange={(action, shortcut) => {
+                if (shortcut === "Ctrl+F") return onNotice(t("settings.shortcutReserved"));
+                if (playbackShortcutActions.some((candidate) => candidate !== action && localShortcuts[candidate] === shortcut)) return onNotice(t("settings.shortcutDuplicate"));
+                onLocalShortcut(action, shortcut);
+              }}
+            />
+          ) : null}
+          <ShortcutSet
+            title={t(shortcutMode === "unified" ? "settings.shortcutUnifiedSet" : "settings.shortcutGlobal")}
+            description={t(shortcutMode === "unified" ? "settings.shortcutUnifiedSetBody" : "settings.shortcutGlobalBody")}
+            bindings={globalShortcuts}
+            globalShortcut
+            errors={globalShortcutErrors}
+            onChange={(action, shortcut) => {
+              if (shortcut === "Ctrl+F") return onNotice(t("settings.shortcutReserved"));
+              if (playbackShortcutActions.some((candidate) => candidate !== action && globalShortcuts[candidate] === shortcut)) return onNotice(t("settings.shortcutDuplicate"));
+              onGlobalShortcut(action, shortcut);
+            }}
+          />
+        </div>
+        <div className="shortcut-settings__footer">
+          <ShortcutRow label={t("settings.searchLibrary")} keys="Ctrl  F" />
+          <span className={Object.keys(globalShortcutErrors).length ? "is-error" : "is-ready"}>{t(Object.keys(globalShortcutErrors).length ? "settings.shortcutConflict" : "settings.shortcutReady")}</span>
+          <button className="settings-action" onClick={onResetShortcuts}>{t("settings.shortcutReset")}</button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -2956,8 +3248,75 @@ function ShortcutRow({ label, keys }: { label: string; keys: string }) {
   return <div className="shortcut-row"><span>{label}</span><kbd>{keys}</kbd></div>;
 }
 
-function PageHeading({ eyebrow, title, subtitle, children }: { eyebrow: string; title: string; subtitle: string; children?: React.ReactNode }) {
-  return <div className="page-heading"><div><span>{eyebrow}</span><h2>{title}</h2><p>{subtitle}</p></div>{children ? <div className="page-heading__actions">{children}</div> : null}</div>;
+function ShortcutSet({ title, description, bindings, globalShortcut = false, errors = {}, onChange }: {
+  title: string;
+  description: string;
+  bindings: ShortcutBindings;
+  globalShortcut?: boolean;
+  errors?: Partial<Record<PlaybackShortcutAction, string>>;
+  onChange: (action: PlaybackShortcutAction, shortcut: string) => void;
+}) {
+  const { t } = useI18n();
+  const labels: Record<PlaybackShortcutAction, MessageKey> = {
+    playPause: "settings.playPause",
+    previous: "player.previous",
+    next: "player.next",
+    seekBackward: "settings.seekBackward",
+    seekForward: "settings.seekForward",
+  };
+  return (
+    <div className="shortcut-set">
+      <header><div><strong>{title}</strong><small>{description}</small></div><span>{globalShortcut ? t("settings.shortcutCombinationOnly") : t("settings.shortcutSingleAllowed")}</span></header>
+      <div>
+        {playbackShortcutActions.map((action) => (
+          <label className="shortcut-binding" key={action}>
+            <span>{t(labels[action])}</span>
+            <ShortcutBindingButton value={bindings[action]} globalShortcut={globalShortcut} error={Boolean(errors[action])} onChange={(shortcut) => onChange(action, shortcut)} />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ShortcutBindingButton({ value, globalShortcut, error, onChange }: { value: string; globalShortcut: boolean; error: boolean; onChange: (shortcut: string) => void }) {
+  const { t } = useI18n();
+  const [recording, setRecording] = useState(false);
+  const [invalid, setInvalid] = useState(false);
+  return (
+    <button
+      type="button"
+      className={`shortcut-binding__button ${recording ? "is-recording" : ""} ${error || invalid ? "is-error" : ""}`}
+      title={error ? t("settings.shortcutConflictHint") : undefined}
+      onClick={() => { setInvalid(false); setRecording(true); }}
+      onBlur={() => setRecording(false)}
+      onKeyDown={(event) => {
+        if (!recording) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.key === "Escape") {
+          setRecording(false);
+          setInvalid(false);
+          return;
+        }
+        const shortcut = shortcutFromKeyboardEvent(event);
+        if (!shortcut) return;
+        if (globalShortcut && !shortcutHasModifier(shortcut)) {
+          setInvalid(true);
+          return;
+        }
+        setInvalid(false);
+        setRecording(false);
+        onChange(shortcut);
+      }}
+    >
+      <kbd>{recording ? t(globalShortcut ? "settings.shortcutPressCombination" : "settings.shortcutPressKey") : formatShortcut(value)}</kbd>
+    </button>
+  );
+}
+
+function PageHeading({ eyebrow, title, subtitle, children }: { eyebrow: string; title: string; subtitle?: string; children?: React.ReactNode }) {
+  return <div className="page-heading"><div><span>{eyebrow}</span><h2>{title}</h2>{subtitle ? <p>{subtitle}</p> : null}</div>{children ? <div className="page-heading__actions">{children}</div> : null}</div>;
 }
 
 function EmptyState({ icon: Icon, title, body, action, onAction }: { icon: LucideIcon; title: string; body: string; action?: string; onAction?: () => void }) {

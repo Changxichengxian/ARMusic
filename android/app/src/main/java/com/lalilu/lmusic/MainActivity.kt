@@ -11,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.lifecycleScope
 import com.lalilu.common.SystemUiUtil
 import com.lalilu.lmusic.Config.REQUIRE_PERMISSIONS
 import com.lalilu.lmusic.compose.App
@@ -19,12 +18,10 @@ import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.helper.LastTouchTimeHelper
 import com.lalilu.lmusic.utils.dynamicUpdateStatusBarColor
 import com.lalilu.lmusic.utils.setToMaxFreshRate
-import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
     private val settingsSp: SettingsSp by inject()
-    private var deferredStartupScheduled = false
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(ARMusicLanguage.wrapContext(newBase))
@@ -46,15 +43,15 @@ class MainActivity : ComponentActivity() {
         SystemUiUtil.immerseNavigationBar(this)
         SystemUiUtil.immersiveCutout(window)
 
+        if (!shouldRequestPermission) {
+            ARMusicDeferredStartup.start(application)
+        }
+
         setContent { App.Content(activity = this) }
         setToMaxFreshRate()
         dynamicUpdateStatusBarColor()
 
         volumeControlStream = AudioManager.STREAM_MUSIC
-
-        if (!shouldRequestPermission) {
-            scheduleDeferredStartup()
-        }
     }
 
     override fun onRequestPermissionsResult(
@@ -64,7 +61,7 @@ class MainActivity : ComponentActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1001) {
-            scheduleDeferredStartup()
+            ARMusicDeferredStartup.start(application)
         }
     }
 
@@ -80,14 +77,4 @@ class MainActivity : ComponentActivity() {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun scheduleDeferredStartup() {
-        if (deferredStartupScheduled) return
-        deferredStartupScheduled = true
-
-        window.decorView.post {
-            lifecycleScope.launch {
-                ARMusicDeferredStartup.start(application)
-            }
-        }
-    }
 }

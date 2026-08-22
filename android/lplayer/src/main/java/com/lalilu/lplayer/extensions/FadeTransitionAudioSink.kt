@@ -67,6 +67,7 @@ class FadeTransitionRenderersFactory(
     teeBufferListener: TeeAudioProcessor.AudioBufferSink? = null,
 ) : DefaultRenderersFactory(context), AudioProcessorChain {
 
+    private var appliedPlaybackParameters = PlaybackParameters.DEFAULT
     private val teeAudioProcessor = teeBufferListener
         ?.let { TeeAudioProcessor(it) }
 
@@ -89,9 +90,12 @@ class FadeTransitionRenderersFactory(
         else emptyArray()
     }
 
-    override fun getMediaDuration(playoutDuration: Long): Long = playoutDuration
+    override fun getMediaDuration(playoutDuration: Long): Long =
+        (playoutDuration * appliedPlaybackParameters.speed).toLong()
     override fun getSkippedOutputFrameCount(): Long = 0
     override fun applySkipSilenceEnabled(skipSilenceEnabled: Boolean): Boolean = skipSilenceEnabled
-    override fun applyPlaybackParameters(playbackParameters: PlaybackParameters): PlaybackParameters =
-        playbackParameters
+    override fun applyPlaybackParameters(playbackParameters: PlaybackParameters): PlaybackParameters {
+        appliedPlaybackParameters = playbackParameters
+        return playbackParameters
+    }
 }

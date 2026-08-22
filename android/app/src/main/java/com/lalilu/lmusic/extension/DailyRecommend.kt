@@ -43,7 +43,6 @@ import com.lalilu.lmusic.viewmodel.LibraryViewModel
 import com.lalilu.lplayer.action.MediaControl
 import kotlinx.coroutines.CancellationException
 import org.koin.compose.koinInject
-import kotlin.math.max
 import kotlin.random.Random
 
 object DailyRecommend : LazyGridContent {
@@ -65,7 +64,14 @@ object DailyRecommend : LazyGridContent {
                     title = stringResource(id = R.string.home_daily_recommend),
                     onClick = {
                         val ids = libraryViewModel.dailyRecommends.value.map { it.id }
-                        AppRouter.intent(NavIntent.Push(SongsScreen(mediaIds = ids)))
+                        AppRouter.intent(
+                            NavIntent.Push(
+                                SongsScreen(
+                                    mediaIds = ids,
+                                    playAcrossLibrary = true,
+                                )
+                            )
+                        )
                     }
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -110,32 +116,39 @@ fun LazyGridScope.dailyRecommendForSideMedium() {
 private fun DailyRecommendAutoRow(
     libraryViewModel: LibraryViewModel,
 ) {
-    val source = libraryViewModel.dailyRecommends.value.distinctBy { it.id }
+    val featured = libraryViewModel.dailyRecommends.value.distinctBy { it.id }
+    val source = remember(featured, libraryViewModel.allSongs.value) {
+        (featured + libraryViewModel.allSongs.value).distinctBy { it.id }
+    }
     if (source.isEmpty()) return
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     val speedPx = with(density) { 7.dp.toPx() }
-    val random = remember(source) { Random(System.currentTimeMillis()) }
-    val rowItems = remember(source) { mutableStateListOf<LSong>() }
-    val historyCount = 42
+    val random = remember(source, featured) { Random(System.currentTimeMillis()) }
+    val rowItems = remember(source, featured) { mutableStateListOf<LSong>() }
+    val cycleSize = source.size
     val futureCount = 26
-    val minQueueSize = 72
 
-    LaunchedEffect(source) {
+    LaunchedEffect(source, featured) {
         rowItems.clear()
-        appendDailyRecommendItems(rowItems, source, random, historyCount)
-        rowItems.addAll(source)
-        appendDailyRecommendItems(
-            queue = rowItems,
+        val history = buildDailyRecommendCycle(source, random = random)
+        val current = buildDailyRecommendCycle(
+            source = source,
+            prioritized = featured,
+            random = random,
+            previousId = history.lastOrNull()?.id,
+        )
+        val future = buildDailyRecommendCycle(
             source = source,
             random = random,
-            count = max(minQueueSize - rowItems.size, 0)
+            previousId = current.lastOrNull()?.id,
         )
-        listState.scrollToItem(historyCount)
+        rowItems.addAll(history + current + future)
+        listState.scrollToItem(cycleSize)
     }
 
-    LaunchedEffect(source) {
+    LaunchedEffect(source, featured) {
         var lastFrameNanos = 0L
         while (true) {
             val frameNanos = withFrameNanos { it }
@@ -154,28 +167,35 @@ private fun DailyRecommendAutoRow(
 
                 val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                 if (rowItems.size - lastVisibleIndex < futureCount) {
-                    appendDailyRecommendItems(rowItems, source, random, futureCount)
+                    rowItems.addAll(
+                        buildDailyRecommendCycle(
+                            source = source,
+                            random = random,
+                            previousId = rowItems.lastOrNull()?.id,
+                        )
+                    )
                 }
 
                 val firstVisibleIndex = listState.firstVisibleItemIndex
                 if (firstVisibleIndex < futureCount) {
                     val offset = listState.firstVisibleItemScrollOffset
-                    prependDailyRecommendItems(rowItems, source, random, futureCount)
-                    listState.scrollToItem(firstVisibleIndex + futureCount, offset)
+                    rowItems.addAll(
+                        0,
+                        buildDailyRecommendCycle(
+                            source = source,
+                            random = random,
+                            nextId = rowItems.firstOrNull()?.id,
+                        )
+                    )
+                    listState.scrollToItem(firstVisibleIndex + cycleSize, offset)
                 }
 
-                if (firstVisibleIndex > historyCount * 2) {
-                    val removeCount = firstVisibleIndex - historyCount
-                    val actualRemove = removeCount.coerceAtMost(max(rowItems.size - minQueueSize, 0))
-                    repeat(actualRemove) {
+                if (firstVisibleIndex > cycleSize * 2 && rowItems.size > cycleSize * 3) {
+                    val offset = listState.firstVisibleItemScrollOffset
+                    repeat(cycleSize) {
                         rowItems.removeAt(0)
                     }
-                    if (actualRemove > 0) {
-                        listState.scrollToItem(
-                            index = max(firstVisibleIndex - actualRemove, 0),
-                            scrollOffset = listState.firstVisibleItemScrollOffset,
-                        )
-                    }
+                    listState.scrollToItem(firstVisibleIndex - cycleSize, offset)
                 }
             }
             lastFrameNanos = frameNanos
@@ -197,10 +217,7 @@ private fun DailyRecommendAutoRow(
                     item = { song },
                     modifier = Modifier.size(width = cardWidth, height = 250.dp),
                     onClick = {
-                        MediaControl.playWithList(
-                            mediaIds = rowItems.map { song -> song.id },
-                            mediaId = song.id
-                        )
+                        MediaControl.playFromLibrary(song.id)
                     },
                     onLongClick = {
                         AppRouter.route("/pages/songs/detail")
@@ -213,42 +230,31 @@ private fun DailyRecommendAutoRow(
     }
 }
 
-private fun appendDailyRecommendItems(
-    queue: MutableList<LSong>,
+internal fun buildDailyRecommendCycle(
     source: List<LSong>,
+    prioritized: List<LSong> = emptyList(),
     random: Random,
-    count: Int,
-) {
-    if (count <= 0) return
+    previousId: String? = null,
+    nextId: String? = null,
+): List<LSong> {
+    val uniqueSource = source.distinctBy { it.id }
+    val sourceIds = uniqueSource.mapTo(hashSetOf()) { it.id }
+    val priority = prioritized
+        .asSequence()
+        .filter { it.id in sourceIds }
+        .distinctBy { it.id }
+        .toList()
+    val priorityIds = priority.mapTo(hashSetOf()) { it.id }
+    val cycle = (priority + uniqueSource.filterNot { it.id in priorityIds }.shuffled(random))
+        .toMutableList()
 
-    var appended = 0
-    while (appended < count) {
-        val batch = source.shuffled(random).toMutableList()
-        if (batch.size > 1 && batch.firstOrNull()?.id == queue.lastOrNull()?.id) {
-            val first = batch.removeAt(0)
-            batch.add(first)
-        }
-        val takeCount = minOf(count - appended, batch.size)
-        queue.addAll(batch.take(takeCount))
-        appended += takeCount
+    if (cycle.size > 1 && cycle.first().id == previousId) {
+        cycle.add(cycle.removeAt(0))
     }
-}
-
-private fun prependDailyRecommendItems(
-    queue: MutableList<LSong>,
-    source: List<LSong>,
-    random: Random,
-    count: Int,
-) {
-    if (count <= 0) return
-
-    val batchQueue = mutableListOf<LSong>()
-    appendDailyRecommendItems(batchQueue, source, random, count)
-    if (batchQueue.size > 1 && batchQueue.lastOrNull()?.id == queue.firstOrNull()?.id) {
-        val last = batchQueue.removeAt(batchQueue.lastIndex)
-        batchQueue.add(0, last)
+    if (cycle.size > 1 && cycle.last().id == nextId) {
+        cycle.add(0, cycle.removeAt(cycle.lastIndex))
     }
-    queue.addAll(0, batchQueue)
+    return cycle
 }
 
 fun LazyGridScope.dailyRecommendForSideExpanded(
@@ -272,10 +278,7 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                 item = { item },
                 modifier = Modifier.fillMaxSize(),
                 onClick = {
-                    MediaControl.playWithList(
-                        mediaIds = libraryViewModel.dailyRecommends.value.map { song -> song.id },
-                        mediaId = item.id
-                    )
+                    MediaControl.playFromLibrary(item.id)
                 },
                 onLongClick = {
                     AppRouter.route("/pages/songs/detail")
@@ -309,10 +312,7 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                     .weight(1f)
                     .fillMaxWidth(),
                 onClick = {
-                    MediaControl.playWithList(
-                        mediaIds = libraryViewModel.dailyRecommends.value.map { song -> song.id },
-                        mediaId = item.id
-                    )
+                    MediaControl.playFromLibrary(item.id)
                 },
                 onLongClick = {
                     AppRouter.route("/pages/songs/detail")
@@ -327,10 +327,7 @@ fun LazyGridScope.dailyRecommendForSideExpanded(
                     .weight(1f)
                     .fillMaxWidth(),
                 onClick = {
-                    MediaControl.playWithList(
-                        mediaIds = libraryViewModel.dailyRecommends.value.map { song -> song.id },
-                        mediaId = item2.id
-                    )
+                    MediaControl.playFromLibrary(item2.id)
                 },
                 onLongClick = {
                     AppRouter.route("/pages/songs/detail")

@@ -33,6 +33,7 @@ import com.lalilu.lmedia.LMedia
 import com.lalilu.lplayer.MPlayerKV
 import com.lalilu.lplayer.extensions.FadeTransitionRenderersFactory
 import com.lalilu.lplayer.extensions.PlayMode
+import com.lalilu.lplayer.extensions.hasPlayMode
 import com.lalilu.lplayer.extensions.playMode
 import com.lalilu.lplayer.extensions.setUpQueueControl
 import com.lalilu.lplayer.service.CustomCommand.SeekToNext
@@ -58,6 +59,7 @@ class MService : MediaLibraryService(), CoroutineScope {
     private var exoPlayer: Player? = null
     private var mediaSession: MediaLibrarySession? = null
     private var bluetoothLyricMetadataSender: BluetoothLyricMetadataSender? = null
+    private var applyingStoredPlayMode = false
     private val defaultAudioAttributes by lazy {
         AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -82,7 +84,13 @@ class MService : MediaLibraryService(), CoroutineScope {
             .build()
             .apply {
                 historyAnalyticsListener?.let { addAnalyticsListener(it) }
-                addListener(MPlayerListener(this, this@MService))
+                addListener(
+                    MPlayerListener(
+                        player = this,
+                        context = this@MService,
+                        onPlayModeChanged = this@MService::persistObservedPlayMode,
+                    )
+                )
             }
             .setUpQueueControl()
 
@@ -122,15 +130,29 @@ class MService : MediaLibraryService(), CoroutineScope {
 
         MPlayerKV.playMode.flow().onEach {
             withContext(Dispatchers.Main) {
-                exoPlayer?.playMode = PlayMode.from(it)
+                val player = exoPlayer ?: return@withContext
+                val desired = PlayMode.from(it)
+                if (player.hasPlayMode(desired)) return@withContext
+                applyingStoredPlayMode = true
+                try {
+                    player.playMode = desired
+                } finally {
+                    applyingStoredPlayMode = false
+                }
             }
         }.launchIn(this)
+    }
+
+    private fun persistObservedPlayMode(playMode: PlayMode) {
+        if (applyingStoredPlayMode || MPlayerKV.playMode.value == playMode.name) return
+        MPlayerKV.playMode.value = playMode.name
     }
 }
 
 private class MPlayerListener(
     val player: Player,
     private val context: Context,
+    private val onPlayModeChanged: (PlayMode) -> Unit,
 ) : Player.Listener {
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         if (isPlaying && usbFileReplaceLeaseActive()) player.pause()
@@ -141,7 +163,7 @@ private class MPlayerListener(
             repeatMode = player.repeatMode,
             shuffleModeEnabled = shuffleModeEnabled
         )
-        MPlayerKV.playMode.value = playMode.name
+        onPlayModeChanged(playMode)
     }
 
     override fun onRepeatModeChanged(repeatMode: Int) {
@@ -149,7 +171,7 @@ private class MPlayerListener(
             repeatMode = repeatMode,
             shuffleModeEnabled = player.shuffleModeEnabled
         )
-        MPlayerKV.playMode.value = playMode.name
+        onPlayModeChanged(playMode)
     }
 
     private fun usbFileReplaceLeaseActive(): Boolean {

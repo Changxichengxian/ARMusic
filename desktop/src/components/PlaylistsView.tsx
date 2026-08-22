@@ -396,7 +396,6 @@ export function PlaylistsView({ bridge, tracks, onPlay, onEdit, onNotice }: Play
         <div>
           <span>PLAYLISTS</span>
           <h1>{t("nav.playlists")}</h1>
-          <p>{t("playlists.subtitle")}</p>
         </div>
         <button className="button button--primary" disabled={saving} onClick={openCreatePlaylist}>
           {saving ? <RefreshCw className="spin" size={17} /> : <Plus size={17} />}

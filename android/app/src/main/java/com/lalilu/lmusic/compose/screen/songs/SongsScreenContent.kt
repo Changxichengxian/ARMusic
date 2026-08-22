@@ -62,7 +62,8 @@ internal fun SongsScreenContent(
     isSelected: (LSong) -> Boolean = { false },
     selectedSortAction: ListAction = SortStaticAction.Normal,
     onSelect: (LSong) -> Unit = {},
-    onClickGroup: (GroupIdentity) -> Unit = {}
+    onClickGroup: (GroupIdentity) -> Unit = {},
+    playbackMediaIds: (() -> List<String>)? = null,
 ) {
     val density = LocalDensity.current
     val listState: LazyListState = rememberLazyListState()
@@ -71,6 +72,9 @@ internal fun SongsScreenContent(
         listState = listState,
         keys = keys
     )
+    val visibleMediaIds = remember(songs) {
+        songs.values.flatten().map(LSong::id)
+    }
 
     LaunchedEffect(Unit) {
         eventFlow.collectLatest { event ->
@@ -179,7 +183,9 @@ internal fun SongsScreenContent(
                                     onSelect(it)
                                 } else {
                                     MediaControl.playWithList(
-                                        mediaIds = list.map(LSong::id),
+                                        mediaIds = playbackMediaIds?.invoke()
+                                            ?.takeIf(List<String>::isNotEmpty)
+                                            ?: visibleMediaIds,
                                         mediaId = it.id
                                     )
                                 }

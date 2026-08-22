@@ -26,7 +26,7 @@
   background: var(--panel-soft);
   color: var(--text-2);
   cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+  transition: border-color var(--ui-motion) ease, background-color var(--ui-motion) ease, color var(--ui-motion) ease;
 }
 
 .group-sort-menu > summary {
@@ -84,7 +84,7 @@
   background: color-mix(in srgb, var(--panel) 96%, transparent);
   box-shadow: 0 18px 48px rgba(0, 0, 0, .2);
   backdrop-filter: blur(22px) saturate(1.08);
-  animation: grouped-sort-in 150ms cubic-bezier(.2, .78, .2, 1) both;
+  animation: grouped-sort-in var(--ui-motion) cubic-bezier(.2, .78, .2, 1) both;
 }
 
 @keyframes grouped-sort-in {
@@ -166,7 +166,7 @@
   border-radius: clamp(13px, 1.45cqw, 19px);
   background: var(--panel-soft);
   box-shadow: 0 12px 30px rgba(0, 0, 0, .13);
-  transition: transform 190ms cubic-bezier(.2, .78, .2, 1), box-shadow 190ms ease;
+  transition: transform var(--ui-motion) cubic-bezier(.2, .78, .2, 1), box-shadow var(--ui-motion) ease;
 }
 
 .grouped-library-card:hover .grouped-library-card__art,
@@ -230,7 +230,7 @@
   box-shadow: 0 8px 22px rgba(0, 0, 0, .24);
   opacity: 0;
   transform: translateY(6px) scale(.96);
-  transition: opacity 160ms ease, transform 180ms cubic-bezier(.2, .78, .2, 1);
+  transition: opacity var(--ui-motion) ease, transform var(--ui-motion) cubic-bezier(.2, .78, .2, 1);
 }
 
 .grouped-library-card:hover .grouped-library-card__play,
@@ -394,7 +394,7 @@
   border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: 12px;
   cursor: pointer;
-  transition: background-color 150ms ease, transform 150ms ease;
+  transition: background-color var(--ui-motion) ease, transform var(--ui-motion) ease;
 }
 
 .grouped-track-row:hover {
@@ -504,7 +504,7 @@
   width: 31px;
   height: 31px;
   opacity: .18;
-  transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+  transition: background-color var(--ui-motion) ease, color var(--ui-motion) ease, opacity var(--ui-motion) ease;
 }
 
 .grouped-track-row:hover .grouped-track-row__edit,

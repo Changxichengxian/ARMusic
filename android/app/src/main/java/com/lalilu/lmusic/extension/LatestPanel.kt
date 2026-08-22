@@ -67,10 +67,7 @@ object LatestPanel : LazyGridContent {
                         height = { 100.dp },
                         modifier = Modifier.animateItem(),
                         onClick = {
-                            MediaControl.playWithList(
-                                mediaIds = items.map { song -> song.id },
-                                mediaId = it.id
-                            )
+                            MediaControl.playFromLibrary(it.id)
                         },
                         onLongClick = {
                             AppRouter.route("/pages/songs/detail")

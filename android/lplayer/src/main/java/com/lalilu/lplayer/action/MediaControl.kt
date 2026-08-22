@@ -1,6 +1,9 @@
 package com.lalilu.lplayer.action
 
+import com.lalilu.lmedia.LMedia
+import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lplayer.MPlayer
+import kotlin.random.Random
 
 /**
  * 常用的媒体操作的方法封装
@@ -34,5 +37,39 @@ object MediaControl {
         PlayerAction
             .UpdateList(mediaIds, mediaId, start)
             .action()
+    }
+
+    /**
+     * Starts a discovery-style queue from the selected song, then continues through the whole
+     * library without duplicate media ids. Album and playlist callers should keep using
+     * [playWithList] so their explicit playback scope is preserved.
+     */
+    fun playFromLibrary(mediaId: String) {
+        val queue = buildLibraryPlaybackQueue(
+            libraryIds = LMedia.get<LSong>().map(LSong::id),
+            selectedId = mediaId,
+            random = Random.Default,
+        )
+        if (queue.isEmpty()) return
+
+        PlayerAction.UpdateList(queue, mediaId, start = true).action()
+    }
+}
+
+internal fun buildLibraryPlaybackQueue(
+    libraryIds: List<String>,
+    selectedId: String,
+    random: Random,
+): List<String> {
+    val uniqueIds = libraryIds
+        .asSequence()
+        .filter(String::isNotBlank)
+        .distinct()
+        .toList()
+    if (selectedId !in uniqueIds) return uniqueIds.shuffled(random)
+
+    return buildList(uniqueIds.size) {
+        add(selectedId)
+        addAll(uniqueIds.filterNot { it == selectedId }.shuffled(random))
     }
 }

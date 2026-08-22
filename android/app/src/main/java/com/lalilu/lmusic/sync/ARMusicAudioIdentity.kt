@@ -32,8 +32,16 @@ class ARMusicAudioIdentity(
             FileInputStream(descriptor.fileDescriptor).use inputUse@ { input ->
                 val channel = input.channel
                 val size = descriptor.statSize.takeIf { it >= 0L } ?: channel.size()
+                val modifiedMillis = song.fileInfo.pathStr
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::File)
+                    ?.takeIf { it.isFile }
+                    ?.lastModified()
+                    ?.takeIf { it > 0L }
+                    ?: song.metadata.dateModified.takeIf { it > 0L }?.times(1000L)
+                    ?: 0L
                 val cacheKey = sha256Hex(
-                    "${song.uri}\u0000$size\u0000${song.metadata.dateModified}\u0000$fileName"
+                    "${song.uri}\u0000$size\u0000$modifiedMillis\u0000$fileName"
                 )
                 cache.getString(cacheKey, null)?.split('|')?.takeIf { it.size == 3 }?.let { fields ->
                     return@inputUse ARMusicTrackIdentity(

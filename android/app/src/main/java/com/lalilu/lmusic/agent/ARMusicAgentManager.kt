@@ -1,7 +1,11 @@
 package com.lalilu.lmusic.agent
 
 import android.util.Log
+import com.lalilu.BuildConfig
 import com.lalilu.lmusic.migration.LMusicMigrationManager
+import com.lalilu.lplayer.MPlayer
+import com.lalilu.lplayer.PlaybackModeSnapshot
+import com.lalilu.lplayer.extensions.PlayMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -52,6 +56,29 @@ class ARMusicAgentManager(
                     playlistManager.exportPlaylists(path.orDefaultPlaylistsPath())
                 COMMAND_IMPORT_PLAYLISTS, COMMAND_IMPORT_PLAYLIST ->
                     playlistManager.importPlaylists(path.requirePath())
+                COMMAND_GET_PLAY_MODE -> playbackModeResult(
+                    command = COMMAND_GET_PLAY_MODE,
+                    snapshot = MPlayer.playbackModeSnapshot(),
+                )
+                COMMAND_SET_PLAY_MODE -> {
+                    val playMode = PlayMode.parse(path.requirePath())
+                        ?: error("Unknown play mode: $path")
+                    playbackModeResult(
+                        command = COMMAND_SET_PLAY_MODE,
+                        snapshot = MPlayer.setPlaybackMode(playMode),
+                    )
+                }
+                COMMAND_SET_CAPTURE_PLAYBACK_SPEED -> {
+                    check(BuildConfig.DEBUG) { "Capture playback speed is only available in debug builds" }
+                    val speed = path?.trim()?.toFloatOrNull()
+                        ?: error("Missing capture playback speed")
+                    MPlayer.setCapturePlaybackSpeed(speed)
+                    AgentCommandResult(
+                        ok = true,
+                        command = COMMAND_SET_CAPTURE_PLAYBACK_SPEED,
+                        message = "Capture playback speed set to $speed",
+                    )
+                }
                 else -> AgentCommandResult(
                     ok = false,
                     command = normalizedCommand,
@@ -95,12 +122,27 @@ class ARMusicAgentManager(
         )
     }
 
+    private fun playbackModeResult(
+        command: String,
+        snapshot: PlaybackModeSnapshot,
+    ): AgentCommandResult {
+        return AgentCommandResult(
+            ok = true,
+            command = command,
+            message = "Play mode is ${snapshot.playMode.name}",
+            playMode = snapshot.playMode.name,
+            storedPlayMode = snapshot.storedPlayMode.name,
+            repeatMode = snapshot.repeatMode,
+            shuffleModeEnabled = snapshot.shuffleModeEnabled,
+        )
+    }
+
     private fun helpResult(): AgentCommandResult {
         val path = files.defaultLibraryPath()
         return AgentCommandResult(
             ok = true,
             command = COMMAND_HELP,
-            message = "ARMusic agent commands: export_library, export_history, export_wishlist, import_wishlist, export_playlists, import_playlists, import_bundle, import_history, import_works, import_groups, clear_history, restore_raw_history, commit_track, verify_track, prepare_usb_file_replace, verify_usb_file_replace_lease, cancel_usb_file_replace_lease, export_backup, import_backup. Default agent dir: ${files.agentDir().absolutePath}",
+            message = "ARMusic agent commands: export_library, export_history, export_wishlist, import_wishlist, export_playlists, import_playlists, import_bundle, import_history, import_works, import_groups, clear_history, restore_raw_history, commit_track, verify_track, prepare_usb_file_replace, verify_usb_file_replace_lease, cancel_usb_file_replace_lease, export_backup, import_backup, get_play_mode, set_play_mode. Default agent dir: ${files.agentDir().absolutePath}",
             outputPath = path,
         )
     }
@@ -158,6 +200,9 @@ class ARMusicAgentManager(
         const val COMMAND_IMPORT_PLAYLISTS = "import_playlists"
         const val COMMAND_EXPORT_PLAYLIST = "export_playlist"
         const val COMMAND_IMPORT_PLAYLIST = "import_playlist"
+        const val COMMAND_GET_PLAY_MODE = "get_play_mode"
+        const val COMMAND_SET_PLAY_MODE = "set_play_mode"
+        const val COMMAND_SET_CAPTURE_PLAYBACK_SPEED = "set_capture_playback_speed"
 
         private const val LOG_TAG = "ARMusicAgent"
     }

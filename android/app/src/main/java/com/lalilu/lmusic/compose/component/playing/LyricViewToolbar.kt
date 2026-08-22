@@ -221,6 +221,24 @@ val LyricViewActionDialog = DialogItem.Dynamic(backgroundColor = Color.Transpare
                     settings.saveData()
                 }
             )
+            SettingSwitcher(
+                title = "模糊开场",
+                subTitle = "前奏时保持模糊，在第一句开始前平滑变清晰",
+                state = { settings.value.blurOpeningEnable },
+                onStateUpdate = {
+                    settings.value = settings.value.copy(blurOpeningEnable = it)
+                    settings.saveData()
+                }
+            )
+            SettingSwitcher(
+                title = "隐藏报幕信息",
+                subTitle = "隐藏开头的作词、作曲、编曲、制作人等内容",
+                state = { settings.value.hideZeroTimeCredits },
+                onStateUpdate = {
+                    settings.value = settings.value.copy(hideZeroTimeCredits = it)
+                    settings.saveData()
+                }
+            )
             SettingFontLibrary(
                 currentPath = { lyricTypefacePath.value },
                 onPathSelected = { path ->

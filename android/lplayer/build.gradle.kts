@@ -33,4 +33,6 @@ dependencies {
     api(project(":lplayer:lib-decoder-flac"))
     api(libs.bundles.media3)
     api("com.github.cy745:fpcalc:1.2")
+
+    testImplementation(kotlin("test-junit"))
 }

@@ -11,6 +11,9 @@ mod wishlist;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use chrono::{DateTime, SecondsFormat, Utc};
+use image::codecs::jpeg::JpegEncoder;
+use image::imageops::FilterType;
+use image::GenericImageView;
 use local_ip_address::list_afinet_netifas;
 use lofty::file::{AudioFile, TaggedFile, TaggedFileExt};
 use lofty::picture::{MimeType, Picture, PictureType};
@@ -18,7 +21,7 @@ use lofty::tag::{ItemKey, Tag, TagExt};
 use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -35,6 +38,7 @@ const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "ogg", "
 const DEFAULT_SYNC_PORT: u16 = 49321;
 const MAX_SCAN_FILES: usize = 5000;
 const MIN_SYNC_DURATION_SECONDS: u64 = 15;
+const COVER_CACHE_MAX_DIMENSION: u32 = 768;
 
 #[derive(Default)]
 struct AppState {
@@ -409,12 +413,56 @@ fn picture_extension(picture: &Picture) -> &'static str {
     }
 }
 
+fn cover_cache_dir() -> PathBuf {
+    env::temp_dir().join("ARMusic").join("cover-cache-v2")
+}
+
+fn cover_thumbnail_dimensions(width: u32, height: u32) -> (u32, u32) {
+    if width == 0
+        || height == 0
+        || (width <= COVER_CACHE_MAX_DIMENSION && height <= COVER_CACHE_MAX_DIMENSION)
+    {
+        return (width.max(1), height.max(1));
+    }
+    if width >= height {
+        let scaled_height =
+            ((height as u64 * COVER_CACHE_MAX_DIMENSION as u64) / width as u64).max(1) as u32;
+        (COVER_CACHE_MAX_DIMENSION, scaled_height)
+    } else {
+        let scaled_width =
+            ((width as u64 * COVER_CACHE_MAX_DIMENSION as u64) / height as u64).max(1) as u32;
+        (scaled_width, COVER_CACHE_MAX_DIMENSION)
+    }
+}
+
+fn write_cover_thumbnail(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let decoded = image::load_from_memory(bytes).map_err(|error| error.to_string())?;
+    let (width, height) = decoded.dimensions();
+    let (thumbnail_width, thumbnail_height) = cover_thumbnail_dimensions(width, height);
+    let thumbnail = if (thumbnail_width, thumbnail_height) == (width, height) {
+        decoded
+    } else {
+        decoded.resize_exact(thumbnail_width, thumbnail_height, FilterType::Triangle)
+    };
+    let rgb = thumbnail.to_rgb8();
+    let mut output = File::create(path).map_err(|error| error.to_string())?;
+    JpegEncoder::new_with_quality(&mut output, 84)
+        .encode(
+            rgb.as_raw(),
+            thumbnail_width,
+            thumbnail_height,
+            image::ExtendedColorType::Rgb8,
+        )
+        .map_err(|error| error.to_string())?;
+    output.sync_all().map_err(|error| error.to_string())
+}
+
 fn cache_embedded_picture(sync_id: &str, picture: &Picture) -> Option<String> {
     if picture.data().is_empty() {
         return None;
     }
 
-    let cache_dir = env::temp_dir().join("ARMusic").join("cover-cache-v1");
+    let cache_dir = cover_cache_dir();
     if let Err(error) = fs::create_dir_all(&cache_dir) {
         eprintln!(
             "Failed to create cover cache {}: {error}",
@@ -426,19 +474,56 @@ fn cache_embedded_picture(sync_id: &str, picture: &Picture) -> Option<String> {
     // Include the bytes in the cache key. A same-length cover replacement must produce a new URL,
     // otherwise WebView's image cache can keep showing the old artwork after a successful save.
     let cover_digest = format!("{:x}", Sha256::digest(picture.data()));
-    let cache_path = cache_dir.join(format!(
-        "{sync_id}-{}.{}",
-        &cover_digest[..16],
-        picture_extension(picture)
-    ));
-    if !cache_path.is_file() {
-        if let Err(error) = fs::write(&cache_path, picture.data()) {
-            eprintln!("Failed to cache cover {}: {error}", cache_path.display());
-            return None;
+    let cache_key = format!("{sync_id}-{}", &cover_digest[..16]);
+    let thumbnail_path = cache_dir.join(format!("{cache_key}-thumb.jpg"));
+    if thumbnail_path.is_file() {
+        return Some(thumbnail_path.to_string_lossy().to_string());
+    }
+    if let Err(error) = write_cover_thumbnail(&thumbnail_path, picture.data()) {
+        eprintln!(
+            "Failed to resize cover {}: {error}",
+            thumbnail_path.display()
+        );
+        let source_path =
+            cache_dir.join(format!("{cache_key}-source.{}", picture_extension(picture)));
+        if !source_path.is_file() {
+            if let Err(error) = fs::write(&source_path, picture.data()) {
+                eprintln!("Failed to cache cover {}: {error}", source_path.display());
+                return None;
+            }
         }
+        return Some(source_path.to_string_lossy().to_string());
     }
 
-    Some(cache_path.to_string_lossy().to_string())
+    Some(thumbnail_path.to_string_lossy().to_string())
+}
+
+fn prune_cover_cache(tracks: &[Track]) {
+    let cache_dir = cover_cache_dir();
+    let active_paths: HashSet<PathBuf> = tracks
+        .iter()
+        .filter_map(|track| track.cover_path.as_deref())
+        .map(PathBuf::from)
+        .collect();
+    if let Ok(entries) = fs::read_dir(&cache_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && !active_paths.contains(&path) {
+                if let Err(error) = fs::remove_file(&path) {
+                    eprintln!("Failed to prune stale cover {}: {error}", path.display());
+                }
+            }
+        }
+    }
+    let legacy_cache_dir = env::temp_dir().join("ARMusic").join("cover-cache-v1");
+    if legacy_cache_dir.is_dir() {
+        if let Err(error) = fs::remove_dir_all(&legacy_cache_dir) {
+            eprintln!(
+                "Failed to remove legacy cover cache {}: {error}",
+                legacy_cache_dir.display()
+            );
+        }
+    }
 }
 
 fn apply_embedded_metadata(track: &mut Track, file_path: &Path) -> Result<(), String> {
@@ -627,6 +712,7 @@ fn scan_music_folder_with_identity_mode(
     }
 
     tracks.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    prune_cover_cache(&tracks);
     validate_unique_track_identities(&tracks)?;
 
     if listening_history::history_path(&root_path).is_file() {
@@ -676,6 +762,18 @@ fn refresh_library_locked(state: &AppInner) -> Result<PathBuf, String> {
         .canonicalize()
         .map_err(|error| format!("读取音乐文件夹失败：{error}"))?;
     let scan = scan_music_folder_uncached(&root)?;
+    *state.tracks.lock().expect("tracks lock") = scan.tracks;
+    Ok(root)
+}
+
+/// Reloads metadata while reusing identities whose path, size and mtime are unchanged.
+/// Sync planning uses this fast path; every file that is actually transferred or replaced
+/// is still hashed without the cache immediately before the write.
+fn refresh_library_cached_locked(state: &AppInner) -> Result<PathBuf, String> {
+    let root = history_root(state)?
+        .canonicalize()
+        .map_err(|error| format!("读取音乐文件夹失败：{error}"))?;
+    let scan = scan_music_folder(&root)?;
     *state.tracks.lock().expect("tracks lock") = scan.tracks;
     Ok(root)
 }
@@ -1671,7 +1769,7 @@ fn handle_request(request: Request, state: Arc<AppInner>) {
         }
         let manifest = (|| -> Result<SyncManifest, String> {
             let _file_guard = state.file_mutation_lock.lock().expect("file mutation lock");
-            refresh_library_locked(&state)?;
+            refresh_library_cached_locked(&state)?;
             Ok(create_manifest(&state))
         })();
         match manifest {
@@ -2169,6 +2267,7 @@ fn open_external_url(url: String) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // A duplicate normal launch should bring back the existing player. A delayed
             // Windows login launch must stay quiet if ARMusic is already running.
@@ -2213,6 +2312,13 @@ fn main() {
 #[cfg(test)]
 mod safety_tests {
     use super::*;
+
+    #[test]
+    fn cover_thumbnails_fit_without_upscaling() {
+        assert_eq!(cover_thumbnail_dimensions(1600, 900), (768, 432));
+        assert_eq!(cover_thumbnail_dimensions(900, 1600), (432, 768));
+        assert_eq!(cover_thumbnail_dimensions(512, 512), (512, 512));
+    }
 
     fn test_track(sync_id: &str, legacy_id: &str, relative_path: &str) -> Track {
         Track {
@@ -2390,6 +2496,20 @@ mod safety_tests {
             .unwrap_or_else(|_| "343".to_string())
             .parse::<usize>()
             .expect("ARMUSIC_REAL_EXPECTED_TRACKS must be a number");
+        let expected_phone_tracks = env::var("ARMUSIC_REAL_EXPECTED_PHONE_TRACKS")
+            .unwrap_or_else(|_| expected_tracks.to_string())
+            .parse::<usize>()
+            .expect("ARMUSIC_REAL_EXPECTED_PHONE_TRACKS must be a number");
+        let expected_uploads = env::var("ARMUSIC_REAL_EXPECTED_UPLOADS")
+            .unwrap_or_else(|_| "0".to_string())
+            .parse::<usize>()
+            .expect("ARMUSIC_REAL_EXPECTED_UPLOADS must be a number");
+        let expected_conflicts = env::var("ARMUSIC_REAL_EXPECTED_CONFLICTS")
+            .unwrap_or_else(|_| "0".to_string())
+            .parse::<usize>()
+            .expect("ARMUSIC_REAL_EXPECTED_CONFLICTS must be a number");
+        let apply_newer_conflicts =
+            env::var("ARMUSIC_REAL_APPLY_NEWER_CONFLICTS").as_deref() == Ok("1");
 
         let state = Arc::new(AppInner::default());
         *state.library_folder.lock().expect("library folder lock") = Some(root);
@@ -2402,10 +2522,10 @@ mod safety_tests {
                 serde_json::to_string_pretty(&preview).expect("serialize preview")
             );
             assert_eq!(preview.desktop_track_count, expected_tracks);
-            assert_eq!(preview.phone_track_count, expected_tracks);
-            assert!(preview.upload_to_phone.is_empty());
+            assert_eq!(preview.phone_track_count, expected_phone_tracks);
+            assert_eq!(preview.upload_to_phone.len(), expected_uploads);
             assert!(preview.download_to_desktop.is_empty());
-            assert!(preview.conflicts.is_empty());
+            assert_eq!(preview.conflicts.len(), expected_conflicts);
             return;
         }
         let request: adb_sync::ExecuteAdbSyncRequest = serde_json::from_value(serde_json::json!({
@@ -2413,7 +2533,8 @@ mod safety_tests {
             "syncSongs": true,
             "syncWishlist": true,
             "syncPlaylists": true,
-            "historyMode": "keepOnBoth"
+            "historyMode": "keepOnBoth",
+            "applyNewerConflicts": apply_newer_conflicts
         }))
         .expect("real-device sync request");
         let result = adb_sync::execute(state, request).expect("execute real-device two-way sync");
@@ -2422,13 +2543,20 @@ mod safety_tests {
             serde_json::to_string_pretty(&result).expect("serialize result")
         );
         assert_eq!(result.preview.desktop_track_count, expected_tracks);
-        assert_eq!(result.preview.phone_track_count, expected_tracks);
-        assert!(result.preview.upload_to_phone.is_empty());
+        assert_eq!(result.preview.phone_track_count, expected_phone_tracks);
+        assert_eq!(result.preview.upload_to_phone.len(), expected_uploads);
         assert!(result.preview.download_to_desktop.is_empty());
-        assert!(result.preview.conflicts.is_empty());
-        assert_eq!(result.uploaded_to_phone, 0);
+        assert_eq!(result.preview.conflicts.len(), expected_conflicts);
+        assert_eq!(result.uploaded_to_phone, expected_uploads);
         assert_eq!(result.downloaded_to_desktop, 0);
-        assert_eq!(result.conflicts_left_untouched, 0);
+        assert_eq!(
+            result.conflicts_left_untouched,
+            if apply_newer_conflicts {
+                0
+            } else {
+                expected_conflicts
+            }
+        );
         assert!(result.wishlist_synced);
         assert!(result.playlists_synced);
     }

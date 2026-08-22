@@ -21,6 +21,8 @@ import com.lalilu.component.base.songs.SongsSelectorPanel
 import com.lalilu.component.base.songs.SongsSortPanelDialog
 import com.lalilu.component.extension.DialogWrapper
 import com.lalilu.component.extension.screenViewModel
+import com.lalilu.lmedia.LMedia
+import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmusic.viewmodel.SongsAction
 import com.lalilu.lmusic.viewmodel.SongsViewModel
 import com.lalilu.remixicon.Design
@@ -41,7 +43,8 @@ import org.koin.core.qualifier.named
 @Destination("/pages/songs")
 data class SongsScreen(
     private val title: String? = null,
-    private val mediaIds: List<String> = emptyList()
+    private val mediaIds: List<String> = emptyList(),
+    private val playAcrossLibrary: Boolean = false,
 ) : Screen, ScreenInfoFactory, ScreenActionFactory, ScreenBarFactory, ScreenType.List {
 
     @Composable
@@ -161,7 +164,12 @@ data class SongsScreen(
             isSelected = { songsViewModel.selector.isSelected(it) },
             selectedSortAction = state.selectedSortAction,
             onSelect = { songsViewModel.selector.onSelect(it) },
-            onClickGroup = { songsViewModel.intent(SongsAction.ToggleJumperDialog) }
+            onClickGroup = { songsViewModel.intent(SongsAction.ToggleJumperDialog) },
+            playbackMediaIds = if (playAcrossLibrary) {
+                { LMedia.get<LSong>().map(LSong::id) }
+            } else {
+                null
+            },
         )
     }
 }

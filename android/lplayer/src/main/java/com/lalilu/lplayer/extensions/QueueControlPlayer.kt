@@ -42,7 +42,6 @@ internal class QueueControlPlayer(player: ExoPlayer) : ForwardingPlayer(player),
         val maxIndex = currentTimeline.windowCount - 1
         val currentIndex = currentMediaItemIndex
 
-        // 获取下一个元素的index
         val nextIndex = (0..maxIndex)
             .filter {
                 min(
@@ -114,7 +113,6 @@ internal class QueueControlPlayer(player: ExoPlayer) : ForwardingPlayer(player),
         }
     }
 }
-
 
 @OptIn(UnstableApi::class)
 internal fun ExoPlayer.setUpQueueControl(): Player {

@@ -152,7 +152,7 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color .17s ease, transform .17s ease;
+  transition: background-color var(--ui-motion) ease, transform var(--ui-motion) ease;
 }
 
 .playlists-list__items > button:hover {
@@ -311,7 +311,7 @@
   place-items: center;
   border-radius: 50%;
   color: var(--text-3);
-  transition: color .17s ease, transform .17s ease;
+  transition: color var(--ui-motion) ease, transform var(--ui-motion) ease;
 }
 
 .playlists-list__items > button:hover .playlists-list__chevron,
@@ -340,7 +340,7 @@
   background: color-mix(in srgb, var(--panel-soft) 76%, transparent);
   color: var(--text-2);
   cursor: pointer;
-  transition: border-color .17s ease, background-color .17s ease, color .17s ease;
+  transition: border-color var(--ui-motion) ease, background-color var(--ui-motion) ease, color var(--ui-motion) ease;
 }
 
 .playlist-sort__menu > summary {
@@ -385,7 +385,7 @@
 
 .playlist-sort__menu > summary svg {
   flex: none;
-  transition: transform .17s ease;
+  transition: transform var(--ui-motion) ease;
 }
 
 .playlist-sort__direction {
@@ -728,7 +728,7 @@
   padding: 5px clamp(5px, .7cqw, 9px);
   border-bottom: 1px solid color-mix(in srgb, var(--line) 42%, transparent);
   border-radius: 11px;
-  transition: background-color .16s ease;
+  transition: background-color var(--ui-motion) ease;
 }
 
 .playlist-track-list > div:not(.playlist-detail__empty):last-child {
@@ -805,7 +805,7 @@
   place-items: center;
   border-radius: 50%;
   opacity: .26;
-  transition: color .16s ease, opacity .16s ease, background-color .16s ease;
+  transition: color var(--ui-motion) ease, opacity var(--ui-motion) ease, background-color var(--ui-motion) ease;
 }
 
 .playlist-track-list > div:hover .playlist-track-list__remove,

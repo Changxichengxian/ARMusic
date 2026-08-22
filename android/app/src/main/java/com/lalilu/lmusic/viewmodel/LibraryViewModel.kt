@@ -18,6 +18,9 @@ import java.util.Calendar
 class LibraryViewModel(
     private val tempSp: TempSp
 ) : ViewModel() {
+    val allSongs = LMedia.getFlow<LSong>()
+        .toState(emptyList(), viewModelScope)
+
     val recentlyAdded = LMedia.getFlow<LSong>()
         .mapLatest { it.take(15) }
         .toState(emptyList(), viewModelScope)

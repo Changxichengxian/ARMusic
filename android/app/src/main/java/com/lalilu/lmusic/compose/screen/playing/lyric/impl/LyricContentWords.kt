@@ -1,5 +1,6 @@
 package com.lalilu.lmusic.compose.screen.playing.lyric.impl
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -58,6 +60,11 @@ fun LyricContentWords(
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
     val isCurrent = context.currentIndex() == index
+    val currentEmphasis = when {
+        !isCurrent -> 0f
+        context.isBeforeFirstLine() -> context.openingProgress()
+        else -> 1f
+    }
 
     val fullSentence = remember { lyric.getSentenceContent() }
     val actualConstraints = remember(context, settings) {
@@ -97,7 +104,8 @@ fun LyricContentWords(
 
     val scale = animateFloatAsState(
         targetValue = when {
-            isCurrent -> settings.scaleRange.endInclusive
+            isCurrent -> settings.scaleRange.start +
+                    (settings.scaleRange.endInclusive - settings.scaleRange.start) * currentEmphasis
             context.currentTime() in lyric.startTime..lyric.endTime -> 0.95f
             else -> settings.scaleRange.start
         },
@@ -114,6 +122,18 @@ fun LyricContentWords(
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow
+        ),
+        label = ""
+    )
+    val openingLineColor = animateColorAsState(
+        targetValue = if (isCurrent && context.isBeforeFirstLine()) {
+            lerp(Color(0x80FFFFFF), Color.White, currentEmphasis)
+        } else {
+            Color(0x80FFFFFF)
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessLow
         ),
         label = ""
     )
@@ -172,11 +192,23 @@ fun LyricContentWords(
     val blurRadius = remember(
         context.isUserScrolling(),
         context.currentIndex(),
-        settings.blurEffectEnable
+        context.isBeforeFirstLine(),
+        context.openingProgress(),
+        settings.blurEffectEnable,
+        settings.blurOpeningEnable,
     ) {
         if (context.isUserScrolling()) return@remember 0.dp
-        if (!settings.blurEffectEnable) return@remember 0.dp
-        abs(index - context.currentIndex()).coerceAtMost(5).dp
+        val regularBlur = if (settings.blurEffectEnable) {
+            abs(index - context.currentIndex()).coerceAtMost(5).dp
+        } else {
+            0.dp
+        }
+        if (!context.isBeforeFirstLine() || !settings.blurOpeningEnable) {
+            return@remember regularBlur
+        }
+
+        val progress = context.openingProgress()
+        5.dp * (1f - progress) + regularBlur * progress
     }
     val animateBlurRadius = animateDpAsState(
         targetValue = blurRadius,
@@ -218,10 +250,10 @@ fun LyricContentWords(
         ) {
             if (showMain) {
                 drawText(
-                color = Color(0x80FFFFFF),
-                shadow = DEFAULT_TEXT_SHADOW,
-                textLayoutResult = textResult,
-            )
+                    color = openingLineColor.value,
+                    shadow = DEFAULT_TEXT_SHADOW,
+                    textLayoutResult = textResult,
+                )
 
             if (progress > 0f) {
                 val offset = lyric.words.take(wordIndex)

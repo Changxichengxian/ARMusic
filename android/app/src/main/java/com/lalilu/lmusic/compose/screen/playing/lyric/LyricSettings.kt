@@ -59,6 +59,8 @@ data class LyricSettings(
 
     // 特殊效果开关
     val blurEffectEnable: Boolean = true,
+    val blurOpeningEnable: Boolean = false,
+    val hideZeroTimeCredits: Boolean = false,
     val translationVisible: Boolean = true,
     val hideMainWhenTranslationHidden: Boolean = false,
     val variableFontWeightEnable: Boolean = false

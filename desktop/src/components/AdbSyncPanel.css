@@ -111,15 +111,15 @@
   font-weight: 650;
 }
 
-.adb-sync-panel__device-row select {
-  width: 100%;
-  padding: 7px 28px 7px 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  outline: 0;
+.adb-sync-panel__device-select .ui-select__trigger {
+  min-height: 34px;
+  padding: 6px 9px;
+  border-color: var(--line-strong);
+  border-radius: 8px;
   background: var(--panel);
-  font-size: 10px;
 }
+
+.adb-sync-panel__device-select .ui-select__menu { min-width: 220px; }
 
 .adb-sync-panel__connected {
   color: var(--green);
@@ -195,21 +195,65 @@
   white-space: nowrap;
 }
 
-.adb-sync-panel__scope-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  margin: -5px 1px 0;
-  color: var(--text-3);
-  font-size: 8px;
-  line-height: 1.5;
+.adb-sync-panel__plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.adb-sync-panel__scope-note svg {
-  flex: 0 0 auto;
-  margin-top: 1px;
+.adb-sync-panel__plan-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  padding: 11px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--panel-soft) 70%, transparent);
+}
+
+.adb-sync-panel__plan-card > span {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--accent-soft);
   color: var(--accent);
 }
+
+.adb-sync-panel__plan-card > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding-right: 2px;
+}
+
+.adb-sync-panel__plan-card strong { font-size: 9px; }
+
+.adb-sync-panel__plan-card p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 7px;
+  line-height: 1.48;
+}
+
+.adb-sync-panel__plan-card em {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 6px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.adb-sync-panel__plan-card > div > strong { padding-right: 62px; }
+.adb-sync-panel__plan-card.is-muted { opacity: 0.66; }
 
 .adb-sync-panel__conflicts,
 .adb-sync-panel__history {
@@ -496,6 +540,10 @@
   }
 
   .adb-sync-panel__conflict {
+    grid-template-columns: 1fr;
+  }
+
+  .adb-sync-panel__plan-grid {
     grid-template-columns: 1fr;
   }
 }

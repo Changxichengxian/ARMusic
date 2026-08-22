@@ -137,9 +137,9 @@ class ARMusicAndroidManifestBuilder(
             ?.takeIf { it.isNotBlank() }
         val relativePath = listOfNotNull(directory, fileName).joinToString("/")
 
-        // A same-size in-place replacement can preserve MediaStore's second-level timestamp.
-        // Sync previews therefore verify the actual bytes instead of trusting the cache key.
-        val identity = audioIdentity.createUncached(uri, fileName)
+        // Planning reuses identities while URI, size, modified time and filename are unchanged.
+        // Commit/download paths still use createUncached immediately before every real write.
+        val identity = audioIdentity.create(this, fileName)
         val title = metadata.title.ifBlank { name }
         historyIdentityStore.remember(id, title, identity.stableId)
         return ARMusicSyncTrack(

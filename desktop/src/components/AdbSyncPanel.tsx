@@ -8,6 +8,7 @@ import {
   Computer,
   History,
   LoaderCircle,
+  ListMusic,
   Music2,
   RefreshCw,
   Sparkles,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
+import { SelectMenu } from "../shared-controls";
 import type {
   ARMusicBridge,
   AdbDevice,
@@ -241,25 +243,25 @@ export function AdbSyncPanel({
       ) : (
         <>
           <div className="adb-sync-panel__device-row">
-            <label htmlFor="adb-device-select">
+            <label>
               <Smartphone size={15} aria-hidden="true" />
               <span>{tr("adb.device")}</span>
             </label>
-            <select
-              id="adb-device-select"
-              value={selectedSerial}
+            <SelectMenu
+              ariaLabel={tr("adb.device")}
+              className="adb-sync-panel__device-select"
               disabled={isBusy}
-              onChange={(event) => {
-                setSelectedSerial(event.target.value);
+              onChange={(nextValue) => {
+                setSelectedSerial(nextValue);
                 setLastResult(null);
               }}
-            >
-              {devices.map((device) => (
-                <option key={device.serial} value={device.serial}>
-                  {device.model || tr("adb.unknownDevice")} · {device.serial}
-                </option>
-              ))}
-            </select>
+              options={devices.map((device) => ({
+                value: device.serial,
+                label: device.model || tr("adb.unknownDevice"),
+                detail: device.serial,
+              }))}
+              value={selectedSerial}
+            />
             {selectedDevice && (
               <span className="adb-sync-panel__connected">
                 <i aria-hidden="true" />
@@ -302,47 +304,50 @@ export function AdbSyncPanel({
                 </article>
               </div>
 
-              <p className="adb-sync-panel__scope-note">
-                <Music2 size={13} aria-hidden="true" />
-                {tr("adb.syncScope", {
-                  desktop: preview.desktopIgnoredSyncTrackCount,
-                  phone: preview.phoneIgnoredSyncTrackCount,
-                })}
-              </p>
-
-              <p className="adb-sync-panel__scope-note">
-                <Sparkles size={13} aria-hidden="true" />
-                {preview.wishlistSupported
-                  ? tr("adb.wishlistPlan", {
-                    desktopCategories: preview.desktopWishlistCategoryCount,
-                    desktopItems: preview.desktopWishlistItemCount,
-                    phoneCategories: preview.phoneWishlistCategoryCount,
-                    phoneItems: preview.phoneWishlistItemCount,
-                    desktopCategoriesAdded: preview.wishlistCategoriesAddToDesktop,
-                    toDesktop: preview.wishlistItemsAddToDesktop,
-                    phoneCategoriesAdded: preview.wishlistCategoriesAddToPhone,
-                    toPhone: preview.wishlistItemsAddToPhone,
-                  })
-                  : tr("adb.wishlistUnsupported")}
-              </p>
-
-              <p className="adb-sync-panel__scope-note">
-                <Music2 size={13} aria-hidden="true" />
-                {preview.playlistsSupported
-                  ? tr("adb.playlistsPlan", {
-                    desktopPlaylists: preview.desktopPlaylistCount,
-                    desktopTracks: preview.desktopPlaylistTrackCount,
-                    phonePlaylists: preview.phonePlaylistCount,
-                    phoneTracks: preview.phonePlaylistTrackCount,
-                    toDesktopPlaylists: preview.playlistsAddToDesktop,
-                    toDesktopTracks: preview.playlistTracksAddToDesktop,
-                    toPhonePlaylists: preview.playlistsAddToPhone,
-                    toPhoneTracks: preview.playlistTracksAddToPhone,
-                    deleteDesktop: preview.playlistsDeleteFromDesktop,
-                    deletePhone: preview.playlistsDeleteFromPhone,
-                  })
-                  : tr("adb.playlistsUnsupported")}
-              </p>
+              <div className="adb-sync-panel__plan-grid">
+                <article className="adb-sync-panel__plan-card">
+                  <span><Music2 size={15} aria-hidden="true" /></span>
+                  <div><strong>{tr("sync.scopeSongs")}</strong><p>{tr("adb.syncScope", {
+                    desktop: preview.desktopIgnoredSyncTrackCount,
+                    phone: preview.phoneIgnoredSyncTrackCount,
+                  })}</p></div>
+                  <em>{tr("sync.badgeTwoWay")}</em>
+                </article>
+                <article className={`adb-sync-panel__plan-card ${preview.wishlistSupported ? "" : "is-muted"}`}>
+                  <span><Sparkles size={15} aria-hidden="true" /></span>
+                  <div><strong>{tr("sync.scopeWishlist")}</strong><p>{preview.wishlistSupported
+                    ? tr("adb.wishlistPlan", {
+                      desktopCategories: preview.desktopWishlistCategoryCount,
+                      desktopItems: preview.desktopWishlistItemCount,
+                      phoneCategories: preview.phoneWishlistCategoryCount,
+                      phoneItems: preview.phoneWishlistItemCount,
+                      desktopCategoriesAdded: preview.wishlistCategoriesAddToDesktop,
+                      toDesktop: preview.wishlistItemsAddToDesktop,
+                      phoneCategoriesAdded: preview.wishlistCategoriesAddToPhone,
+                      toPhone: preview.wishlistItemsAddToPhone,
+                    })
+                    : tr("adb.wishlistUnsupported")}</p></div>
+                  <em>{tr(preview.wishlistSupported ? "sync.badgeKeepNew" : "adb.notSupported")}</em>
+                </article>
+                <article className={`adb-sync-panel__plan-card ${preview.playlistsSupported ? "" : "is-muted"}`}>
+                  <span><ListMusic size={15} aria-hidden="true" /></span>
+                  <div><strong>{tr("sync.scopePlaylists")}</strong><p>{preview.playlistsSupported
+                    ? tr("adb.playlistsPlan", {
+                      desktopPlaylists: preview.desktopPlaylistCount,
+                      desktopTracks: preview.desktopPlaylistTrackCount,
+                      phonePlaylists: preview.phonePlaylistCount,
+                      phoneTracks: preview.phonePlaylistTrackCount,
+                      toDesktopPlaylists: preview.playlistsAddToDesktop,
+                      toDesktopTracks: preview.playlistTracksAddToDesktop,
+                      toPhonePlaylists: preview.playlistsAddToPhone,
+                      toPhoneTracks: preview.playlistTracksAddToPhone,
+                      deleteDesktop: preview.playlistsDeleteFromDesktop,
+                      deletePhone: preview.playlistsDeleteFromPhone,
+                    })
+                    : tr("adb.playlistsUnsupported")}</p></div>
+                  <em>{tr(preview.playlistsSupported ? "sync.badgeSafeMerge" : "adb.notSupported")}</em>
+                </article>
+              </div>
 
               {preview.conflicts.length > 0 && (
                 <section className="adb-sync-panel__conflicts" aria-labelledby="adb-conflicts-title">
