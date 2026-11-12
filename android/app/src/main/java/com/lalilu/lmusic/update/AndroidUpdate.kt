@@ -35,7 +35,7 @@ class UpdateFileProvider : FileProvider()
 internal object AndroidUpdate {
     private const val MANIFEST = "armusic-android-update.json"
     private const val MANIFEST_LIMIT = 128L * 1024
-    private const val RELEASES_API = "https://api.github.com/repos/Changxichengxian/ARMusic/releases?per_page=30"
+    private const val RELEASES_API = "https://api.github.com/repos/Changxichengxian/ARMusic/releases"
     private const val RELEASES_LIMIT = 2L * 1024 * 1024
     private const val APK_LIMIT = 256L * 1024 * 1024
     private val versionPattern = Regex("[0-9]+\\.[0-9]+\\.[0-9]+")
@@ -58,19 +58,20 @@ internal object AndroidUpdate {
         val versionCode: Long,
         val apkSize: Long,
         val apkHash: String,
-        val baseHash: String,
+        val patchAssetId: Long,
         val patchHash: String,
         val patchSize: Long,
     )
 
     suspend fun check(context: Context): Check = withContext(Dispatchers.IO) {
-        val tag = findAndroidRelease() ?: return@withContext Check.NoRelease
-        val manifest = JSONObject(readText("$ARMUSIC_RELEASES_URL/download/$tag/$MANIFEST", MANIFEST_LIMIT))
+        val release = findAndroidRelease() ?: return@withContext Check.NoRelease
+        val manifestId = requireNotNull(release.assets[MANIFEST])
+        val manifest = JSONObject(readText(assetRequest(manifestId), MANIFEST_LIMIT))
 
         require(manifest.getInt("schema") == 1)
         require(manifest.getString("packageName") == context.packageName)
         val version = manifest.getString("versionName")
-        require(tag == "$ANDROID_RELEASE_TAG_PREFIX$version")
+        require(release.tag == "$ANDROID_RELEASE_TAG_PREFIX$version")
         val versionCode = manifest.getLong("versionCode")
         if (versionCode <= BuildConfig.VERSION_CODE) return@withContext Check.Current
 
@@ -82,9 +83,10 @@ internal object AndroidUpdate {
         }
         val baseHash = File(context.applicationInfo.sourceDir).sha256()
         val patch = patches.optJSONObject(baseHash) ?: return@withContext Check.NoPatch(version)
+        val patchAssetId = requireNotNull(release.assets["ARMusic-Android-$version-from-$baseHash.ard.gz"])
         val patchHash = patch.getString("sha256").also { require(hashPattern.matches(it)) }
         val patchSize = patch.getLong("size").also { require(it in 1 until apkSize) }
-        Check.Available(DeltaUpdate(version, versionCode, apkSize, apkHash, baseHash, patchHash, patchSize))
+        Check.Available(DeltaUpdate(version, versionCode, apkSize, apkHash, patchAssetId, patchHash, patchSize))
     }
 
     suspend fun prepare(context: Context, update: DeltaUpdate): File = withContext(Dispatchers.IO) {
@@ -100,9 +102,7 @@ internal object AndroidUpdate {
             val patch = File(cache, "download.part")
             val target = File(cache, "update.part.apk")
             try {
-                val name = "ARMusic-Android-${update.version}-from-${update.baseHash}.ard.gz"
-                val url = "$ARMUSIC_RELEASES_URL/download/$ANDROID_RELEASE_TAG_PREFIX${update.version}/$name"
-                client.newCall(request(url)).execute().use { response ->
+                client.newCall(assetRequest(update.patchAssetId)).execute().use { response ->
                     check(response.isSuccessful) { "GitHub HTTP ${response.code}" }
                     val body = requireNotNull(response.body)
                     val count = patch.outputStream().buffered().use {
@@ -153,8 +153,10 @@ internal object AndroidUpdate {
         (if (Build.VERSION.SDK_INT >= 28) signingInfo?.apkContentsSigners else signatures)
             .orEmpty().toSet()
 
-    private suspend fun findAndroidRelease(): String? {
-        val releases = JSONArray(readText(RELEASES_API, RELEASES_LIMIT))
+    private data class AndroidRelease(val tag: String, val assets: Map<String, Long>)
+
+    private suspend fun findAndroidRelease(): AndroidRelease? {
+        val releases = JSONArray(readText(request("$RELEASES_API?per_page=30"), RELEASES_LIMIT))
         for (index in 0 until releases.length()) {
             val release = releases.getJSONObject(index)
             val tag = release.getString("tag_name")
@@ -162,16 +164,30 @@ internal object AndroidUpdate {
             if (version == tag || !versionPattern.matches(version) ||
                 release.optBoolean("draft") || release.optBoolean("prerelease")) continue
 
-            val assets = release.getJSONArray("assets")
-            if ((0 until assets.length()).any { assets.getJSONObject(it).getString("name") == MANIFEST }) {
-                return tag
+            val entries = release.getJSONArray("assets")
+            val assets = buildMap {
+                for (entryIndex in 0 until entries.length()) {
+                    val asset = entries.getJSONObject(entryIndex)
+                    if (asset.getString("state") == "uploaded") {
+                        put(asset.getString("name"), asset.getLong("id"))
+                    }
+                }
             }
+            if (MANIFEST in assets) return AndroidRelease(tag, assets)
         }
         return null
     }
 
-    private suspend fun readText(url: String, limit: Long): String =
-        client.newCall(request(url)).execute().use { response ->
+    private fun assetRequest(id: Long): Request {
+        require(id > 0)
+        return request("$RELEASES_API/assets/$id")
+            .newBuilder()
+            .header("Accept", "application/octet-stream")
+            .build()
+    }
+
+    private suspend fun readText(request: Request, limit: Long): String =
+        client.newCall(request).execute().use { response ->
             check(response.isSuccessful) { "GitHub HTTP ${response.code}" }
             val bytes = ByteArrayOutputStream()
             copyBounded(requireNotNull(response.body).byteStream(), bytes, limit)

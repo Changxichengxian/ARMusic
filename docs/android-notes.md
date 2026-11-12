@@ -13,7 +13,7 @@ Android 工程来自 LMusic，当前放在 `android/`。
 
 3. 把输出的安装包、`armusic-android-update.json` 和差异包一起上传到 GitHub Release。用 `android-v<versionName>` 作为标签，发布时使用 `gh release create --latest=false`，让电脑端继续查找自己的最新版本。保留每个版本的原始安装包，以便以后生成跨版本差异包。
 
-手机端从 1.6.1 起可在「设置 → 关于与更新 → 在线更新」下载匹配当前安装包的差异。首次需要手动安装 1.6.1。Android 会显示安装确认，第一次可能需要允许 ARMusic 安装应用。
+手机端可在「设置 → 关于与更新 → 在线更新」下载匹配当前安装包的差异。首次请手动安装 1.6.2 或更新版本。Android 会显示安装确认，第一次可能需要允许 ARMusic 安装应用。
 
 ## 已确认的点
 
