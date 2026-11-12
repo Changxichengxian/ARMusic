@@ -105,11 +105,10 @@
     <string name="settings_remove">削除</string>
     <string name="settings_about_update">情報と更新</string>
     <string name="settings_checking_update">確認中</string>
-    <string name="settings_check_update">更新を確認</string>
+    <string name="settings_check_update">オンライン更新</string>
     <string name="settings_github_project">GitHub プロジェクト</string>
-    <string name="settings_update_found">新しいバージョン %1$s があります。GitHub プロジェクトからダウンロードしてください。</string>
+    <string name="settings_update_found">新しいバージョン %1$s があります</string>
     <string name="settings_update_current">最新バージョンです：%1$s</string>
-    <string name="settings_update_failed">更新確認に失敗しました</string>
     <string name="settings_no_browser">このページを開けるアプリが見つかりません。</string>
     <string name="settings_other">その他</string>
     <string name="settings_force_hide_status_bar">ステータスバーを常に隠す</string>
@@ -269,4 +268,10 @@
     </string-array>
     <string name="armusic_usb_sync_channel_name">ARMusic パソコン同期</string>
     <string name="armusic_usb_sync_in_progress">パソコンと同期しています</string>
+    <string name="settings_update_preparing">更新をダウンロードして準備中</string>
+    <string name="settings_update_no_delta">このインストールに対応する差分がありません。リリースページから手動で更新できます。</string>
+    <string name="settings_update_view_release">リリースページを開く</string>
+    <string name="settings_update_no_release">Android のオンライン更新はまだありません。</string>
+    <string name="settings_update_install_permission">ARMusic にアプリのインストールを許可し、戻って続行してください。</string>
+    <string name="settings_update_failed">オンライン更新に失敗しました。しばらくしてからやり直してください。</string>
 </resources>

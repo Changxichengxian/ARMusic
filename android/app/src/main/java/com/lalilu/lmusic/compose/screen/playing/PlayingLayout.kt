@@ -45,7 +45,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
@@ -56,9 +55,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.lalilu.component.base.LocalEnhanceSheetState
 import com.lalilu.component.extension.DynamicTipsItem
-import com.lalilu.lmedia.lyric.LyricItem
-import com.lalilu.lmedia.lyric.LyricSourceEmbedded
-import com.lalilu.lmedia.lyric.LyricUtils
 import com.lalilu.lmusic.compose.component.playing.LyricViewToolbar
 import com.lalilu.lmusic.compose.component.playing.PlayingToolbar
 import com.lalilu.lmusic.compose.screen.playing.lyric.LyricLayout
@@ -68,14 +64,11 @@ import com.lalilu.lplayer.MPlayer
 import com.lalilu.lplayer.MPlayerKV
 import com.lalilu.lplayer.action.PlayerAction
 import com.lalilu.lplayer.extensions.PlayMode
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
 import kotlin.math.pow
 
 @Composable
 fun PlayingLayout() {
-    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val lifecycle = LocalLifecycleOwner.current
     val enhanceSheetState = LocalEnhanceSheetState.current
@@ -265,17 +258,7 @@ fun PlayingLayout() {
                     imageData = { backgroundImageData }
                 )
 
-                val lyricSource = remember { LyricSourceEmbedded(context = context) }
-                val lyrics = remember { mutableStateOf<List<LyricItem>>(emptyList()) }
-
-                LaunchedEffect(key1 = currentMediaItem) {
-                    withContext(Dispatchers.IO) {
-                        currentMediaItem
-                            ?.let { lyricSource.loadLyric(it) }
-                            ?.let { LyricUtils.parseLrc(it.first, it.second) }
-                            .let { if (isActive) lyrics.value = it ?: emptyList() }
-                    }
-                }
+                val lyrics = rememberPlaybackLyrics(currentMediaItem)
 
                 LyricLayout(
                     modifier = Modifier

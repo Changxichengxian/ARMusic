@@ -16,6 +16,7 @@ import org.koin.java.KoinJavaComponent
 import java.util.concurrent.atomic.AtomicBoolean
 
 object ARMusicDeferredStartup {
+    var firstFrameReady = false
     private val started = AtomicBoolean(false)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -23,11 +24,11 @@ object ARMusicDeferredStartup {
         if (!started.compareAndSet(false, true)) return
 
         scope.launch {
+            LMedia.init(application)
+            MPlayer.init()
+
             runCatching { KoinJavaComponent.get<ARMusicMemoSeedImporter>(ARMusicMemoSeedImporter::class.java) }
             runCatching { KoinJavaComponent.get<ARMusicPlayCountSeedImporter>(ARMusicPlayCountSeedImporter::class.java) }
-
-            LMedia.whenReady { MPlayer.init() }
-            LMedia.init(application)
 
             withContext(Dispatchers.IO) {
                 ARMusicFontManager(application).seedBundledFonts()

@@ -93,11 +93,10 @@
     <string name="settings_remove">移除</string>
     <string name="settings_about_update">关于与更新</string>
     <string name="settings_checking_update">检查中</string>
-    <string name="settings_check_update">检查更新</string>
+    <string name="settings_check_update">在线更新</string>
     <string name="settings_github_project">GitHub 项目</string>
-    <string name="settings_update_found">发现新版本 %1$s，点 GitHub 项目下载。</string>
+    <string name="settings_update_found">发现新版本 %1$s</string>
     <string name="settings_update_current">已是最新版本：%1$s</string>
-    <string name="settings_update_failed">检查更新失败</string>
     <string name="settings_no_browser">没有找到可打开网页的应用。</string>
     <string name="settings_other">其他</string>
     <string name="settings_force_hide_status_bar">全局隐藏状态栏</string>
@@ -242,4 +241,10 @@
 
     <string name="armusic_usb_sync_channel_name">ARMusic 电脑同步</string>
     <string name="armusic_usb_sync_in_progress">正在与电脑同步</string>
+    <string name="settings_update_preparing">正在下载并准备安装</string>
+    <string name="settings_update_no_delta">没有适用于当前安装包的差异更新。你可以到发布页手动下载安装。</string>
+    <string name="settings_update_view_release">打开发布页</string>
+    <string name="settings_update_no_release">暂时没有可用的 Android 在线更新。</string>
+    <string name="settings_update_install_permission">请允许 ARMusic 安装应用，返回后继续。</string>
+    <string name="settings_update_failed">在线更新失败，请稍后重试。</string>
 </resources>

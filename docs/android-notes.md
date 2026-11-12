@@ -2,6 +2,19 @@
 
 Android 工程来自 LMusic，当前放在 `android/`。
 
+## 发布 Android 在线更新
+
+1. 用现有的签名构建新版 `armusicPreview`，递增 `versionCode`，并更新 `versionName`。
+2. 用 Python 3.11 或更新版本生成发布文件。每个仍支持在线更新的旧版本，都传入当初发布的原始安装包。每个 `--previous` 对应一个旧包。
+
+   ```text
+   python scripts/android-release.py --apk <新版安装包> --previous <旧版安装包> --build-tools <Android SDK 的 build-tools/36.1.0> --output <发布目录>
+   ```
+
+3. 把输出的安装包、`armusic-android-update.json` 和差异包一起上传到 GitHub Release。用 `android-v<versionName>` 作为标签，发布时使用 `gh release create --latest=false`，让电脑端继续查找自己的最新版本。保留每个版本的原始安装包，以便以后生成跨版本差异包。
+
+手机端从 1.6.1 起可在「设置 → 关于与更新 → 在线更新」下载匹配当前安装包的差异。首次需要手动安装 1.6.1。Android 会显示安装确认，第一次可能需要允许 ARMusic 安装应用。
+
 ## 已确认的点
 
 - 播放器服务已经接入播放历史统计。

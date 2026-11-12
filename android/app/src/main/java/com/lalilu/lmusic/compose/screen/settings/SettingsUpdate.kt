@@ -3,6 +3,10 @@ package com.lalilu.lmusic.compose.screen.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -12,33 +16,140 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.AlertDialog
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.material.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.ToastUtils
 import com.lalilu.BuildConfig
 import com.lalilu.R
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONArray
-import org.json.JSONObject
+import com.lalilu.lmusic.update.ANDROID_RELEASE_TAG_PREFIX
+import com.lalilu.lmusic.update.ARMUSIC_RELEASES_URL
+import com.lalilu.lmusic.update.AndroidUpdate
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import java.io.File
 
-internal const val ARMUSIC_GITHUB_URL = "https://github.com/Changxichengxian/ARMusic"
+internal data class OnlineUpdateAction(val label: String, val onClick: () -> Unit)
 
-private const val ARMUSIC_GITHUB_LATEST_RELEASE_URL =
-    "https://github.com/Changxichengxian/ARMusic/releases/latest"
-private const val ARMUSIC_GITHUB_LATEST_RELEASE_API =
-    "https://api.github.com/repos/Changxichengxian/ARMusic/releases/latest"
-private const val ARMUSIC_GITHUB_TAGS_API =
-    "https://api.github.com/repos/Changxichengxian/ARMusic/tags"
+@Composable
+internal fun onlineUpdateAction(): OnlineUpdateAction {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var manualVersion by remember { mutableStateOf<String?>(null) }
+    var pendingInstall by remember { mutableStateOf<File?>(null) }
+
+    fun reportFailure(error: Exception) {
+        LogUtils.w("Android update failed", error)
+        ToastUtils.showLong(context.getString(R.string.settings_update_failed))
+    }
+
+    fun launchInstaller(apk: File) {
+        try {
+            AndroidUpdate.install(context, apk)
+        } catch (error: Exception) {
+            reportFailure(error)
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        val apk = pendingInstall
+        pendingInstall = null
+        if (apk != null && Build.VERSION.SDK_INT >= 26) {
+            if (context.packageManager.canRequestPackageInstalls()) {
+                launchInstaller(apk)
+            } else {
+                ToastUtils.showLong(context.getString(R.string.settings_update_install_permission))
+            }
+        }
+    }
+
+    manualVersion?.let { version ->
+        AlertDialog(
+            onDismissRequest = { manualVersion = null },
+            title = { Text(stringResource(R.string.settings_update_found, version)) },
+            text = { Text(stringResource(R.string.settings_update_no_delta)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    manualVersion = null
+                    openUrl(context, "$ARMUSIC_RELEASES_URL/tag/$ANDROID_RELEASE_TAG_PREFIX$version")
+                }) {
+                    Text(stringResource(R.string.settings_update_view_release))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { manualVersion = null }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
+    }
+
+    val label = stringResource(when {
+        downloading -> R.string.settings_update_preparing
+        busy -> R.string.settings_checking_update
+        else -> R.string.settings_check_update
+    })
+    return OnlineUpdateAction(label) {
+        if (busy || pendingInstall != null) return@OnlineUpdateAction
+        busy = true
+        scope.launch {
+            try {
+                when (val result = AndroidUpdate.check(context)) {
+                    AndroidUpdate.Check.NoRelease -> ToastUtils.showShort(
+                        context.getString(R.string.settings_update_no_release)
+                    )
+                    AndroidUpdate.Check.Current -> ToastUtils.showShort(
+                        context.getString(R.string.settings_update_current, BuildConfig.VERSION_NAME)
+                    )
+                    is AndroidUpdate.Check.NoPatch -> manualVersion = result.version
+                    is AndroidUpdate.Check.Available -> {
+                        downloading = true
+                        val apk = AndroidUpdate.prepare(context, result.update)
+                        if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
+                            pendingInstall = apk
+                            ToastUtils.showLong(context.getString(R.string.settings_update_install_permission))
+                            permissionLauncher.launch(
+                                Intent(
+                                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:${context.packageName}")
+                                )
+                            )
+                        } else {
+                            launchInstaller(apk)
+                        }
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                pendingInstall = null
+                reportFailure(error)
+            } finally {
+                downloading = false
+                busy = false
+            }
+        }
+    }
+}
 
 @Composable
 internal fun AboutUpdateCategory(
@@ -77,110 +188,6 @@ internal fun AboutUpdateCategory(
         content()
         Spacer(modifier = Modifier.height(30.dp))
     }
-}
-
-internal data class GithubVersionInfo(
-    val version: String,
-    val url: String,
-)
-
-internal fun fetchLatestGithubVersion(client: OkHttpClient): GithubVersionInfo {
-    fetchLatestReleaseRedirect(client)?.let { return it }
-    fetchLatestRelease(client)?.let { return it }
-    fetchLatestTag(client)?.let { return it }
-    error("没有找到可用的 GitHub 版本信息")
-}
-
-private fun fetchLatestReleaseRedirect(client: OkHttpClient): GithubVersionInfo? {
-    val request = Request.Builder()
-        .url(ARMUSIC_GITHUB_LATEST_RELEASE_URL)
-        .header("User-Agent", "ARMusic/${BuildConfig.VERSION_NAME}")
-        .build()
-
-    return client.newCall(request).execute().use { response ->
-        if (!response.isSuccessful) return null
-
-        val finalUrl = response.request.url.toString()
-        val version = finalUrl
-            .substringAfter("/releases/tag/", missingDelimiterValue = "")
-            .substringBefore("?")
-            .takeIf(String::isNotBlank)
-            ?: return null
-
-        GithubVersionInfo(
-            version = version,
-            url = finalUrl
-        )
-    }
-}
-
-private fun fetchLatestRelease(client: OkHttpClient): GithubVersionInfo? {
-    val request = Request.Builder()
-        .url(ARMUSIC_GITHUB_LATEST_RELEASE_API)
-        .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "ARMusic/${BuildConfig.VERSION_NAME}")
-        .build()
-
-    return client.newCall(request).execute().use { response ->
-        if (response.code == 404) return null
-        if (!response.isSuccessful) error("GitHub 返回 ${response.code}")
-
-        val json = JSONObject(response.body?.string().orEmpty())
-        val version = json.optString("tag_name").ifBlank { json.optString("name") }
-        if (version.isBlank()) return null
-
-        GithubVersionInfo(
-            version = version,
-            url = json.optString("html_url").ifBlank { ARMUSIC_GITHUB_URL }
-        )
-    }
-}
-
-private fun fetchLatestTag(client: OkHttpClient): GithubVersionInfo? {
-    val request = Request.Builder()
-        .url(ARMUSIC_GITHUB_TAGS_API)
-        .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "ARMusic/${BuildConfig.VERSION_NAME}")
-        .build()
-
-    return client.newCall(request).execute().use { response ->
-        if (!response.isSuccessful) error("GitHub 返回 ${response.code}")
-
-        val tags = JSONArray(response.body?.string().orEmpty())
-        if (tags.length() == 0) return null
-
-        val tag = tags.getJSONObject(0)
-        val version = tag.optString("name")
-        if (version.isBlank()) return null
-
-        GithubVersionInfo(
-            version = version,
-            url = "$ARMUSIC_GITHUB_URL/releases/tag/$version"
-        )
-    }
-}
-
-internal fun compareVersionName(left: String, right: String): Int {
-    val leftParts = left.versionParts()
-    val rightParts = right.versionParts()
-    val size = maxOf(leftParts.size, rightParts.size)
-
-    repeat(size) { index ->
-        val leftValue = leftParts.getOrElse(index) { 0 }
-        val rightValue = rightParts.getOrElse(index) { 0 }
-        if (leftValue != rightValue) return leftValue.compareTo(rightValue)
-    }
-
-    return 0
-}
-
-private fun String.versionParts(): List<Int> {
-    return trim()
-        .trimStart('v', 'V')
-        .substringBefore('-')
-        .split('.', '_')
-        .mapNotNull { part -> part.filter(Char::isDigit).toIntOrNull() }
-        .ifEmpty { listOf(0) }
 }
 
 internal fun openUrl(context: Context, url: String) {

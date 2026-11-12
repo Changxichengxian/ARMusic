@@ -105,11 +105,10 @@
     <string name="settings_remove">Remove</string>
     <string name="settings_about_update">About and updates</string>
     <string name="settings_checking_update">Checking</string>
-    <string name="settings_check_update">Check updates</string>
+    <string name="settings_check_update">Online update</string>
     <string name="settings_github_project">GitHub project</string>
-    <string name="settings_update_found">New version %1$s found. Tap GitHub project to download.</string>
+    <string name="settings_update_found">Version %1$s is available</string>
     <string name="settings_update_current">Already up to date: %1$s</string>
-    <string name="settings_update_failed">Update check failed</string>
     <string name="settings_no_browser">No app found to open this page.</string>
     <string name="settings_other">Other</string>
     <string name="settings_force_hide_status_bar">Hide status bar globally</string>
@@ -269,4 +268,10 @@
     </string-array>
     <string name="armusic_usb_sync_channel_name">ARMusic computer sync</string>
     <string name="armusic_usb_sync_in_progress">Syncing with your computer</string>
+    <string name="settings_update_preparing">Downloading and preparing update</string>
+    <string name="settings_update_no_delta">No patch is available for this installation. You can install the update from the release page.</string>
+    <string name="settings_update_view_release">Open release page</string>
+    <string name="settings_update_no_release">No Android update is available online yet.</string>
+    <string name="settings_update_install_permission">Allow ARMusic to install apps, then return to continue.</string>
+    <string name="settings_update_failed">Online update failed. Try again later.</string>
 </resources>

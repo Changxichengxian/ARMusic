@@ -1,5 +1,6 @@
 package com.lalilu.lmusic.compose.screen.playing
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.Paint
@@ -46,7 +47,8 @@ fun BlurBackground(
 ) {
     val context = LocalContext.current
     val currentData = imageData()
-    val background = remember { mutableStateOf<BlurBackgroundData?>(null) }
+    val prepared = LocalStartupPlayback.current?.takeIf { it.item == currentData }?.background
+    val background = remember { mutableStateOf(prepared) }
     val outgoingBackground = remember { mutableStateOf<BlurBackgroundData?>(null) }
     val crossfadeProgress = remember { Animatable(1f) }
     val bitmapPaint = remember {
@@ -60,32 +62,8 @@ fun BlurBackground(
         onDispose { StackBlurUtils.clearMemory() }
     }
 
-    LaunchedEffect(currentData) {
-        val loaded = withContext(Dispatchers.IO) {
-            val key = backgroundKey(currentData)
-            val request = ImageRequest.Builder(context)
-                .data(currentData)
-                .size(BACKGROUND_DECODE_SIZE)
-                .allowHardware(false)
-                .build()
-            val result = context.imageLoader.execute(request) as? SuccessResult
-                ?: return@withContext null
-            val source = result.image.toBitmap()
-            val displayBitmap = createBoundedBitmap(source, BACKGROUND_DECODE_SIZE)
-            val samplingBitmap = createSamplingBitmap(source, BACKGROUND_SAMPLING_SIZE)
-            val color = Palette.from(samplingBitmap)
-                .generate()
-                .getAutomaticColor()
-
-            BlurBackgroundData(
-                displayBitmap = displayBitmap,
-                samplingBitmap = samplingBitmap,
-                key = key,
-                displaySrcRect = centeredSquareRect(displayBitmap),
-                samplingSrcRect = centeredSquareRect(samplingBitmap),
-                color = Color(color)
-            )
-        }
+    LaunchedEffect(currentData, prepared) {
+        val loaded = prepared ?: loadPlayingBackground(context, currentData)
 
         if (loaded != null && isActive) {
             val previous = background.value
@@ -185,7 +163,29 @@ fun BlurBackground(
     )
 }
 
-private data class BlurBackgroundData(
+internal suspend fun loadPlayingBackground(context: Context, data: Any): BlurBackgroundData? =
+    withContext(Dispatchers.IO) {
+        val request = ImageRequest.Builder(context)
+            .data(data)
+            .size(BACKGROUND_DECODE_SIZE)
+            .allowHardware(false)
+            .build()
+        val result = context.imageLoader.execute(request) as? SuccessResult
+            ?: return@withContext null
+        val source = result.image.toBitmap()
+        val display = createBoundedBitmap(source, BACKGROUND_DECODE_SIZE)
+        val sampling = createSamplingBitmap(source, BACKGROUND_SAMPLING_SIZE)
+        BlurBackgroundData(
+            displayBitmap = display,
+            samplingBitmap = sampling,
+            key = backgroundKey(data),
+            displaySrcRect = centeredSquareRect(display),
+            samplingSrcRect = centeredSquareRect(sampling),
+            color = Color(Palette.from(sampling).generate().getAutomaticColor()),
+        )
+    }
+
+internal data class BlurBackgroundData(
     val displayBitmap: Bitmap,
     val samplingBitmap: Bitmap,
     val key: String,

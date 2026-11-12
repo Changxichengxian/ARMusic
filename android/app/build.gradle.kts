@@ -47,8 +47,8 @@ android {
         applicationId = "com.armusic"
         minSdk = libs.versions.min.sdk.version.get().toIntOrNull()
         targetSdk = libs.versions.compile.version.get().toIntOrNull()
-        versionCode = 160
-        versionName = "1.6.0"
+        versionCode = 161
+        versionName = "1.6.1"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -191,6 +191,7 @@ composeCompiler {
 }
 
 dependencies {
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation(project(":crash"))
     implementation(project(":component"))
     implementation(project(":lplaylist"))

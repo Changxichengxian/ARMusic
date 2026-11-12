@@ -11,26 +11,28 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
 import androidx.core.app.ActivityCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.lalilu.common.SystemUiUtil
 import com.lalilu.lmusic.Config.REQUIRE_PERMISSIONS
 import com.lalilu.lmusic.compose.App
-import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.helper.LastTouchTimeHelper
 import com.lalilu.lmusic.utils.dynamicUpdateStatusBarColor
 import com.lalilu.lmusic.utils.setToMaxFreshRate
-import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
-    private val settingsSp: SettingsSp by inject()
-
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(ARMusicLanguage.wrapContext(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
 
         val shouldRequestPermission = !hasAudioPermission()
+        val preparePlayback = !shouldRequestPermission && !ARMusicDeferredStartup.firstFrameReady
+        var keepSplash = preparePlayback
+        splash.setKeepOnScreenCondition { keepSplash }
+
         if (shouldRequestPermission) {
             ActivityCompat.requestPermissions(this, arrayOf(REQUIRE_PERMISSIONS), 1001)
         }
@@ -47,7 +49,12 @@ class MainActivity : ComponentActivity() {
             ARMusicDeferredStartup.start(application)
         }
 
-        setContent { App.Content(activity = this) }
+        setContent {
+            App.Content(activity = this, preparePlayback = preparePlayback) {
+                ARMusicDeferredStartup.firstFrameReady = true
+                keepSplash = false
+            }
+        }
         setToMaxFreshRate()
         dynamicUpdateStatusBarColor()
 

@@ -58,9 +58,6 @@ import com.lalilu.R
 import com.lalilu.component.extension.DialogWrapper
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
-import com.lalilu.lmedia.lyric.LyricItem
-import com.lalilu.lmedia.lyric.LyricSourceEmbedded
-import com.lalilu.lmedia.lyric.LyricUtils
 import com.lalilu.lmedia.repository.SongWorkStore
 import com.lalilu.lmusic.compose.component.playing.LyricViewActionDialog
 import com.lalilu.lmusic.compose.screen.playing.lyric.LyricLayout
@@ -68,9 +65,7 @@ import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.utils.coil.BlurTransformation
 import com.lalilu.lplayer.MPlayer
 import com.lalilu.lplayer.action.PlayerAction
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 
 /**
@@ -160,11 +155,9 @@ private fun PlayerPanel(
             Card(
                 shape = RoundedCornerShape(2.dp)
             ) {
-                AsyncImage(
+                PlaybackCover(
                     modifier = Modifier.fillMaxSize(),
-                    model = model,
-                    contentScale = ContentScale.Crop,
-                    contentDescription = null
+                    item = model,
                 )
             }
         }
@@ -179,22 +172,11 @@ private fun PlayerPanel(
 fun LyricPanel(
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
-    val lyricSource = remember { LyricSourceEmbedded(context = context) }
-    val lyrics = remember { mutableStateOf<List<LyricItem>>(emptyList()) }
+    val lyrics = rememberPlaybackLyrics(MPlayer.currentMediaItem)
     val isLyricScrollEnable = remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val currentPosition = remember { mutableLongStateOf(0L) }
-
-    LaunchedEffect(key1 = MPlayer.currentMediaItem) {
-        withContext(Dispatchers.IO) {
-            MPlayer.currentMediaItem
-                ?.let { lyricSource.loadLyric(it) }
-                ?.let { LyricUtils.parseLrc(it.first, it.second) }
-                .let { if (isActive) lyrics.value = it ?: emptyList() }
-        }
-    }
 
     LaunchedEffect(Unit) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {

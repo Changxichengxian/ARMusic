@@ -21,12 +21,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.lalilu.lmedia.LMedia
 import com.lalilu.lmedia.entity.LSong
 import com.lalilu.lmedia.repository.SongWorkStore
@@ -68,13 +66,11 @@ fun PlayingSmartCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AsyncImage(
+                PlaybackCover(
                     modifier = Modifier
                         .fillMaxHeight()
                         .aspectRatio(1f),
-                    model = playing,
-                    contentScale = ContentScale.Crop,
-                    contentDescription = null
+                    item = playing,
                 )
 
                 Column(

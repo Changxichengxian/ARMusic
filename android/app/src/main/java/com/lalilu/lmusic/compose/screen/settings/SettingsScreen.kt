@@ -64,6 +64,7 @@ import com.lalilu.lmusic.compose.screen.playing.lyric.SerializableFont
 import com.lalilu.lmusic.datastore.SettingsSp
 import com.lalilu.lmusic.migration.ARMusicWorkMappingManager
 import com.lalilu.lmusic.migration.LMusicMigrationManager
+import com.lalilu.lmusic.update.ARMUSIC_GITHUB_URL
 import com.lalilu.lmusic.utils.EQHelper
 import com.lalilu.lmusic.utils.extension.getActivity
 import com.lalilu.remixicon.System
@@ -73,7 +74,6 @@ import com.zhangke.krouter.annotation.Destination
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import org.koin.compose.koinInject
 import org.koin.core.qualifier.named
 import kotlin.math.roundToInt
@@ -106,11 +106,11 @@ private fun SettingsScreen(
     workMappingManager: ARMusicWorkMappingManager = koinInject(),
     fileSystemScanner: FileSystemScanner = koinInject(),
     lMediaSp: LMediaSp = koinInject(),
-    httpClient: OkHttpClient = koinInject(),
     lyricSettings: DataSaverMutableState<LyricSettings> = koinInject(named("LyricSettings")),
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val onlineUpdate = onlineUpdateAction()
     val isMigrationBusy = remember { mutableStateOf(false) }
     val appLanguageOption = settingsSp.appLanguageOption
     val enableUnknownFilter = settingsSp.enableUnknownFilter
@@ -127,42 +127,6 @@ private fun SettingsScreen(
     val workLabelMode = settingsSp.workLabelMode
     val excludedFolders = lMediaSp.excludePath
     val excludedFoldersExpanded = remember { mutableStateOf(false) }
-    val isCheckingUpdate = remember { mutableStateOf(false) }
-
-    fun checkForUpdate() {
-        if (isCheckingUpdate.value) return
-
-        scope.launch {
-            isCheckingUpdate.value = true
-            val result = withContext(Dispatchers.IO) {
-                runCatching { fetchLatestGithubVersion(httpClient) }
-            }
-
-            result
-                .onSuccess { info ->
-                    if (compareVersionName(info.version, BuildConfig.VERSION_NAME) > 0) {
-                        ToastUtils.showLong(
-                            context.getString(R.string.settings_update_found, info.version)
-                        )
-                    } else {
-                        ToastUtils.showShort(
-                            context.getString(
-                                R.string.settings_update_current,
-                                BuildConfig.VERSION_NAME
-                            )
-                        )
-                    }
-                }
-                .onFailure { error ->
-                    ToastUtils.showLong(
-                        error.message ?: context.getString(R.string.settings_update_failed)
-                    )
-                }
-
-            isCheckingUpdate.value = false
-        }
-    }
-
     val launcherForAudioFx = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
@@ -528,15 +492,11 @@ private fun SettingsScreen(
                     crossAxisSpacing = 8.dp
                 ) {
                     IconTextButton(
-                        text = if (isCheckingUpdate.value) {
-                            stringResource(id = R.string.settings_checking_update)
-                        } else {
-                            stringResource(id = R.string.settings_check_update)
-                        },
+                        text = onlineUpdate.label,
                         iconPainter = painterResource(id = R.drawable.ic_loader_line),
                         showIcon = { true },
                         color = Color(0xFF006E7C),
-                        onClick = { checkForUpdate() }
+                        onClick = onlineUpdate.onClick
                     )
                     IconTextButton(
                         text = stringResource(id = R.string.settings_github_project),

@@ -29,9 +29,13 @@ import com.lalilu.lplayer.service.CustomCommand
 import com.lalilu.lplayer.service.MService
 import com.lalilu.lplayer.service.getHistoryItems
 import com.lalilu.lplayer.service.saveHistoryIds
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
@@ -40,6 +44,7 @@ import kotlinx.coroutines.withTimeout
 import org.koin.dsl.module
 import kotlin.coroutines.CoroutineContext
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
 data class UsbFileReplaceLease(
@@ -62,7 +67,8 @@ object MPlayer : CoroutineScope, Player.Listener {
     }
 
     private var browserInstance: MediaBrowser? = null
-    private var initialized = false
+    private val initialized = AtomicBoolean(false)
+    private val initialQueueReady = CompletableDeferred<Unit>()
     private var usbReplaceLeaseToken: String? = null
     private var usbReplaceLeaseUntilElapsedMs: Long = 0L
     private var usbReplaceLeaseExpiryJob: Job? = null
@@ -145,26 +151,44 @@ object MPlayer : CoroutineScope, Player.Listener {
     }
 
     fun init() {
-        if (initialized) return
-        initialized = true
+        if (!initialized.compareAndSet(false, true)) return
 
         launch(Dispatchers.Main) {
-            val browser = browserFuture.await()
-            browserInstance = browser
-            browser.addListener(this@MPlayer)
-            if (usbReplaceLeaseActive()) browser.pause()
+            try {
+                coroutineScope {
+                    val libraryReady = CompletableDeferred<Unit>()
+                    LMedia.whenReady { libraryReady.complete(Unit) }
+                    val history = async(Dispatchers.IO) {
+                        libraryReady.await()
+                        getHistoryItems()
+                    }
 
-            val items = getHistoryItems()
-            if (items.isEmpty()) {
-                LogUtils.i("No songs found")
-                return@launch
+                    val browser = browserFuture.await()
+                    browserInstance = browser
+                    browser.addListener(this@MPlayer)
+                    if (usbReplaceLeaseActive()) browser.pause()
+
+                    val items = history.await()
+                    if (browser.mediaItemCount == 0 && items.isNotEmpty()) {
+                        browser.playWhenReady = false
+                        browser.setMediaItems(items)
+                        browser.prepare()
+                    }
+                    onMediaMetadataChanged(browser.mediaMetadata)
+                    isPlaying = browser.isPlaying
+                    updateItems()
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                LogUtils.e("Failed to restore playback", error)
+            } finally {
+                initialQueueReady.complete(Unit)
             }
-
-            browser.playWhenReady = false
-            browser.setMediaItems(items)
-            browser.prepare()
         }
     }
+
+    suspend fun awaitInitialQueue() = initialQueueReady.await()
 
     fun doAction(action: Action) = launch(Dispatchers.Main) {
         val browser = browserFuture.await()

@@ -9,6 +9,7 @@
     <uses-sdk tools:overrideLibrary="com.funny.data_saver,com.nomanr.composables" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- The exported automation activity is callable by adb shell/system only. -->
     <uses-permission
         android:name="android.permission.DUMP"
@@ -62,6 +63,7 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:resizeableActivity="true"
+            android:theme="@style/Theme.ARMusic.Starting"
             android:windowSoftInputMode="adjustNothing">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -151,6 +153,16 @@
                 <action android:name="${applicationId}.CAPTURE_CLOCK" />
             </intent-filter>
         </receiver>
+
+        <provider
+            android:name=".lmusic.update.UpdateFileProvider"
+            android:authorities="${applicationId}.update"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths" />
+        </provider>
 
         <provider
             android:name="androidx.startup.InitializationProvider"

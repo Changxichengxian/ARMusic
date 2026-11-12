@@ -152,11 +152,9 @@ private fun RowScope.LandscapeCover(
                     label = ""
                 ) { model ->
                     if (model != null) {
-                        AsyncImage(
+                        PlaybackCover(
                             modifier = Modifier.fillMaxSize(),
-                            model = model,
-                            contentScale = ContentScale.Crop,
-                            contentDescription = null
+                            item = model,
                         )
                     }
                 }
