@@ -17,52 +17,14 @@ el("dismiss").onclick = () => {
   el("wall").querySelector("button")?.focus();
 };
 
-const audio = document.querySelector("audio");
-let revision = 0;
-let selectedVersion;
-let pendingPosition = null;
-audio.addEventListener("error", () => {
-  el("status").textContent = "音频加载失败，请重新选择作品或检查素材文件。";
-});
-function listen(version, position, playing) {
-  const request = ++revision;
-  selectedVersion = version;
-  pendingPosition = position;
-  audio.onloadedmetadata = () => {
-    if (request !== revision) return;
-    audio.currentTime = Math.min(position, Math.max(0, audio.duration - .1));
-    pendingPosition = null;
-  };
-  el("status").textContent = "";
-  audio.src = version.src;
-  audio.load();
-  if (playing) audio.play().catch(() => {
-    if (request === revision && !audio.error) el("status").textContent = "点播放器的播放键继续试听。";
-  });
-  for (const b of el("versions").children) b.setAttribute("aria-pressed", String(b.dataset.id === version.id));
-}
+const player = createARMusicPlayer(el("player"));
 function openWork(work, card) {
-  const track = work.tracks[0];
-  for (const b of el("wall").children) b.setAttribute("aria-pressed", String(b === card));
-  el("work-name").textContent = work.title + " / " + work.genre;
-  el("current").textContent = track.title;
-  el("description").textContent = work.description;
-  el("versions").replaceChildren();
-  for (const version of track.versions) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.dataset.id = version.id;
-    b.textContent = version.title;
-    b.onclick = () => {
-      if (selectedVersion !== version) listen(version, pendingPosition ?? audio.currentTime, !audio.paused);
-    };
-    el("versions").append(b);
+  for (const button of el("wall").children) {
+    button.setAttribute("aria-pressed", String(button === card));
   }
-  el("player").hidden = false;
-  listen(track.versions[0], 0, true);
-  el("current").focus({preventScroll:true});
-  el("player").scrollIntoView({block:"nearest"});
+  player.openWork(work);
 }
+
 for (const work of window.ARMUSIC_WORKS) {
   const card = document.createElement("button");
   card.className = "card";
