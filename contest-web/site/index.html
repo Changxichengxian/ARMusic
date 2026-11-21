@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f1e7"><title>作品海报墙 · ARMusic</title>
+  <link rel="stylesheet" href="style.css"><script defer src="catalog.js"></script><script defer src="player.js"></script><script defer src="home.js"></script>
+</head>
+<body>
+<header><a class="brand" href="./index.html" aria-label="ARMusic 首页"><i aria-hidden="true">◒</i> ARMusic</a><button id="help" type="button" aria-controls="intro" aria-expanded="false">使用提示</button></header>
+<main>
+  <h1>作品海报墙<span aria-hidden="true">.</span></h1>
+  <div class="intro" id="intro" hidden><span>点一张海报试听。想比较编曲？打开《夜行支线》，边听边切换版本。</span><button id="dismiss" type="button">知道了</button></div>
+  <section id="wall" aria-label="选择作品"></section>
+  <section id="player" hidden aria-labelledby="work-name">
+    <div class="work-details">
+      <p id="work-genre"></p>
+      <h2 id="work-name" tabindex="-1"></h2>
+      <p id="description"></p>
+      <h3>曲目列表</h3>
+      <div id="tracks" role="group" aria-label="选择曲目"></div>
+    </div>
+    <div class="controls">
+      <p id="current"></p>
+      <div id="versions" role="group" aria-label="选择试听版本"></div>
+      <audio controls preload="metadata" aria-label="试听播放器"></audio>
+      <p id="status" role="status"></p>
+    </div>
+  </section>
+  <footer>ARMusic <span>原创示例作品与配乐</span></footer>
+</main>
+</body></html>
