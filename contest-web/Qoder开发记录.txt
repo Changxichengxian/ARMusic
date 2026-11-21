@@ -1,0 +1,16 @@
+Qoder CLI 真实会话摘录
+会话 ID  8ef3dd9d-9341-4a25-8594-9c7b4100e57d
+时间  11/21/2026 09:44:27
+版本  1.1.94
+
+Qoder 原文
+已完成修改（`home.js` 语法检查通过）：
+
+- `index.html:9`：Help 按钮增加 `aria-controls="intro"`，并设初始 `aria-expanded="false"`（与初始 `hidden` 一致）。
+- `home.js:2-16`：新增 `setIntro(open)`，统一同步横幅显隐与 `aria-expanded`；页面加载时根据 localStorage 后的实际可见性校正；点击 Help 打开时设为 `true`；点“知道了”关闭时设为 `false`，并把焦点移到海报墙第一个作品按钮（不再聚焦 Help）。
+- `style.css`：现有 `[hidden]` 与 `button:focus-visible` 样式已覆盖需求，未作改动。
+
+本地验收：桌面和手机尺寸均验证了提示展开状态、关闭后首张海报获得焦点。
+
+电脑版界面校正
+本地运行上游 master（69605e0）桌面前端并导入两首示例音频。Qoder CLI 会话 99e113bd-c958-42cb-b1d8-18e64a502a7a 对照原版界面、源码布局与样式，重做了网页版首页及播放区。随后用 Codex 修正推荐区的封面层位置，加入实际播放历史与音量控制。保留 WAV 和原创海报，浏览器界面独立实现。
