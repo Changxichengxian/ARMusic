@@ -1,3 +1,4 @@
+import { demoTracks, railVersions } from "./contestDemo";
 import {
   Album,
   ArrowDown,
@@ -369,20 +370,25 @@ function App() {
 function ARMusicApp() {
   const { t } = useI18n();
   const bridge = useMemo(() => createDesktopBridge(), []);
+  const contestPreview = import.meta.env.MODE === "contest-preview" && !bridge;
   const audioRef = useRef<HTMLAudioElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const directoryInputRef = useRef<HTMLInputElement>(null);
   const listeningSessionRef = useRef<ActiveListeningSession | null>(null);
-  const pendingPlaybackRestoreRef = useRef<{ syncId: string; positionSeconds: number } | null>(null);
+  const pendingPlaybackRestoreRef = useRef<{
+    syncId: string;
+    positionSeconds: number;
+    arrangement?: boolean;
+  } | null>(null);
   const historyWriteQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const recommendationSeedRef = useRef(newRecommendationSeed());
   const [view, setView] = useState<ViewId>("home");
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [currentTrackId, setCurrentTrackId] = useState("");
-  const [featuredTrackId, setFeaturedTrackId] = useState("");
+  const [tracks, setTracks] = useState<Track[]>(() => contestPreview ? demoTracks : []);
+  const [currentTrackId, setCurrentTrackId] = useState(() => contestPreview ? demoTracks[0].syncId : "");
+  const [featuredTrackId, setFeaturedTrackId] = useState(() => contestPreview ? demoTracks[0].syncId : "");
   const [searchText, setSearchText] = useState("");
   const [folderPath, setFolderPath] = useState("");
-  const [needsMusicFolder, setNeedsMusicFolder] = useState(true);
+  const [needsMusicFolder, setNeedsMusicFolder] = useState(!contestPreview);
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState(() => t("status.noFolder"));
   const [syncStatus, setSyncStatus] = useState<SyncServerStatus>(emptySyncStatus);
@@ -391,7 +397,8 @@ function ARMusicApp() {
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
-    const saved = Number(localStorage.getItem("armusic-volume"));
+    const stored = localStorage.getItem("armusic-volume");
+    const saved = Number(stored ?? (contestPreview ? "0.72" : null));
     return Number.isFinite(saved) ? Math.max(0, Math.min(1, saved)) : 0.72;
   });
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem("armusic-muted") === "true");
@@ -460,6 +467,26 @@ function ARMusicApp() {
   const [initialPlaybackState] = useState<StoredPlaybackState | null>(() => readStoredPlaybackState());
 
   const currentTrack = currentTrackId ? tracks.find((track) => track.syncId === currentTrackId) : undefined;
+  const [showDemoHint, setShowDemoHint] = useState(
+    () => contestPreview && localStorage.getItem("armusic-preview-hint") !== "seen",
+  );
+
+  function changeArrangement(url: string) {
+    if (!contestPreview || currentTrack?.syncId !== demoTracks[0].syncId || currentTrack.playUrl === url) return;
+    const pending = pendingPlaybackRestoreRef.current;
+    const seconds = pending?.syncId === currentTrack.syncId
+      ? pending.positionSeconds
+      : audioRef.current?.currentTime ?? 0;
+    pendingPlaybackRestoreRef.current = {
+      syncId: currentTrack.syncId,
+      positionSeconds: seconds,
+      arrangement: true,
+    };
+    setTracks(items => items.map(track =>
+      track.syncId === currentTrack.syncId ? { ...track, playUrl: url } : track,
+    ));
+  }
+
   const recommendationTracks = useMemo(() => [...tracks].sort((left, right) => (
     stableNumber(`${recommendationSeedRef.current}:${left.syncId}`)
       - stableNumber(`${recommendationSeedRef.current}:${right.syncId}`)
@@ -768,14 +795,15 @@ function ARMusicApp() {
     }
     audio.volume = isMuted ? 0 : volume;
     if (isPlaying) {
-      void audio.play().catch(() => {
+      void audio.play().catch((error: DOMException) => {
+        if (contestPreview && error.name === "AbortError") return;
         setIsPlaying(false);
         flash(t("status.formatFailed"));
       });
     } else {
       audio.pause();
     }
-  }, [currentTrack?.playUrl, flash, isMuted, isPlaying, t, volume]);
+  }, [contestPreview, currentTrack?.playUrl, flash, isMuted, isPlaying, t, volume]);
 
   useEffect(() => {
     if (!currentTrack || !isPlaying || currentTrack.playUrl) return;
@@ -1347,7 +1375,8 @@ function ARMusicApp() {
           setDuration(nextDuration);
           const pending = pendingPlaybackRestoreRef.current;
           if (!currentTrack || pending?.syncId !== currentTrack.syncId) return;
-          const nextPosition = Math.max(0, Math.min(pending.positionSeconds, Math.max(0, nextDuration - 1)));
+          const maxPosition = pending.arrangement ? nextDuration : nextDuration - 1;
+          const nextPosition = Math.max(0, Math.min(pending.positionSeconds, maxPosition));
           event.currentTarget.currentTime = nextPosition;
           setPosition(nextPosition);
           pendingPlaybackRestoreRef.current = null;
@@ -1416,7 +1445,14 @@ function ARMusicApp() {
               onFeatured={setFeaturedTrackId}
               onCycleFeatured={cycleFeatured}
               onNavigate={setView}
-              onOpenWork={openWorkView}
+              onOpenWork={(name) => {
+                openWorkView(name);
+                if (!contestPreview) return;
+                const demo = tracks.find(track =>
+                  track.work === name && demoTracks.some(item => item.syncId === track.syncId),
+                );
+                if (demo) playTrack(demo);
+              }}
               onOpenArtist={openArtistView}
               onChooseFolder={chooseMusicFolder}
             />
@@ -1516,6 +1552,7 @@ function ARMusicApp() {
 
       {currentTrack && !posterWallOpen ? (
         <NowPlayingInspector
+          onArrangement={contestPreview && currentTrack.syncId === demoTracks[0].syncId ? changeArrangement : undefined}
           track={currentTrack}
           tracks={queueTracks(tracks, playbackQueue)}
           tab={inspectorTab}
@@ -1550,6 +1587,15 @@ function ARMusicApp() {
         />
       ) : null}
 
+      {showDemoHint && !toast && (
+        <div className="toast preview-hint">
+          <span>点作品封面试听《夜行支线》，在右侧切换同曲版本。</span>
+          <button type="button" onClick={() => {
+            localStorage.setItem("armusic-preview-hint", "seen");
+            setShowDemoHint(false);
+          }}>知道了</button>
+        </div>
+      )}
       {toast ? (
         <div className="toast" role="status">
           <Check size={16} />
@@ -3391,6 +3437,7 @@ function SleepTimerControl({ mode, deadline, defaultSeconds, pauseWhenCompletion
 }
 
 interface InspectorProps {
+  onArrangement?: (url: string) => void;
   track: Track;
   tracks: Track[];
   tab: InspectorTab;
@@ -3424,7 +3471,7 @@ interface InspectorProps {
   onSeek: (value: number) => void;
 }
 
-function NowPlayingInspector({ track, tracks, tab, position, duration, lyricFont, lyricAlignment, lyricOffsetMs, lyricScale, lyricGap, lyricFocusPosition, sleepTimerMode, sleepTimerDeadline, sleepTimerDefaultSeconds, sleepTimerPauseWhenCompletion, onTab, onClose, onPlay, onClearQueue, onEdit, onLyricFont, onLyricAlignment, onLyricOffset, onLyricScale, onLyricGap, onLyricFocusPosition, onSleepTimerStart, onSleepTimerCancel, onSleepTimerDefaultSeconds, onSleepTimerPauseWhenCompletion, onSeek }: InspectorProps) {
+function NowPlayingInspector({ onArrangement, track, tracks, tab, position, duration, lyricFont, lyricAlignment, lyricOffsetMs, lyricScale, lyricGap, lyricFocusPosition, sleepTimerMode, sleepTimerDeadline, sleepTimerDefaultSeconds, sleepTimerPauseWhenCompletion, onTab, onClose, onPlay, onClearQueue, onEdit, onLyricFont, onLyricAlignment, onLyricOffset, onLyricScale, onLyricGap, onLyricFocusPosition, onSleepTimerStart, onSleepTimerCancel, onSleepTimerDefaultSeconds, onSleepTimerPauseWhenCompletion, onSeek }: InspectorProps) {
   const { t } = useI18n();
   const currentIndex = tracks.findIndex((item) => item.syncId === track.syncId);
   const queue = (currentIndex >= 0
@@ -3523,6 +3570,18 @@ function NowPlayingInspector({ track, tracks, tab, position, duration, lyricFont
       </div></header>
       <div className="inspector__cover" onContextMenu={(event) => editTrackFromContextMenu(event, track, onEdit)}><CoverArt track={track} /></div>
       <div className="inspector__title" onContextMenu={(event) => editTrackFromContextMenu(event, track, onEdit)}><div><h2>{track.title}</h2><p>{track.artist} · {track.album}</p></div><button onClick={() => onEdit(track)} aria-label={t("songs.editTags")} title={t("songs.editTags")}><PencilLine size={16} /></button></div>
+      {onArrangement && (
+        <div className="preview-versions segmented" role="group" aria-label="同曲版本">
+          {railVersions.map(version => (
+            <button key={version.url} type="button"
+              aria-pressed={version.url === track.playUrl}
+              className={version.url === track.playUrl ? "is-active" : ""}
+              onClick={() => onArrangement(version.url)}>
+              {version.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="inspector__tabs"><button className={tab === "lyrics" ? "is-active" : ""} onClick={() => onTab("lyrics")}><Mic2 size={15} />{t("now.lyrics")}</button><button className={tab === "queue" ? "is-active" : ""} onClick={() => onTab("queue")}><ListMusic size={15} />{t("now.queue")} <span>{tracks.length}</span></button></div>
       {tab === "lyrics" ? <div className={`lyrics ${manualLyricScrolling ? "is-manual" : ""}`} ref={lyricsRef} onWheel={enterManualLyricMode} onMouseEnter={() => { pointerLeftWhileManualRef.current = false; }} onMouseLeave={() => { if (manualLyricScrolling) pointerLeftWhileManualRef.current = true; }}>{lyrics.length ? lyrics.map((line, index) => <button key={`${line.timeSeconds ?? "plain"}-${index}-${line.text}`} className={index === activeLyric ? "is-active" : ""} data-active={index === activeLyric} disabled={line.timeSeconds === null} onClick={() => line.timeSeconds !== null && onSeek(Math.max(0, line.timeSeconds - lyricOffsetMs / 1000))}><span className="lyrics__main">{line.text}</span>{line.translation ? <small className="lyrics__translation">{line.translation}</small> : null}</button>) : <p className="lyrics__empty">{t("now.noLyrics")}</p>}</div> : <div className="queue"><div className="queue__head"><span>{t("now.next")}</span><button onClick={onClearQueue} disabled={tracks.length === 0}>{t("now.clear")}</button></div>{queue.map((item, index) => <button key={item.syncId} onClick={() => onPlay(item)} onContextMenu={(event) => editTrackFromContextMenu(event, item, onEdit)}><span>{index + 1}</span><CoverArt track={item} decorative /><strong>{item.title}<small>{item.artist}</small></strong><MoreHorizontal size={16} /></button>)}</div>}
     </aside>

@@ -3591,3 +3591,9 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { opacity: 1; }
     transition-duration: 0.01ms !important;
   }
 }
+
+.preview-versions { display: flex; gap: 3px; margin: 0 0 8px; }
+.preview-versions button { flex: 1; padding: 5px; border-radius: 5px; background: var(--panel-soft); color: var(--text-2); font: inherit; font-size: 11px; }
+.preview-versions button.is-active { background: var(--text); color: var(--panel); }
+.preview-hint { pointer-events: auto; }
+.preview-hint button { padding: 3px 8px; border-radius: 5px; background: white; color: #161616; font-size: 11px; }
