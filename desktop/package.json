@@ -9,6 +9,7 @@
     "app:package": "tauri build --no-bundle",
     "prebuild": "node scripts/clean-dist.mjs",
     "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && vite build",
+    "build:contest-preview": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && vite build --mode contest-preview --base ./ --outDir dist-contest-preview",
     "test": "vitest run",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
   },

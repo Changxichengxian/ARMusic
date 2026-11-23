@@ -9,6 +9,7 @@
 # Desktop / Node / Tauri
 node_modules/
 desktop/dist/
+desktop/dist-contest-preview/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/schemas/
 *.tsbuildinfo
